@@ -1,22 +1,30 @@
 export interface OnchainNotifier {
   track(
+    appId: string,
     input: OnchainNotifierTrackInput,
     options: SdkOptions,
   ): Promise<OnchainNotifierTrackResult>;
 
   trackEvent(
+    appId: string,
     input: OnchainNotifierTrackEventInput,
     options: SdkOptions,
   ): Promise<OnchainNotifierTrackResult>;
 
-  untrack(correlationId: string, options: SdkOptions): Promise<void>;
+  untrack(
+    appId: string,
+    correlationId: string,
+    options: SdkOptions,
+  ): Promise<void>;
+
+  getCallbackUrl(): string;
 
   isValidCallback(
     input: OnchainNotifierVerifyCallbackInput,
     options: SdkOptions,
-  ): boolean;
+  ): Promise<boolean>;
 
   handleCallback(
     payload: Record<string, unknown>,
-  ): Promise<OnchainNotifierCallbackResult>;
+  ): Promise<OnchainNotifierCallbackResult | void>;
 }

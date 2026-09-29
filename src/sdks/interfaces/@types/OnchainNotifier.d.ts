@@ -1,27 +1,29 @@
+type AmountFilter = {
+  operation: ThresholdOperator;
+  value: string;
+};
+
+type OnchainNotifierModules = "Transfer";
+
 type OnchainNotifierTrackInput = {
-  internalChainId: string;
+  caip2Id: Caip2Id;
+  module: OnchainNotifierModules;
   filter: {
     address: string;
-    tokenAddress?: string;
-    amount?: {
-      operation: Omit<ComparisonOperator, "_neq">;
-      value: string;
-    };
+    tokenAddress: string;
+    amount: AmountFilter;
   };
 };
 
 type OnchainNotifierTrackEventInput = {
-  internalChainId: string;
+  caip2Id: Caip2Id;
+  module: OnchainNotifierModules;
   filter: {
     contractAddress: string;
-    contractAbi?: Record<string, unknown>;
+    contractAbi: unknown;
     eventName: string;
-    eventSignature?: string;
-    match?: Array<{
-      param: string;
-      operation: ComparisonOperator;
-      value: string;
-    }>;
+    topics?: string[];
+    // amount?: AmountFilter;
   };
 };
 
@@ -30,8 +32,28 @@ type OnchainNotifierTrackResult = {
 };
 
 type OnchainNotifierVerifyCallbackInput = {
-  body: Record<string, unknown>;
+  body: unknown;
   headers: Record<string, unknown>;
 };
 
-type OnchainNotifierCallbackResult = {};
+type OnchainNotifierCallbackTokenActivity = {
+  recipientAddress: string;
+  tokenAddress: string;
+  amount: string;
+};
+
+type OnchainNotifierCallbackResult = {
+  status: "depositReceived" | "belowMin" | "completed";
+  correlationId: string;
+  blockchainHash: string;
+  sender: string;
+} & (
+  | {
+      payinActivity: Omit<
+        OnchainNotifierCallbackTokenActivity,
+        "recipientAddress"
+      >;
+    }
+  | { settlementActivity: OnchainNotifierCallbackTokenActivity }
+  | { refundActivity: OnchainNotifierCallbackTokenActivity }
+);

@@ -36,59 +36,59 @@ export class Http extends HttpClient {
     });
   }
 
-  protected handleResponse = <T>(response: AxiosResponse<T>) => {
+  protected handleResponse<T>(response: AxiosResponse<T>) {
     return {
       is_ok: true,
       data: response.data,
       headers: response.headers,
       status_code: response.status,
     };
-  };
+  }
 
-  protected handleError = <T>(error: AxiosError<T>) => {
+  protected handleError<T>(error: AxiosError<T>) {
     return {
       is_ok: false,
       data: error.response?.data,
       headers: error.response?.headers,
       status_code: error.response?.status,
     };
-  };
+  }
 
-  get = async <TData = unknown>(
+  async get<TData = unknown>(
     url: string,
     config?: AxiosRequestConfig,
-  ): Promise<HttpResponse<TData>> => {
+  ): Promise<HttpResponse<TData>> {
     return this.instance.get(url, config);
-  };
+  }
 
-  post = async <TData = unknown>(
+  async post<TData = unknown>(
     url: string,
     data?: any,
     config?: AxiosRequestConfig,
-  ): Promise<HttpResponse<TData>> => {
+  ): Promise<HttpResponse<TData>> {
     return this.instance.post(url, data, config);
-  };
+  }
 
-  put = async <TData = unknown>(
+  async put<TData = unknown>(
     url: string,
     data?: any,
     config?: AxiosRequestConfig,
-  ): Promise<HttpResponse<TData>> => {
+  ): Promise<HttpResponse<TData>> {
     return this.instance.put(url, data, config);
-  };
+  }
 
-  patch = async <TData = unknown>(
+  async patch<TData = unknown>(
     url: string,
     data?: any,
     config?: AxiosRequestConfig,
-  ): Promise<HttpResponse<TData>> => {
+  ): Promise<HttpResponse<TData>> {
     return this.instance.patch(url, data, config);
-  };
+  }
 
-  delete = async <TData = unknown>(
+  async delete<TData = unknown>(
     url: string,
     config?: AxiosRequestConfig,
-  ): Promise<HttpResponse<TData>> => {
+  ): Promise<HttpResponse<TData>> {
     return this.instance.delete(url, config);
-  };
+  }
 }

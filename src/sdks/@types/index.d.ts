@@ -1,8 +1,11 @@
+type Caip2Namespace = "eip155";
+type Caip2Id = `${Caip2Namespace}:${number}`;
+
 type HttpResponse<T = unknown, H = Record<string, unknown>> = {
-  is_ok: boolean;
+  isOk: boolean;
   data?: T;
   headers?: H;
-  status_code?: number;
+  statusCode?: number;
 };
 
 type SdkOptions = {
