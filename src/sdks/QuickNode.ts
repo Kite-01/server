@@ -1,320 +1,468 @@
+import {
+  KeyType,
+  KeyVars,
+  KiteContractEventSignatures,
+  Provider,
+} from "../shared/constants";
+import { decodeEventLog, erc20Abi, type Hex, zeroAddress } from "viem";
+import { providerDescriptorOfChain } from "../shared/chains";
 import { type OnchainNotifier } from "./interfaces/OnchainNotifier";
+import { SdkRequestError } from "../shared/errors";
+import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory";
 import { type BaseSdk } from "./interfaces/BaseSdk";
 import { createHmac } from "node:crypto";
-import { ERC20_TRANSFER_SIGNATURE, KeyVars, NATIVE_TOKEN_ADDRESS, Provider } from "../shared/constants";
-import { CHAINS, resolveChain } from "../shared/chains";
-import {
-  eventSignatureFromAbi,
-  getHeader,
-  normaliseAddress,
-  rawBodyToString,
-  requireVar,
-  safeCompare,
-  SdkRequestError,
-  toTopic0,
-} from "../shared/utils";
+import { KvService } from "../services/Kv.service";
+import { common } from "../shared/common";
+import { first } from "lodash";
 import { Http } from "./Http";
-import { get } from "lodash";
-
-/**
- * QuickNode QuickAlerts REST API.
- * https://www.quicknode.com/docs/quickalerts/rest-api/notifications/quickalerts-rest-create-notification
- *
- * QuickAlerts splits the two halves of a webhook:
- *   - a *destination* is the URL that receives payloads (reusable, created once)
- *   - a *notification* is the filter expression bound to one or more destinations
- * so `track` reuses a configured destination when `QuickNodeDestinationId` is set
- * and otherwise creates one for this webhook URL.
- *
- * The filter is a QuickAlerts expression, submitted base64-encoded.
- *
- * Callbacks are signed with HMAC-SHA256 over `nonce + timestamp + payload`,
- * keyed by the destination's security token, and split across three headers.
- */
-const BASE_URL = "https://api.quicknode.com/quickalerts/rest/v1";
+import { env } from "../shared/env";
 
 export class QuickNode implements OnchainNotifier, BaseSdk {
-  getClient = (options: SdkOptions): Http => {
-    const apiKey = requireVar(options, KeyVars.QuickNodeApiKey, Provider.QuickNode);
+  constructor(private readonly kvService: KvService) {}
 
-    return new Http(BASE_URL, {
+  getClient = (options: SdkOptions): Http => {
+    const apiKey = common.requireVar(options, KeyVars.QuickNodeApiKey);
+
+    return new Http("https://api.quicknode.com", {
       "x-api-key": apiKey,
       "Content-Type": "application/json",
       Accept: "application/json",
     });
   };
 
-  track = async (
-    input: OnchainNotifierTrackInput,
+  getCallbackUrl = (activity: "addressActivity" | "contractEvent") => {
+    return `${env.KITE_PUBLIC_BASE_URL}/callback/${Provider.QuickNode}/${activity}`;
+  };
+
+  upsertNotifier = async (
+    template: "evmWalletFilter" | "evmContractEvents",
+    /**
+     * - if `template` is `evmWalletFilter` address is a wallet address (EOA/Smart contract)
+     * - if `template` is `evmContractEvents` address is a contract address
+     */
+    address: string,
+    network: string,
     options: SdkOptions,
-  ): Promise<OnchainNotifierTrackResult> => {
+  ) => {
     const client = this.getClient(options);
-    const network = resolveChain(input.internalChainId, "quicknode");
-    const address = normaliseAddress(input.filter.address);
 
-    const isNative =
-      !input.filter.tokenAddress ||
-      normaliseAddress(input.filter.tokenAddress) === NATIVE_TOKEN_ADDRESS;
+    const upsertListItem = async (key: string, items: string[]) => {
+      let isNew = false;
 
-    const expression = isNative
-      ? buildNativeExpression(address, input.filter.amount)
-      : buildTokenTransferExpression(
-          address,
-          normaliseAddress(input.filter.tokenAddress!),
-          input.filter.amount,
+      const getListResponse = await client.get<{
+        data: { items: Array<string> };
+      }>("/kv/rest/v1/lists", { params: { key } });
+
+      if (!getListResponse.isOk || !getListResponse.data?.data.items.length) {
+        const url = "/kv/rest/v1/lists";
+        const createListResponse = await client.post(url, {
+          key,
+          items,
+        });
+
+        if (!createListResponse.isOk) {
+          throw new SdkRequestError(
+            Provider.QuickNode,
+            url,
+            createListResponse,
+          );
+        }
+
+        isNew = true;
+      }
+
+      if (!isNew) {
+        const url = `/kv/rest/v1/lists/${key}/items`;
+        const addItemToListResponse = await client.post(url, {
+          item: items[0],
+        });
+
+        if (!addItemToListResponse.isOk) {
+          throw new SdkRequestError(
+            Provider.QuickNode,
+            url,
+            addItemToListResponse,
+          );
+        }
+      }
+    };
+
+    let templateArgs;
+    let webhookId = common.getVar(
+      options,
+      template === "evmWalletFilter"
+        ? KeyVars.QuickNodeEvmWalletFilter_WebhookId
+        : KeyVars.QuickNodeEvmContractEvents_WebhookId,
+    );
+
+    if (template === "evmWalletFilter") {
+      let walletsListName = common.getVar(
+        options,
+        KeyVars.QuickNodeEvmWalletFilter_WalletsListName,
+      );
+
+      if (!walletsListName) {
+        walletsListName = "evmWalletFilterWalletsList";
+
+        await this.kvService.upsertKv({
+          key: KeyVars.QuickNodeEvmWalletFilter_WalletsListName,
+          value: walletsListName,
+          type: KeyType.String,
+        });
+      }
+
+      await upsertListItem(walletsListName, [address]);
+
+      templateArgs = { walletsListName };
+    }
+
+    if (template === "evmContractEvents") {
+      let contractsListName = common.getVar(
+        options,
+        KeyVars.QuickNodeEvmContractEvents_ContractsListName,
+      );
+
+      if (!contractsListName) {
+        contractsListName = "evmContractEventsContractsListName";
+
+        await this.kvService.upsertKv({
+          key: KeyVars.QuickNodeEvmContractEvents_ContractsListName,
+          value: contractsListName,
+          type: KeyType.String,
+        });
+      }
+
+      await upsertListItem(contractsListName, [address]);
+
+      let eventHashesListName = common.getVar(
+        options,
+        KeyVars.QuickNodeEvmContractEvents_EventHashesListName,
+      );
+
+      if (!eventHashesListName) {
+        eventHashesListName = "evmContractEventsEventHashesListName";
+        await upsertListItem(
+          eventHashesListName,
+          KiteContractEventSignatures.filter((s): s is string => !!s),
         );
 
-    return this.createNotification(
-      client,
-      {
-        name: input.label ?? `track-${address}`,
-        expression,
-        network,
-      },
-      input.webhookUrl,
-      options,
-    );
-  };
+        await this.kvService.upsertKv({
+          key: KeyVars.QuickNodeEvmContractEvents_EventHashesListName,
+          value: eventHashesListName,
+          type: KeyType.String,
+        });
+      }
 
-  trackEvent = async (
-    input: OnchainNotifierTrackEventInput,
-    options: SdkOptions,
-  ): Promise<OnchainNotifierTrackResult> => {
-    const client = this.getClient(options);
-    const network = resolveChain(input.internalChainId, "quicknode");
+      templateArgs = { contractsListName, eventHashesListName };
+    }
 
-    const signature =
-      input.filter.eventSignature ??
-      eventSignatureFromAbi(input.filter.contractAbi, input.filter.eventName);
-
-    if (!signature) {
-      throw new Error(
-        `${Provider.QuickNode}: trackEvent needs eventSignature or a contractAbi containing "${input.filter.eventName}"`,
+    if (!webhookId) {
+      let securityToken = common.getVar(
+        options,
+        KeyVars.QuickNodeWebhookSecurityToken,
       );
-    }
 
-    const clauses = [
-      `tx_logs_address == '${normaliseAddress(input.filter.contractAddress)}'`,
-      `tx_logs_topic0 == '${toTopic0(signature)}'`,
-    ];
+      if (!securityToken) {
+        securityToken = common.uuidv4();
 
-    // Indexed params land in topic1..topic3 in declaration order; anything
-    // non-indexed lives in `data` and has to be matched after decoding, so it is
-    // deliberately left to the callback layer rather than faked into the expression.
-    for (const m of input.filter.match ?? []) {
-      const topic = indexedTopicFor(input.filter.contractAbi, input.filter.eventName, m.param);
-      if (!topic) continue;
-      const operator = QUICKNODE_OPERATOR[m.operation];
-      clauses.push(`tx_logs_${topic} ${operator} '${padTopicValue(m.value)}'`);
-    }
+        await this.kvService.upsertKv({
+          key: KeyVars.QuickNodeWebhookSecurityToken,
+          value: securityToken,
+          type: KeyType.SecureString,
+        });
+      }
 
-    return this.createNotification(
-      client,
-      {
-        name: input.label ?? `event-${input.filter.eventName}`,
-        expression: clauses.join(" && "),
+      const url = `/webhooks/rest/v1/template/${template}`;
+      const response = await client.post<{ id: string }>(url, {
+        name:
+          template === "evmWalletFilter"
+            ? "Track EVM wallet activity"
+            : "Track Kite contract activity",
         network,
-      },
-      input.webhookUrl,
+        destination_attributes: {
+          url: this.getCallbackUrl(
+            template === "evmWalletFilter"
+              ? "addressActivity"
+              : "contractEvent",
+          ),
+          security_token: securityToken,
+          compression: "gzip",
+          templateArgs,
+        },
+      });
+
+      if (!response.isOk || !response.data?.id) {
+        throw new SdkRequestError(Provider.QuickNode, url, response);
+      }
+
+      webhookId = response.data.id;
+
+      await this.kvService.upsertKv({
+        key:
+          template === "evmWalletFilter"
+            ? KeyVars.QuickNodeEvmWalletFilter_WebhookId
+            : KeyVars.QuickNodeEvmContractEvents_WebhookId,
+        value: webhookId,
+        type: KeyType.String,
+      });
+    }
+  };
+
+  trackAddressActivity = async (
+    input: OnchainNotifierTrackAddressActivityInput,
+    options: SdkOptions,
+  ): Promise<void> => {
+    const network = providerDescriptorOfChain<string>(
+      input.caip2Id,
+      Provider.QuickNode,
+    );
+
+    return await this.upsertNotifier(
+      "evmWalletFilter",
+      common.normalizeAddress(input.address),
+      network,
       options,
     );
   };
 
-  untrack = async (correlationId: string, options: SdkOptions): Promise<void> => {
-    const client = this.getClient(options);
+  trackKiteContractEvent = async (
+    input: OnchainNotifierTrackContractEventInput,
+    options: SdkOptions,
+  ): Promise<void> => {
+    const network = providerDescriptorOfChain<string>(
+      input.caip2Id,
+      Provider.QuickNode,
+    );
 
-    const response = await client.delete(`/notifications/${correlationId}`);
-    if (!response.is_ok) {
-      throw new SdkRequestError(Provider.QuickNode, "delete notification", response);
-    }
+    return await this.upsertNotifier(
+      "evmContractEvents",
+      common.normalizeAddress(input.contractAddress),
+      network,
+      options,
+    );
   };
 
-  isValidCallback = (
+  isValidCallback = async (
     input: OnchainNotifierVerifyCallbackInput,
     options: SdkOptions,
-  ): boolean => {
-    const signature = getHeader(input.headers, "x-qn-signature");
-    const nonce = getHeader(input.headers, "x-qn-nonce");
-    const timestamp = getHeader(input.headers, "x-qn-timestamp");
+  ): Promise<boolean> => {
+    const signature = common.getHeader(input.headers, "x-qn-signature");
+    const timestamp = common.getHeader(input.headers, "x-qn-timestamp");
+    const nonce = common.getHeader(input.headers, "x-qn-nonce");
 
-    if (!signature || !nonce || !timestamp) return false;
+    if (!signature || !nonce || !timestamp) {
+      return false;
+    }
 
-    const token = requireVar(options, KeyVars.QuickNodeSecurityToken, Provider.QuickNode);
+    const token = common.requireVar(
+      options,
+      KeyVars.QuickNodeWebhookSecurityToken,
+    );
 
-    // Signed over the decompressed UTF-8 payload — if the body arrived gzipped,
-    // `rawBody` must already be the decoded string, not the wire bytes.
     const digest = createHmac("sha256", token)
-      .update(`${nonce}${timestamp}${rawBodyToString(input)}`, "utf8")
+      .update(`${nonce}${timestamp}${common.rawBodyToString(input)}`, "utf8")
       .digest("hex");
 
-    return safeCompare(signature.toLowerCase(), digest.toLowerCase());
+    return common.safeCompare(signature.toLowerCase(), digest.toLowerCase());
   };
 
   handleCallback = async (
-    payload: Record<string, unknown>,
+    activity: "addressActivity" | "contractEvent",
+    payload: {
+      matchingReceipts: Array<{
+        status: string;
+        transactionHash: string;
+        logs: Array<{
+          address: string;
+          topics: string[];
+          data: string;
+          logIndex: string;
+          transactionHash: string;
+        }>;
+      }>;
+      matchingTransactions: Array<{
+        chainId: string;
+        from: string;
+        to: string;
+        hash: string;
+        value: string;
+      }>;
+    },
   ): Promise<OnchainNotifierCallbackResult> => {
-    // QuickAlerts delivers the matched logs, either bare or wrapped per payload type.
-    const logs = (
-      Array.isArray(payload) ? payload : get(payload, "data", payload)
-    ) as any;
+    const result: OnchainNotifierCallbackResult = [];
 
-    const entries: any[] = Array.isArray(logs) ? logs : [logs];
-    const network = get(payload, "network") as string | undefined;
-    const internalChainId = Object.values(CHAINS).find(
-      (c) => c.quicknode === network,
-    )?.internalChainId;
+    const transactions = payload.matchingTransactions;
+    const receipts = payload.matchingReceipts;
 
-    const activities: OnchainActivity[] = entries
-      .filter((entry) => entry && typeof entry === "object")
-      .map((entry) => ({
-        kind: "event" as const,
-        internalChainId,
-        blockNumber:
-          entry.blockNumber === undefined
-            ? undefined
-            : Number(BigInt(entry.blockNumber)),
-        transactionHash: entry.transactionHash,
-        logIndex:
-          entry.logIndex === undefined
-            ? undefined
-            : Number(BigInt(entry.logIndex)),
-        contractAddress: entry.address,
-        topics: entry.topics,
-        data: entry.data,
-      }));
+    const receiptByHash = new Map(
+      receipts.map((receipt) => [
+        receipt.transactionHash.toLowerCase(),
+        receipt,
+      ]),
+    );
 
-    return {
-      correlationId: get(payload, "notificationId") as string | undefined,
-      confirmed: true,
-      activities,
+    const toCaip2Id = (chainId: string) => {
+      return `eip155:${Number.parseInt(chainId, 16)}` as Caip2Id;
     };
-  };
 
-  /** Resolve (or create) a destination, then bind a notification to it. */
-  private createNotification = async (
-    client: Http,
-    notification: { name: string; expression: string; network: string },
-    webhookUrl: string,
-    options: SdkOptions,
-  ): Promise<OnchainNotifierTrackResult> => {
-    const destinationId =
-      options.variables?.[KeyVars.QuickNodeDestinationId] ??
-      (await this.createDestination(client, notification.name, webhookUrl));
+    const caip2IdByHash = new Map(
+      transactions.map((transaction) => [
+        transaction.hash.toLowerCase(),
+        toCaip2Id(transaction.chainId),
+      ]),
+    );
 
-    const response = await client.post<QuickNodeNotification>("/notifications", {
-      name: notification.name,
-      expression: Buffer.from(notification.expression, "utf8").toString(
-        "base64",
-      ),
-      network: notification.network,
-      destinationIds: [destinationId],
-      enabled: true,
-    });
+    if (activity === "addressActivity") {
+      for (const transaction of transactions) {
+        const receipt = receiptByHash.get(transaction.hash.toLowerCase());
+        if (receipt?.status !== "0x1") {
+          continue;
+        }
 
-    if (!response.is_ok || !response.data?.id) {
-      throw new SdkRequestError(Provider.QuickNode, "create notification", response);
+        const caip2Id = toCaip2Id(transaction.chainId);
+        const value = BigInt(transaction.value ?? "0x0");
+        if (transaction.to && value > 0n) {
+          result.push({
+            type: "DepositReceived",
+            caip2Id,
+            blockchainHash: transaction.hash,
+            from: common.normalizeAddress(transaction.from),
+            payinAddress: common.normalizeAddress(transaction.to),
+            tokenAddress: zeroAddress,
+            amount: value,
+          });
+        }
+
+        const erc20TransferTopic = common.eventSignatureFromAbi(
+          erc20Abi,
+          "Transfer",
+        );
+
+        for (const log of receipt.logs ?? []) {
+          if (first(log.topics) !== erc20TransferTopic) {
+            continue;
+          }
+
+          const amount = BigInt(log.data);
+          if (amount === 0n) {
+            continue;
+          }
+
+          const to = common.topicToAddress(log.topics[2]);
+
+          result.push({
+            type: "DepositReceived",
+            caip2Id,
+            blockchainHash: transaction.hash,
+            from: common.normalizeAddress(common.topicToAddress(log.topics[1])),
+            payinAddress: common.normalizeAddress(to),
+            tokenAddress: common.normalizeAddress(log.address),
+            amount,
+          });
+        }
+      }
     }
 
-    return { correlationId: response.data.id };
-  };
+    if (activity === "contractEvent") {
+      for (const receipt of receipts) {
+        if (receipt.status !== "0x1") {
+          continue;
+        }
 
-  private createDestination = async (
-    client: Http,
-    name: string,
-    webhookUrl: string,
-  ): Promise<string> => {
-    const response = await client.post<QuickNodeDestination>("/destinations", {
-      name: `${name}-destination`,
-      to_url: webhookUrl,
-      webhook_type: "POST",
-      service: "webhook",
-      payload_type: 5, // 5 = matched logs
-    });
+        const hash = receipt.transactionHash;
+        const caip2Id = caip2IdByHash.get(hash.toLowerCase());
+        if (!caip2Id) {
+          continue;
+        }
 
-    if (!response.is_ok || !response.data?.id) {
-      throw new SdkRequestError(Provider.QuickNode, "create destination", response);
+        for (const log of receipt.logs ?? []) {
+          let decoded;
+
+          try {
+            decoded = decodeEventLog({
+              abi: Kite__factory.abi,
+              data: log.data as Hex,
+              topics: log.topics as [Hex, ...Hex[]],
+            });
+          } catch {
+            // not one of the Kite events
+            continue;
+          }
+
+          const address = log.address;
+          const base = {
+            caip2Id,
+            blockchainHash: hash,
+            payinAddress: common.normalizeAddress(address),
+          };
+
+          let event: OnchainNotifierCallbackResultItem | undefined;
+
+          switch (decoded.eventName) {
+            case "Settled":
+              event = {
+                ...base,
+                type: "Settled",
+                transferId: decoded.args.transferId,
+              };
+
+              break;
+
+            case "FeePaid":
+              event = {
+                ...base,
+                type: "FeePaid",
+                transferId: decoded.args.transferId,
+                feeId: decoded.args.feeId,
+              };
+
+              break;
+
+            case "Refunded":
+              event = {
+                ...base,
+                type: "Refunded",
+                transferId: decoded.args.transferId,
+                amountRefunded: decoded.args.amountRefunded,
+                refundAddress: common.normalizeAddress(
+                  decoded.args.refundAddress,
+                ),
+              };
+
+              break;
+
+            case "ExcessRefunded":
+              event = {
+                ...base,
+                type: "ExcessRefunded",
+                transferId: decoded.args.transferId,
+                tokenAddress: common.normalizeAddress(decoded.args.token),
+                amount: decoded.args.amount,
+                to: common.normalizeAddress(decoded.args.to),
+              };
+
+              break;
+
+            case "Recovered":
+              event = {
+                ...base,
+                type: "Recovered",
+                transferId: decoded.args.transferId,
+                tokenAddress: common.normalizeAddress(decoded.args.token),
+                amount: decoded.args.amount,
+                to: common.normalizeAddress(decoded.args.to),
+              };
+
+              break;
+          }
+
+          if (event) {
+            result.push(event);
+          }
+        }
+      }
     }
 
-    return response.data.id;
+    return result;
   };
 }
-
-type QuickNodeNotification = { id: string; name: string; expression: string };
-type QuickNodeDestination = { id: string; name: string; to_url: string };
-
-const QUICKNODE_OPERATOR: Record<ComparisonOperator, string> = {
-  _eq: "==",
-  _neq: "!=",
-  _gt: ">",
-  _gte: ">=",
-  _lt: "<",
-  _lte: "<=",
-};
-
-const buildNativeExpression = (
-  address: string,
-  amount?: { operation: ThresholdOperator; value: string },
-): string => {
-  const clauses = [`(tx_from == '${address}' || tx_to == '${address}')`];
-
-  if (amount) {
-    clauses.push(
-      `tx_value ${QUICKNODE_OPERATOR[amount.operation as ComparisonOperator]} ${amount.value}`,
-    );
-  }
-
-  return clauses.join(" && ");
-};
-
-const buildTokenTransferExpression = (
-  address: string,
-  tokenAddress: string,
-  amount?: { operation: ThresholdOperator; value: string },
-): string => {
-  const padded = padTopicValue(address);
-
-  const clauses = [
-    `tx_logs_address == '${tokenAddress}'`,
-    `tx_logs_topic0 == '${toTopic0(ERC20_TRANSFER_SIGNATURE)}'`,
-    `(tx_logs_topic1 == '${padded}' || tx_logs_topic2 == '${padded}')`,
-  ];
-
-  if (amount) {
-    clauses.push(
-      `tx_logs_data ${QUICKNODE_OPERATOR[amount.operation as ComparisonOperator]} ${amount.value}`,
-    );
-  }
-
-  return clauses.join(" && ");
-};
-
-/** Topics are 32 bytes; an address has to be left-padded to match. */
-const padTopicValue = (value: string): string => {
-  const hex = value.startsWith("0x") ? value.slice(2) : value;
-  return `0x${hex.toLowerCase().padStart(64, "0")}`;
-};
-
-/** Which topic slot an indexed param occupies, or undefined if it isn't indexed. */
-const indexedTopicFor = (
-  abi: Record<string, unknown> | undefined,
-  eventName: string,
-  param: string,
-): string | undefined => {
-  if (!abi) return undefined;
-
-  const fragments: any[] = Array.isArray(abi)
-    ? (abi as any[])
-    : Array.isArray((abi as any).abi)
-      ? (abi as any).abi
-      : [abi];
-
-  const fragment = fragments.find(
-    (f) => f && f.type === "event" && f.name === eventName,
-  );
-  if (!fragment) return undefined;
-
-  const indexed = (fragment.inputs ?? []).filter((i: any) => i.indexed);
-  const position = indexed.findIndex((i: any) => i.name === param);
-
-  return position === -1 ? undefined : `topic${position + 1}`;
-};

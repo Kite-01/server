@@ -1,59 +1,60 @@
-type AmountFilter = {
-  operation: ThresholdOperator;
-  value: string;
-};
-
-type OnchainNotifierModules = "Transfer";
-
-type OnchainNotifierTrackInput = {
+type OnchainNotifierTrackAddressActivityInput = {
   caip2Id: Caip2Id;
-  module: OnchainNotifierModules;
-  filter: {
-    address: string;
-    tokenAddress: string;
-    amount: AmountFilter;
-  };
+  address: string;
 };
 
-type OnchainNotifierTrackEventInput = {
+type OnchainNotifierTrackContractEventInput = {
   caip2Id: Caip2Id;
-  module: OnchainNotifierModules;
-  filter: {
-    contractAddress: string;
-    contractAbi: unknown;
-    eventName: string;
-    topics?: string[];
-    // amount?: AmountFilter;
-  };
-};
-
-type OnchainNotifierTrackResult = {
-  correlationId: string;
+  contractAddress: string;
 };
 
 type OnchainNotifierVerifyCallbackInput = {
   body: unknown;
   headers: Record<string, unknown>;
+  rawBody?: string | Buffer;
 };
 
-type OnchainNotifierCallbackTokenActivity = {
-  recipientAddress: string;
-  tokenAddress: string;
-  amount: string;
-};
-
-type OnchainNotifierCallbackResult = {
-  status: "depositReceived" | "belowMin" | "completed";
-  correlationId: string;
+type OnchainNotifierCallbackResultTemplate<T> = T & {
+  caip2Id: Caip2Id;
+  payinAddress: string;
   blockchainHash: string;
-  sender: string;
-} & (
-  | {
-      payinActivity: Omit<
-        OnchainNotifierCallbackTokenActivity,
-        "recipientAddress"
-      >;
-    }
-  | { settlementActivity: OnchainNotifierCallbackTokenActivity }
-  | { refundActivity: OnchainNotifierCallbackTokenActivity }
-);
+};
+
+type OnchainNotifierCallbackResultItem =
+  | OnchainNotifierCallbackResultTemplate<{
+      type: "DepositReceived";
+      from: string;
+      tokenAddress: string; // zero address for native ETH
+      amount: bigint;
+    }>
+  | OnchainNotifierCallbackResultTemplate<{
+      type: "Settled";
+      transferId: string;
+    }>
+  | OnchainNotifierCallbackResultTemplate<{
+      type: "FeePaid";
+      transferId: string;
+      feeId: string;
+    }>
+  | OnchainNotifierCallbackResultTemplate<{
+      type: "Refunded";
+      transferId: string;
+      refundAddress: string;
+      amountRefunded: bigint;
+    }>
+  | OnchainNotifierCallbackResultTemplate<{
+      type: "ExcessRefunded";
+      transferId: string;
+      tokenAddress: string;
+      amount: bigint;
+      to: string;
+    }>
+  | OnchainNotifierCallbackResultTemplate<{
+      type: "Recovered";
+      transferId: string;
+      tokenAddress: string;
+      amount: bigint;
+      to: string;
+    }>;
+
+type OnchainNotifierCallbackResult = Array<OnchainNotifierCallbackResultItem>;

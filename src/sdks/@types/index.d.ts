@@ -10,6 +10,6 @@ type HttpResponse<T = unknown, H = Record<string, unknown>> = {
 
 type SdkOptions = {
   variables: {
-    [k: string]: string;
+    [k: string]: string | null;
   };
 };

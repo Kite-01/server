@@ -1,5 +1,32 @@
-import { KeyVars, type Provider } from "./constants";
-import { type AppSchema } from "../db/schema";
+import { KeyVars, ProviderAction, type Provider } from "./constants";
+import type * as schema from "../db/schema";
+
+export class UnsafeUrlError extends Error {
+  public readonly url?: string;
+
+  constructor(message: string, url?: string) {
+    super(message);
+    this.name = "UnsafeUrlError";
+    this.url = url;
+  }
+}
+
+export class JsonRpcCallError extends Error {
+  public readonly provider: Provider;
+  public readonly code: number;
+  public readonly data?: unknown;
+
+  constructor(provider: Provider, method: string, error?: JsonRpcError) {
+    super(
+      `${provider}: ${method} failed (${error?.code ?? "no code"}) ${error?.message ?? ""}`.trim(),
+    );
+
+    this.name = "JsonRpcCallError";
+    this.provider = provider;
+    this.code = error?.code ?? -32603;
+    this.data = error?.data;
+  }
+}
 
 export class AppError extends Error {
   constructor(message: string) {
@@ -9,7 +36,7 @@ export class AppError extends Error {
   }
 }
 
-type Resource = keyof AppSchema;
+type Resource = keyof typeof schema;
 
 export class NotFoundError extends Error {
   public readonly resource: Resource;
@@ -25,6 +52,33 @@ export class NotFoundError extends Error {
     this.name = "NotFoundError";
     this.resource = resource;
     this.resourceId = resourceId;
+  }
+}
+
+export class PreconditionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PreconditionError";
+  }
+}
+
+export class QuoteExpiredError extends Error {
+  public readonly quoteId: string;
+
+  constructor(quoteId: string) {
+    super("Quote has expired");
+    this.name = "QuoteExpiredError";
+    this.quoteId = quoteId;
+  }
+}
+
+export class ChainNotConfiguredForx402Error extends Error {
+  public readonly caip2Id: Caip2Id;
+
+  constructor(caip2Id: Caip2Id) {
+    super(`${caip2Id} is not configured to process x402 payments`);
+    this.name = "ChainNotConfiguredForx402Error";
+    this.caip2Id = caip2Id;
   }
 }
 
@@ -47,6 +101,30 @@ export class ChainNotSupportedError extends Error {
     super(`"${internalChainId}" is not supported at the moment`);
     this.name = "ChainNotSupportedError";
     this.internalChainId = internalChainId;
+  }
+}
+
+export class ProviderNotConfiguredForActionError extends Error {
+  public readonly provider: Provider;
+  public readonly action: ProviderAction;
+
+  constructor(provider: Provider, action: ProviderAction) {
+    super(`${provider} cannot act as a/an "${action}"`);
+    this.name = "ProviderNotConfiguredForActionError";
+    this.provider = provider;
+    this.action = action;
+  }
+}
+
+export class ProviderYetToBeConfiguredError extends Error {
+  public readonly provider: Provider;
+  public readonly action: ProviderAction;
+
+  constructor(provider: Provider, action: ProviderAction) {
+    super(`${provider} is yet to be configured as a/an "${action}"`);
+    this.name = "ProviderYetToBeConfiguredError";
+    this.provider = provider;
+    this.action = action;
   }
 }
 

@@ -1,29 +1,51 @@
 import {
+  AppError,
   ChainNotSupportedByProviderError,
   ChainNotSupportedError,
 } from "../errors";
-import { type Provider } from "../constants";
-import { Registry } from "./registry";
+import { defineChain, fallback, http } from "viem";
+import { ChainType, Provider } from "../constants";
+import { Chains } from "./registry";
 
-export const getChain = (internalChainId: Caip2Id) => {
-  const [namespace, reference] = internalChainId.split(":") as [
-    Caip2Namespace,
-    string,
-  ];
-
-  const chain = Registry[namespace]?.[reference];
-  if (!chain) throw new ChainNotSupportedError(internalChainId);
+export const getChain = (caip2Id: Caip2Id) => {
+  const chain = Chains[caip2Id];
+  if (!chain) throw new ChainNotSupportedError(caip2Id);
   return chain;
 };
 
+export const getRpcsTransport = (urls: string[]) => {
+  return fallback(
+    urls.map((url) => http(url)),
+    { rank: true, retryCount: 3 },
+  );
+};
+
+export const getViemChain = (caip2Id: Caip2Id) => {
+  const chain = getChain(caip2Id);
+  if (chain.type !== ChainType.Evm) {
+    throw new AppError("Only EVM-compatible chains are allowed");
+  }
+
+  return defineChain({
+    id: chain.chainId,
+    name: chain.name,
+    nativeCurrency: chain.nativeCurrency,
+    rpcUrls: {
+      default: {
+        http: chain.publicRpcUrls,
+      },
+    },
+  });
+};
+
 export const providerDescriptorOfChain = <T = unknown>(
-  internalChainId: Caip2Id,
+  caip2Id: Caip2Id,
   provider: Provider,
-) => {
-  const chain = getChain(internalChainId);
-  const descriptor = chain.Descriptors?.[provider];
+): T => {
+  const chain = getChain(caip2Id);
+  const descriptor = chain.descriptors[provider];
   if (!descriptor)
-    throw new ChainNotSupportedByProviderError(internalChainId, provider);
+    throw new ChainNotSupportedByProviderError(caip2Id, provider);
 
   return descriptor as T;
 };

@@ -33,24 +33,25 @@ export class Http extends HttpClient {
       headers: baseHeaders
         ? baseHeaders
         : { "Content-Type": "application/json", Accept: "application/json" },
+      timeout: 15_000,
     });
   }
 
   protected handleResponse<T>(response: AxiosResponse<T>) {
     return {
-      is_ok: true,
+      isOk: true,
       data: response.data,
       headers: response.headers,
-      status_code: response.status,
+      statusCode: response.status,
     };
   }
 
   protected handleError<T>(error: AxiosError<T>) {
     return {
-      is_ok: false,
+      isOk: false,
       data: error.response?.data,
       headers: error.response?.headers,
-      status_code: error.response?.status,
+      statusCode: error.response?.status,
     };
   }
 

@@ -1,10 +1,28 @@
+import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory";
+import { common } from "./common";
+
+export enum PaymentLinkType {
+  Api = "Api",
+  Ui = "Ui",
+}
+
+export enum ChainType {
+  Evm = "Evm",
+}
+
 export enum ApiKeyScope {
-  // TODO: add scopes here...
+  Quote = "Quote",
+  Transfer = "Transfer",
+  Webhook = "Webhook",
+  X402Verify = "X402Verify",
+  X402Settle = "X402Settle",
 }
 
 export enum WebhookCategory {
-  Customer = "Customer",
   Transfer = "Transfer",
+  Deposit = "Deposit",
+  Recovery = "Recovery",
+  ExcessRefund = "ExcessRefund",
 }
 
 export enum FeeType {
@@ -17,8 +35,8 @@ export enum TransferStatus {
   AwaitingDeposit = "AwaitingDeposit",
   DepositReceived = "DepositReceived",
   Processing = "Processing",
+  x402Settled = "x402Settled",
   Cancelled = "Cancelled",
-  RefundInProgress = "RefundInProgress",
   Refunded = "Refunded",
   Failed = "Failed",
   Settled = "Settled",
@@ -26,32 +44,46 @@ export enum TransferStatus {
 
 export enum Provider {
   Alchemy = "Alchemy",
-  Moralis = "Moralis",
-  Nodit = "Nodit",
   QuickNode = "QuickNode",
-  Pimlico = "Pimlico",
+  TrustWallet = "TrustWallet",
+}
+
+export enum ProviderAction {
+  GasSponsor = "GasSponsor",
+  OnchainNotifier = "OnchainNotifier",
+}
+
+export enum KeyType {
+  String = "String",
+  SecureString = "SecureString",
 }
 
 export enum KeyVars {
-  AlchemyToken = "AlchemyToken",
-  AlchemySigningKey = "AlchemySigningKey",
   AlchemyApiKey = "AlchemyApiKey",
   AlchemyGasPolicyId = "AlchemyGasPolicyId",
-  MoralisApiKey = "MoralisApiKey",
-  MoralisStreamsSecret = "MoralisStreamsSecret",
-  NoditApiKey = "NoditApiKey",
-  NoditSigningKey = "NoditSigningKey",
   QuickNodeApiKey = "QuickNodeApiKey",
-  QuickNodeDestinationId = "QuickNodeDestinationId",
-  QuickNodeSecurityToken = "QuickNodeSecurityToken",
-  PimlicoApiKey = "PimlicoApiKey",
+  QuickNodeEvmWalletFilter_WalletsListName = "QuickNodeEvmWalletFilter_WalletsListName",
+  QuickNodeEvmWalletFilter_WebhookId = "QuickNodeEvmWalletFilter_WebhookId",
+  QuickNodeEvmContractEvents_WebhookId = "QuickNodeEvmContractEvents_WebhookId",
+  QuickNodeEvmContractEvents_ContractsListName = "QuickNodeEvmContractEvents_ContractsListName",
+  QuickNodeEvmContractEvents_EventHashesListName = "QuickNodeEvmContractEvents_EventHashesListName",
+  QuickNodeWebhookSecurityToken = "QuickNodeWebhookSecurityToken",
 }
 
-/** Canonical ERC-20 `Transfer(address,address,uint256)` topic0. */
-export const ERC20_TRANSFER_TOPIC =
-  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+export const OneMinute = 60;
+export const OneHour = 60 * OneMinute;
+export const OneDay = 24 * OneHour;
 
-export const ERC20_TRANSFER_SIGNATURE = "Transfer(address,address,uint256)";
+export const QuoteTTL_Ms = 5 * OneMinute;
+export const UniswapFeeTiers = [100, 500, 3000, 10000] as const;
 
-export const NATIVE_TOKEN_ADDRESS =
-  "0x0000000000000000000000000000000000000000";
+export const KiteContractEventSignatures = [
+  common.eventSignatureFromAbi(Kite__factory.abi, "Refunded"),
+  common.eventSignatureFromAbi(Kite__factory.abi, "Settled"),
+  common.eventSignatureFromAbi(Kite__factory.abi, "FeePaid"),
+  common.eventSignatureFromAbi(Kite__factory.abi, "ExcessRefunded"),
+  common.eventSignatureFromAbi(Kite__factory.abi, "Recovered"),
+];
+
+export const zeroBytes32 =
+  "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
