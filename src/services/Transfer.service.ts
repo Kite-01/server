@@ -24,6 +24,7 @@ import { type KvService } from "./Kv.service";
 import { ChainService } from "./Chain.service";
 import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
+import { Scheduler } from "../shared/scheduler";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { db } from "../db";
@@ -144,7 +145,7 @@ export class TransferService {
     if (row.status !== previousStatus || previousStatus === currentStatus)
       return false;
 
-    return db.transaction(async (transaction) => {
+    const createdEvent = await db.transaction(async (transaction) => {
       const [updated] = await transaction
         .update(transfer)
         .set({
@@ -161,7 +162,7 @@ export class TransferService {
         .where(eq(transfer.id, transferId))
         .returning();
 
-      if (!updated) return false;
+      if (!updated) return null;
 
       const [createdEvent] = await transaction
         .insert(event)
@@ -180,20 +181,47 @@ export class TransferService {
         description,
       });
 
-      return true;
+      return createdEvent;
     });
 
-    // TODO: send pgboss event from here
+    if (!createdEvent) {
+      return false;
+    }
+
+    await Scheduler.enqueueEvent(row.appId, createdEvent.id);
+    return true;
   };
 
-  createDeposit = async (input: typeof deposit.$inferInsert) => {
-    const [row] = await db
-      .insert(deposit)
-      .values(input)
-      .onConflictDoNothing()
-      .returning();
+  createDeposit = async (
+    input: typeof deposit.$inferInsert,
+    appId: string,
+    transferId: string,
+  ) => {
+    const eventId = await db.transaction(async (transaction) => {
+      const [row] = await transaction
+        .insert(deposit)
+        .values(input)
+        .onConflictDoNothing()
+        .returning();
 
-    return row;
+      if (!row) return null;
+
+      const [createdEvent] = await transaction
+        .insert(event)
+        .values({
+          appId,
+          category: WebhookCategory.Deposit,
+          currentCategoryStatus: "Completed",
+          data: common.serializeData({ ...row, transferId }),
+        })
+        .returning({ id: event.id });
+
+      return createdEvent.id;
+    });
+
+    if (eventId) {
+      await Scheduler.enqueueEvent(appId, eventId);
+    }
   };
 
   getDepositsByAddress = async (address: string) => {
@@ -339,8 +367,10 @@ export class TransferService {
         description: "Transfer created; awaiting deposit",
       });
 
-      return created;
+      return { transfer: created, eventId: createdEvent.id };
     });
+
+    await Scheduler.enqueueEvent(appId, saved.eventId);
 
     const options: SdkOptions = {
       variables: await this.kvService.getSdkOptionVariables(),
@@ -367,7 +397,7 @@ export class TransferService {
     }
 
     return {
-      ...saved,
+      ...saved.transfer,
       minAmountOut: minAmountOut.toString(),
       paymentInstructions: {
         caip2Id: quote_.chain.caip2Id,
@@ -414,60 +444,51 @@ export class TransferService {
   handleOnchainNotifierCallback = async (
     result: OnchainNotifierCallbackResult,
   ) => {
-    const getTransfer = async (payinAddress: string) => {
-      const address = common.normalizeAddress(payinAddress);
-      return await db.query.transfer.findFirst({
-        where: eq(transfer.payinAddress, address),
+    for (const item of result) {
+      const chain = await this.chainService.getChainByCaip2Id(item.caip2Id);
+      if (!chain) continue;
+
+      const transfer_ = await db.query.transfer.findFirst({
+        where: eq(
+          transfer.payinAddress,
+          common.normalizeAddress(item.payinAddress),
+        ),
         with: {
           quote: {
             with: {
               sourceToken: true,
-              targetToken: true,
-              chain: true,
-              fees: true,
-              customer: true,
-              paymentLink: true,
             },
           },
-          timeline: { with: { event: true } },
-          deposits: { with: { token: true } },
         },
       });
-    };
 
-    for (const item of result) {
-      const chain = await this.chainService.getChainByCaip2Id(item.caip2Id);
-      if (!chain) throw new NotFoundError("chain", item.caip2Id);
-
-      const transfer_ = await getTransfer(item.payinAddress);
       if (!transfer_) continue;
 
       if (item.type === "DepositReceived") {
+        const address = common.normalizeAddress(item.payinAddress);
         const token = await this.tokenService.getTokenByAddress(
           chain.id,
           item.tokenAddress,
         );
 
-        if (transfer_.quote.sourceToken.id === token.id) {
-          // TODO: - Maybe a Deposit webhook category?
-          // this is the expected token...
-          // send an event of deposit received
-        }
-
-        const address = common.normalizeAddress(item.payinAddress);
-
-        await this.createDeposit({
-          address,
-          senderAddress: common.normalizeAddress(item.from),
-          amount: item.amount,
-          blockchainHash: item.blockchainHash,
-          chainId: chain.id,
-          tokenId: token.id,
-        });
+        await this.createDeposit(
+          {
+            address,
+            senderAddress: common.normalizeAddress(item.from),
+            amount: item.amount,
+            blockchainHash: item.blockchainHash,
+            chainId: chain.id,
+            tokenId: token.id,
+          },
+          transfer_.appId,
+          transfer_.id,
+        );
 
         if (
           transfer_.quote.sourceToken.id === token.id &&
-          transfer_.status === TransferStatus.AwaitingDeposit
+          [TransferStatus.AwaitingDeposit, TransferStatus.x402Settled].includes(
+            transfer_.status,
+          )
         ) {
           const deposits = await db.query.deposit.findMany({
             columns: {
@@ -524,25 +545,47 @@ export class TransferService {
       }
 
       if (item.type === "ExcessRefunded") {
-        // send a webhook for it too...?
-        // await this.createTimeline(
-        //   transfer.id,
-        //   `Excess refund of ${item.amount} ${item.tokenAddress} sent to ${item.to}`,
-        //   transfer.status,
-        //   transfer.status,
-        // );
+        const [createdEvent] = await db
+          .insert(event)
+          .values({
+            appId: transfer_.appId,
+            category: WebhookCategory.ExcessRefund,
+            currentCategoryStatus: "Completed",
+            data: common.serializeData({
+              transferId: transfer_.id,
+              caip2Id: item.caip2Id,
+              tokenAddress: item.tokenAddress,
+              amount: item.amount,
+              to: item.to,
+              blockchainHash: item.blockchainHash,
+            }),
+          })
+          .returning({ id: event.id });
+
+        await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
 
         continue;
       }
 
       if (item.type === "Recovered") {
-        // send a webhook....it is not a valid timeline action
-        // await this.createTimeline(
-        //   transfer.id,
-        //   `Recovered ${item.amount} ${item.tokenAddress} to ${item.to}`,
-        //   transfer.status,
-        //   transfer.status,
-        // );
+        const [createdEvent] = await db
+          .insert(event)
+          .values({
+            appId: transfer_.appId,
+            category: WebhookCategory.Recovery,
+            currentCategoryStatus: "Completed",
+            data: common.serializeData({
+              transferId: transfer_.id,
+              caip2Id: item.caip2Id,
+              tokenAddress: item.tokenAddress,
+              amount: item.amount,
+              to: item.to,
+              blockchainHash: item.blockchainHash,
+            }),
+          })
+          .returning({ id: event.id });
+
+        await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
 
         continue;
       }

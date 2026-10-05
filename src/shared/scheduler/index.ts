@@ -26,8 +26,6 @@ class Workers {
       return;
     }
 
-    this.workersStarted = true;
-
     const eventService = new EventService();
     const webhookService = new WebhookService();
 
@@ -174,6 +172,8 @@ class Workers {
         });
       },
     );
+
+    this.workersStarted = true;
   };
 }
 
@@ -194,6 +194,14 @@ export class Scheduler {
     return Scheduler.instance;
   };
 
+  static enqueueEvent = async (appId: string, eventId: string) => {
+    const scheduler = await Scheduler.getInstance();
+    await scheduler.boss.send(Queues.fanout, {
+      appId,
+      eventId,
+    });
+  };
+
   private static connect = async () => {
     const boss = new PgBoss({
       connectionString: env.KITE_PG_DB_URL,
@@ -206,7 +214,6 @@ export class Scheduler {
 
     await boss.start();
     await boss.createQueue(Queues.fanout);
-    await boss.createQueue(Queues.fanout);
     await boss.createQueue(Queues.deliveryDlq);
     await boss.createQueue(Queues.delivery, {
       partition: true,
@@ -215,7 +222,9 @@ export class Scheduler {
       deadLetter: Queues.deliveryDlq,
     });
 
-    return new Scheduler(boss, new Workers(boss));
+    const scheduler = new Scheduler(boss, new Workers(boss));
+    await scheduler.workers.start();
+    return scheduler;
   };
 
   stop = async () => this.boss.stop();
