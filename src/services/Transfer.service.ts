@@ -1,4 +1,6 @@
 import {
+  encodeFunctionData,
+  erc20Abi,
   formatUnits,
   hexToString,
   stringToHex,
@@ -6,7 +8,6 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import { AppError, NotFoundError, QuoteExpiredError } from "../shared/errors";
 import {
   event,
   quote,
@@ -14,10 +15,11 @@ import {
   transferTimeline,
   deposit,
 } from "../db/schema";
+import { AppError, NotFoundError, QuoteExpiredError } from "../shared/errors";
 import { TransferStatus, WebhookCategory } from "../shared/constants";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
-import { and, count, desc, eq } from "drizzle-orm";
 import { runProviderMethod } from "../shared/providers";
 import { getOnchainActor } from "../shared/onchainActor";
 import { type KvService } from "./Kv.service";
@@ -104,8 +106,54 @@ export class TransferService {
     );
 
     const receipt = await onchainActor.waitForReceipt(caip2Id, transactionHash);
-    if (receipt.status !== "success")
+    if (receipt.status !== "success") {
       throw new AppError(`Transaction reverted: ${transactionHash}`);
+    }
+
+    return transactionHash;
+  };
+
+  private callbackSourceId = (item: OnchainNotifierCallbackResultItem) => {
+    return `${item.caip2Id}/${item.blockchainHash.toLowerCase()}/${item.logIndex}/${item.type}`;
+  };
+
+  private doOperatorRefund = async (
+    caip2Id: Caip2Id,
+    tokenAddress: string,
+    to: string,
+    amount: bigint,
+  ) => {
+    let transactionHash;
+
+    const onchainActor = getOnchainActor(getChain(caip2Id).type);
+    const options: SdkOptions = {
+      variables: await this.kvService.getSdkOptionVariables(),
+    };
+
+    if (common.isZeroAddress(tokenAddress)) {
+      transactionHash = await onchainActor.sendTransaction(
+        { caip2Id, to, value: amount },
+        options,
+      );
+    } else {
+      const data = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [to as Address, amount],
+      });
+
+      transactionHash = await onchainActor.sendTransaction(
+        { caip2Id, to: tokenAddress, data, value: 0n },
+        options,
+      );
+    }
+
+    const receipt = await onchainActor.waitForReceipt(caip2Id, transactionHash);
+    if (receipt.status !== "success") {
+      throw new AppError(
+        `Operator refund transaction reverted: ${transactionHash}`,
+      );
+    }
 
     return transactionHash;
   };
@@ -159,7 +207,9 @@ export class TransferService {
             ? { refundBlockchainHash: extra.refundBlockchainHash }
             : {}),
         })
-        .where(eq(transfer.id, transferId))
+        .where(
+          and(eq(transfer.id, transferId), eq(transfer.status, previousStatus)),
+        )
         .returning();
 
       if (!updated) return null;
@@ -196,6 +246,7 @@ export class TransferService {
     input: typeof deposit.$inferInsert,
     appId: string,
     transferId: string,
+    sourceId: string,
   ) => {
     const eventId = await db.transaction(async (transaction) => {
       const [row] = await transaction
@@ -212,6 +263,7 @@ export class TransferService {
           appId,
           category: WebhookCategory.Deposit,
           currentCategoryStatus: "Completed",
+          sourceId,
           data: common.serializeData({ ...row, transferId }),
         })
         .returning({ id: event.id });
@@ -445,6 +497,7 @@ export class TransferService {
     result: OnchainNotifierCallbackResult,
   ) => {
     for (const item of result) {
+      const onchainActor = getOnchainActor(getChain(item.caip2Id).type);
       const chain = await this.chainService.getChainByCaip2Id(item.caip2Id);
       if (!chain) continue;
 
@@ -477,18 +530,40 @@ export class TransferService {
             senderAddress: common.normalizeAddress(item.from),
             amount: item.amount,
             blockchainHash: item.blockchainHash,
+            logIndex: item.logIndex,
             chainId: chain.id,
             tokenId: token.id,
           },
           transfer_.appId,
           transfer_.id,
+          this.callbackSourceId(item),
         );
 
         if (
+          transfer_.x402Payer &&
+          common.normalizeAddress(item.from) === transfer_.x402Payer &&
           transfer_.quote.sourceToken.id === token.id &&
-          [TransferStatus.AwaitingDeposit, TransferStatus.x402Settled].includes(
-            transfer_.status,
-          )
+          item.amount === transfer_.quote.sourceAmount
+        ) {
+          await db
+            .update(transfer)
+            .set({ x402BlockchainHash: item.blockchainHash })
+            .where(
+              and(
+                eq(transfer.id, transfer_.id),
+                eq(transfer.x402Payer, transfer_.x402Payer),
+                isNull(transfer.x402BlockchainHash),
+              ),
+            );
+        }
+
+        if (
+          transfer_.quote.sourceToken.id === token.id &&
+          [
+            TransferStatus.AwaitingDeposit,
+            TransferStatus.x402Settled,
+            TransferStatus.DepositReceived,
+          ].includes(transfer_.status)
         ) {
           const deposits = await db.query.deposit.findMany({
             columns: {
@@ -506,12 +581,18 @@ export class TransferService {
           );
 
           if (totalReceived >= transfer_.quote.sourceAmount) {
-            await this.transitionTransferStatus(
-              transfer_.id,
-              transfer_.status,
-              TransferStatus.DepositReceived,
-              "Expected deposit received",
-            );
+            if (transfer_.status !== TransferStatus.DepositReceived) {
+              const ok = await this.transitionTransferStatus(
+                transfer_.id,
+                transfer_.status,
+                TransferStatus.DepositReceived,
+                "Expected deposit received",
+              );
+
+              if (!ok) {
+                continue;
+              }
+            }
 
             const { transferInput, caip2Id, factoryAddress } =
               await this.getOnchainTransfer(transfer_.id);
@@ -522,13 +603,31 @@ export class TransferService {
                 [transferInput],
               );
 
-            await this.sendFactoryCall(caip2Id, factoryAddress, data);
-            await this.transitionTransferStatus(
+            const ok = await this.transitionTransferStatus(
               transfer_.id,
               TransferStatus.DepositReceived,
               TransferStatus.Processing,
-              "Transfer is being processed",
+              "Transfer settlement submitted",
             );
+
+            if (!ok) {
+              continue;
+            }
+
+            try {
+              await this.sendFactoryCall(caip2Id, factoryAddress, data);
+            } catch (e) {
+              await this.transitionTransferStatus(
+                transfer_.id,
+                TransferStatus.Processing,
+                TransferStatus.Failed,
+                "Transfer settlement attempt failed",
+              );
+
+              await this.refund(transfer_.id);
+
+              throw e;
+            }
           }
         }
 
@@ -545,12 +644,26 @@ export class TransferService {
       }
 
       if (item.type === "ExcessRefunded") {
+        if (
+          !!transfer_.x402Payer &&
+          onchainActor.getAddress() === item.to &&
+          transfer_.refundAddress === onchainActor.getAddress()
+        ) {
+          await this.doOperatorRefund(
+            item.caip2Id,
+            item.tokenAddress,
+            transfer_.x402Payer,
+            item.amount,
+          );
+        }
+
         const [createdEvent] = await db
           .insert(event)
           .values({
             appId: transfer_.appId,
             category: WebhookCategory.ExcessRefund,
             currentCategoryStatus: "Completed",
+            sourceId: this.callbackSourceId(item),
             data: common.serializeData({
               transferId: transfer_.id,
               caip2Id: item.caip2Id,
@@ -560,9 +673,11 @@ export class TransferService {
               blockchainHash: item.blockchainHash,
             }),
           })
+          .onConflictDoNothing()
           .returning({ id: event.id });
 
-        await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
+        if (createdEvent)
+          await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
 
         continue;
       }
@@ -574,6 +689,7 @@ export class TransferService {
             appId: transfer_.appId,
             category: WebhookCategory.Recovery,
             currentCategoryStatus: "Completed",
+            sourceId: this.callbackSourceId(item),
             data: common.serializeData({
               transferId: transfer_.id,
               caip2Id: item.caip2Id,
@@ -583,14 +699,29 @@ export class TransferService {
               blockchainHash: item.blockchainHash,
             }),
           })
+          .onConflictDoNothing()
           .returning({ id: event.id });
 
-        await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
+        if (createdEvent)
+          await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
 
         continue;
       }
 
       if (item.type === "Refunded") {
+        if (
+          !!transfer_.x402Payer &&
+          onchainActor.getAddress() === item.refundAddress &&
+          transfer_.refundAddress === onchainActor.getAddress()
+        ) {
+          await this.doOperatorRefund(
+            item.caip2Id,
+            transfer_.quote.sourceToken.address,
+            transfer_.x402Payer,
+            item.amountRefunded,
+          );
+        }
+
         const symbol = transfer_.quote.sourceToken.symbol;
         const amount = formatUnits(
           item.amountRefunded,

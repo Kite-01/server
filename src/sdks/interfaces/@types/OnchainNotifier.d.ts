@@ -18,6 +18,7 @@ type OnchainNotifierCallbackResultTemplate<T> = T & {
   caip2Id: Caip2Id;
   payinAddress: string;
   blockchainHash: string;
+  logIndex: string;
 };
 
 type OnchainNotifierCallbackResultItem =

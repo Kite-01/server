@@ -6,6 +6,7 @@ import {
   timestamp,
   index,
   foreignKey,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { Provider } from "../../../shared/constants";
@@ -35,6 +36,11 @@ export const chainConfig = pgTable(
     })
       .array()
       .notNull(),
+    maxGasPrice: numeric("max_gas_price", {
+      precision: 78,
+      scale: 0,
+      mode: "bigint",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -33,6 +33,19 @@ export class QuoteService {
     private readonly customerService: CustomerService,
   ) {}
 
+  private formatRate = (
+    source: { amount: bigint; decimals: number },
+    target: { amount: bigint; decimals: number },
+  ) => {
+    return formatUnits(
+      common.ceilDiv(
+        target.amount * common.pow10(source.decimals + 18),
+        source.amount * common.pow10(target.decimals),
+      ),
+      18,
+    );
+  };
+
   private insertQuote = async (input: {
     quote: typeof quote.$inferInsert;
     fees: (typeof fee.$inferSelect)[];
@@ -130,23 +143,17 @@ export class QuoteService {
       feeTier = best.feeTier;
     }
 
-    const rate =
-      Number(formatUnits(targetAmount, settlementToken.decimals)) /
-      Number(formatUnits(sourceAmount, sourceToken.decimals));
-
-    let sourceUsdAmount: number;
-    let targetUsdAmount: number;
+    let sourceUsdAmount: string;
+    let targetUsdAmount: string;
 
     if (sourceToken.id === chainUsdToken.id) {
-      sourceUsdAmount = Number(formatUnits(sourceAmount, sourceToken.decimals));
+      sourceUsdAmount = formatUnits(sourceAmount, sourceToken.decimals);
       targetUsdAmount =
         settlementToken.id === chainUsdToken.id
-          ? Number(formatUnits(targetAmount, settlementToken.decimals))
+          ? formatUnits(targetAmount, settlementToken.decimals)
           : sourceUsdAmount;
     } else if (settlementToken.id === chainUsdToken.id) {
-      targetUsdAmount = Number(
-        formatUnits(targetAmount, settlementToken.decimals),
-      );
+      targetUsdAmount = formatUnits(targetAmount, settlementToken.decimals);
       sourceUsdAmount = targetUsdAmount;
     } else {
       const uniswap = new Uniswap();
@@ -172,7 +179,7 @@ export class QuoteService {
       if (!bestUsdOut)
         throw new AppError("Unable to determine USD value at the moment");
 
-      sourceUsdAmount = Number(formatUnits(bestUsdOut, chainUsdToken.decimals));
+      sourceUsdAmount = formatUnits(bestUsdOut, chainUsdToken.decimals);
       targetUsdAmount = sourceUsdAmount;
     }
 
@@ -201,7 +208,10 @@ export class QuoteService {
         sourceUsdAmount,
         targetAmount,
         targetUsdAmount,
-        rate: String(rate),
+        rate: this.formatRate(
+          { amount: sourceAmount, decimals: sourceToken.decimals },
+          { amount: targetAmount, decimals: settlementToken.decimals },
+        ),
         uniswapPoolFeeTier: feeTier,
         reference: input.reference,
         meta: input.meta,
@@ -239,17 +249,15 @@ export class QuoteService {
     const currency = paymentLink.currency.toUpperCase();
     const fxPrice =
       currency === "USD"
-        ? 1
+        ? { answer: 1n, decimals: 0 }
         : await this.priceFeedService.getPrice(currency, "USD");
 
     const AmountDecimals = 8;
-    const FxDecimals = 12;
 
-    const amountScaled = parseUnits(String(paymentLink.amount), AmountDecimals);
-    const fxScaled = parseUnits(String(fxPrice), FxDecimals);
+    const amountScaled = parseUnits(paymentLink.amount, AmountDecimals);
     const usdTokenAmount = common.ceilDiv(
-      amountScaled * fxScaled * common.pow10(chainUsdToken.decimals),
-      common.pow10(AmountDecimals + FxDecimals),
+      amountScaled * fxPrice.answer * common.pow10(chainUsdToken.decimals),
+      common.pow10(AmountDecimals + fxPrice.decimals),
     );
 
     const uniswap = new Uniswap();
@@ -337,14 +345,7 @@ export class QuoteService {
       feeTier = best.feeTier;
     }
 
-    const rate =
-      Number(formatUnits(targetAmount, settlementToken.decimals)) /
-      Number(formatUnits(sourceAmount, sourceToken.decimals));
-
-    const targetUsdAmount = Number(
-      formatUnits(usdTokenAmount, chainUsdToken.decimals),
-    );
-
+    const targetUsdAmount = formatUnits(usdTokenAmount, chainUsdToken.decimals);
     const sourceUsdAmount = targetUsdAmount;
 
     const customer = input.customerId
@@ -373,7 +374,10 @@ export class QuoteService {
         sourceUsdAmount,
         targetAmount,
         targetUsdAmount,
-        rate: String(rate),
+        rate: this.formatRate(
+          { amount: sourceAmount, decimals: sourceToken.decimals },
+          { amount: targetAmount, decimals: settlementToken.decimals },
+        ),
         uniswapPoolFeeTier: feeTier,
         reference: input.reference,
         meta: input.meta,

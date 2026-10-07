@@ -7,12 +7,14 @@ import {
   type Log,
 } from "viem";
 import { type FacilitatorEvmSigner } from "@x402/evm";
+import { type ChainService } from "../services/Chain.service";
 import { type OnchainActor } from "./interfaces/OnchainActor";
 import { AppError } from "../shared/errors";
-import { env } from "../shared/env";
+import { reportX402TransactionHash } from "../shared/x402TransactionContext";
 
 export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
   constructor(
+    private readonly chainService: ChainService,
     private readonly caip2Id: Caip2Id,
     private readonly onchainActor: OnchainActor,
     private readonly options: SdkOptions,
@@ -77,10 +79,11 @@ export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
   };
 
   sendTransaction = async (args: { to: Hex; data: Hex }): Promise<Hex> => {
-    const gasPriceCap = env.KITE_MAX_GAS_PRICE_WEI;
-    if (gasPriceCap) {
+    const chain = await this.chainService.getChainByCaip2Id(this.caip2Id);
+
+    if (chain?.config?.maxGasPrice) {
       const gasPrice = await this.onchainActor.getGasPrice(this.caip2Id);
-      if (gasPrice > gasPriceCap)
+      if (gasPrice > chain.config.maxGasPrice)
         throw new AppError("Gas price exceeds the configured facilitator cap");
     }
 
@@ -88,6 +91,8 @@ export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
       { caip2Id: this.caip2Id, to: args.to, data: args.data, value: 0n },
       this.options,
     );
+
+    await reportX402TransactionHash(transactionHash);
 
     return transactionHash as Hex;
   };

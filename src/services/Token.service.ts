@@ -1,10 +1,10 @@
 import { type Address, erc20Abi, type Hex, parseAbi } from "viem";
+import { getChain, providerDescriptorOfChain } from "../shared/chains";
 import { AppError, NotFoundError } from "../shared/errors";
+import { Provider, zeroBytes32 } from "../shared/constants";
 import { type ChainService } from "./Chain.service";
 import { getOnchainActor } from "../shared/onchainActor";
 import { and, eq, desc } from "drizzle-orm";
-import { Provider, zeroBytes32 } from "../shared/constants";
-import { getChain, providerDescriptorOfChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { token } from "../db/schema";
 import { Http } from "../sdks/Http";
@@ -54,10 +54,9 @@ export class TokenService {
       return row;
     }
 
-    const supportsEIP3009 = !!(await this.readTokenDomain(
-      chain.caip2Id,
-      tokenAddress,
-    ));
+    const domain = await this.readTokenDomain(chain.caip2Id, tokenAddress);
+    const supportsEIP3009 = !!domain;
+    const version = domain?.version;
 
     const tokenBaseUrl = `${chainBaseUrl}/assets/${address}`;
     const iconUrl = `${tokenBaseUrl}/logo.png`;
@@ -85,6 +84,7 @@ export class TokenService {
           symbol: response.data.symbol,
           decimals: response.data.decimals,
           name: response.data.name,
+          version,
           supportsEIP3009,
           icon: iconUrl,
         })
@@ -128,6 +128,7 @@ export class TokenService {
         symbol,
         decimals,
         name,
+        version,
         supportsEIP3009,
       })
       .returning();
@@ -195,5 +196,29 @@ export class TokenService {
     }
 
     return { name, version };
+  };
+
+  isAuthorizationUsed = async (
+    caip2Id: Caip2Id,
+    tokenAddress: string,
+    payer: string,
+    nonce: string,
+  ) => {
+    const onchainActor = getOnchainActor(getChain(caip2Id).type);
+    const client = await onchainActor.publicClient(caip2Id);
+    const abi = parseAbi([
+      "function authorizationState(address authorizer, bytes32 nonce) view returns (bool)",
+    ]);
+
+    try {
+      return await client.readContract({
+        abi,
+        address: tokenAddress as Address,
+        functionName: "authorizationState",
+        args: [payer as Address, nonce as Hex],
+      });
+    } catch {
+      return null;
+    }
   };
 }

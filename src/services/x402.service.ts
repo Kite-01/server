@@ -30,6 +30,7 @@ import { FeeService } from "./Fee.service";
 import { KvService } from "./Kv.service";
 import { transfer } from "../db/schema";
 import { common } from "../shared/common";
+import { withX402TransactionHashObserver } from "../shared/x402TransactionContext";
 import { db } from "../db";
 
 export class x402Service {
@@ -77,6 +78,7 @@ export class x402Service {
 
       const caip2Id = chain.caip2Id;
       const signer = new x402EvmFacilitatorSigner(
+        chainService,
         chain.caip2Id,
         onchainActor,
         options,
@@ -227,28 +229,23 @@ export class x402Service {
       if (!chain.config) continue;
       if (!this.supportedChains.has(chain.caip2Id)) continue;
 
-      const token = chain.config.settlementToken;
-      const domain = await this.tokenService.readTokenDomain(
-        chain.caip2Id,
-        token.address,
-      );
+      const tokens = await this.tokenService.getTokensByChainId(chain.id);
+      for (const token of tokens) {
+        if (!token.supportsEIP3009 || !token.version) {
+          continue;
+        }
 
-      if (!domain) {
-        // settlement token does not support EIP-3009
-        // don't advertise chain
-        continue;
+        kinds.push({
+          x402Version: 2,
+          scheme: "exact",
+          network: chain.caip2Id,
+          extra: {
+            asset: token.address.toLowerCase(),
+            name: token.name,
+            version: token.version,
+          },
+        });
       }
-
-      kinds.push({
-        x402Version: 2,
-        scheme: "exact",
-        network: chain.caip2Id,
-        extra: {
-          asset: token.address.toLowerCase(),
-          name: domain.name,
-          version: domain.version,
-        },
-      });
     }
 
     return {
@@ -314,6 +311,26 @@ export class x402Service {
     return this.facilitator.verify(ctx.paymentPayload, ctx.requirements);
   };
 
+  private clearAuthorizationReservation = async (
+    transferId: string,
+    nonce: string,
+  ) => {
+    await db
+      .update(transfer)
+      .set({
+        x402Payer: null,
+        x402AuthorizationNonce: null,
+        x402AuthorizationHash: null,
+        x402BlockchainHash: null,
+      })
+      .where(
+        and(
+          eq(transfer.id, transferId),
+          eq(transfer.x402AuthorizationNonce, nonce),
+        ),
+      );
+  };
+
   settle = async (
     appId: string,
     paymentPayload: PaymentPayload,
@@ -329,7 +346,8 @@ export class x402Service {
     const transfer_ = ctx.payment.transfer;
     const caip2Id = transfer_.quote.chain.caip2Id;
 
-    if (transfer_.x402AuthorizationNonce) {
+    let hasReservation = !!transfer_.x402AuthorizationNonce;
+    if (hasReservation) {
       if (
         transfer_.x402Payer !== ctx.payment.payer ||
         transfer_.x402AuthorizationNonce !== ctx.payment.nonce ||
@@ -341,67 +359,149 @@ export class x402Service {
       }
 
       if (transfer_.x402BlockchainHash) {
+        const receipt = await getOnchainActor(ChainType.Evm).waitForReceipt(
+          caip2Id,
+          transfer_.x402BlockchainHash,
+        );
+
+        if (receipt.status === "success") {
+          if (transfer_.status === TransferStatus.AwaitingDeposit) {
+            await this.transferService.transitionTransferStatus(
+              transfer_.id,
+              TransferStatus.AwaitingDeposit,
+              TransferStatus.x402Settled,
+              "x402 authorization settled",
+            );
+          }
+
+          return {
+            success: true,
+            payer: ctx.payment.payer,
+            transaction: transfer_.x402BlockchainHash,
+            network: caip2Id,
+          };
+        }
+
+        await this.clearAuthorizationReservation(
+          transfer_.id,
+          ctx.payment.nonce,
+        );
+        hasReservation = false;
+      }
+    }
+
+    if (!hasReservation) {
+      const verification = await this.facilitator.verify(
+        ctx.paymentPayload,
+        ctx.requirements,
+      );
+
+      if (!verification.isValid) {
         return {
-          success: true,
+          success: false,
+          errorReason: verification.invalidReason,
+          errorMessage: verification.invalidMessage,
           payer: ctx.payment.payer,
-          transaction: transfer_.x402BlockchainHash,
+          transaction: "",
           network: caip2Id,
         };
       }
 
-      throw new PreconditionError(
-        "x402 authorization is already reserved for settlement",
+      const [reserved] = await db
+        .update(transfer)
+        .set({
+          x402Payer: ctx.payment.payer,
+          x402AuthorizationNonce: ctx.payment.nonce,
+          x402AuthorizationHash: ctx.payment.authorizationHash,
+        })
+        .where(
+          and(
+            eq(transfer.id, transfer_.id),
+            eq(transfer.status, TransferStatus.AwaitingDeposit),
+            isNull(transfer.x402AuthorizationNonce),
+          ),
+        )
+        .returning();
+
+      if (!reserved) {
+        throw new PreconditionError(
+          "another x402 settlement is already in progress for this transfer",
+        );
+      }
+    }
+
+    let result: Awaited<ReturnType<x402Facilitator["settle"]>>;
+    try {
+      result = await withX402TransactionHashObserver(
+        async (transactionHash) => {
+          await db
+            .update(transfer)
+            .set({ x402BlockchainHash: transactionHash })
+            .where(
+              and(
+                eq(transfer.id, transfer_.id),
+                eq(transfer.x402AuthorizationNonce, ctx.payment.nonce),
+                isNull(transfer.x402BlockchainHash),
+              ),
+            );
+        },
+        () => this.facilitator.settle(ctx.paymentPayload, ctx.requirements),
       );
-    }
-
-    const verification = await this.facilitator.verify(
-      ctx.paymentPayload,
-      ctx.requirements,
-    );
-
-    if (!verification.isValid) {
-      return {
-        success: false,
-        errorReason: verification.invalidReason,
-        errorMessage: verification.invalidMessage,
-        payer: ctx.payment.payer,
-        transaction: "",
-        network: caip2Id,
-      };
-    }
-
-    const [reserved] = await db
-      .update(transfer)
-      .set({
-        x402Payer: ctx.payment.payer,
-        x402AuthorizationNonce: ctx.payment.nonce,
-        x402AuthorizationHash: ctx.payment.authorizationHash,
-      })
-      .where(
-        and(
-          eq(transfer.id, transfer_.id),
-          eq(transfer.status, TransferStatus.AwaitingDeposit),
-          isNull(transfer.x402AuthorizationNonce),
-        ),
-      )
-      .returning();
-
-    if (!reserved) {
-      throw new PreconditionError(
-        "another x402 settlement is already in progress for this transfer",
+    } catch (error) {
+      const latest = await this.transferService.getTransfer(
+        appId,
+        transfer_.id,
       );
-    }
 
-    const result = await this.facilitator.settle(
-      ctx.paymentPayload,
-      ctx.requirements,
-    );
+      if (latest?.x402BlockchainHash) {
+        const receipt = await getOnchainActor(ChainType.Evm).waitForReceipt(
+          caip2Id,
+          latest.x402BlockchainHash,
+        );
+
+        if (receipt.status === "success") {
+          result = {
+            success: true,
+            payer: ctx.payment.payer,
+            transaction: latest.x402BlockchainHash,
+            network: caip2Id,
+          };
+        } else {
+          await this.clearAuthorizationReservation(
+            transfer_.id,
+            ctx.payment.nonce,
+          );
+          throw error;
+        }
+      } else {
+        const authorizationUsed = await this.tokenService.isAuthorizationUsed(
+          caip2Id,
+          transfer_.quote.sourceToken.address,
+          ctx.payment.payer,
+          ctx.payment.nonce,
+        );
+
+        if (authorizationUsed === false) {
+          await this.clearAuthorizationReservation(
+            transfer_.id,
+            ctx.payment.nonce,
+          );
+        }
+
+        throw error;
+      }
+    }
 
     if (result.success) {
       await db
         .update(transfer)
         .set({ x402BlockchainHash: result.transaction })
-        .where(eq(transfer.id, transfer_.id));
+        .where(
+          and(
+            eq(transfer.id, transfer_.id),
+            eq(transfer.x402AuthorizationNonce, ctx.payment.nonce),
+          ),
+        );
     } else {
       await db
         .update(transfer)
@@ -419,10 +519,10 @@ export class x402Service {
         );
     }
 
-    if (result.success) {
+    if (result.success && transfer_.status === TransferStatus.AwaitingDeposit) {
       await this.transferService.transitionTransferStatus(
         transfer_.id,
-        transfer_.status,
+        TransferStatus.AwaitingDeposit,
         TransferStatus.x402Settled,
         "x402 authorization settled",
       );

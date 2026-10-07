@@ -29,6 +29,7 @@ export const deposit = pgTable(
     }).notNull(),
     senderAddress: text("sender_address").notNull(),
     blockchainHash: text("blockchain_hash").notNull(),
+    logIndex: text("log_index").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -42,11 +43,9 @@ export const deposit = pgTable(
       columns: [table.tokenId, table.chainId],
       foreignColumns: [token.id, token.chainId],
     }).onDelete("restrict"),
-    uniqueIndex("kite_deposit_address_blockchain_hash_token_id_key").on(
-      table.address,
-      table.blockchainHash,
-      table.tokenId,
-    ),
+    uniqueIndex(
+      "kite_deposit_address_blockchain_hash_token_id_log_index_key",
+    ).on(table.address, table.blockchainHash, table.tokenId, table.logIndex),
   ],
 );
 

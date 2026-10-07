@@ -13,7 +13,6 @@ export const app = pgTable("kite_app", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   icon: text("icon"),
-  isParent: boolean("is_parent").notNull().default(false),
   websiteUrl: text("website_url"),
   termsOfServiceUrl: text("terms_of_service_url"),
   privacyPolicyUrl: text("privacy_policy_url"),

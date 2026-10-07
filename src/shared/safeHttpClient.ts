@@ -6,6 +6,8 @@ import { lookup } from "node:dns";
 export class SafeHttpClient {
   blocklist: BlockList;
 
+  private readonly agent: Agent;
+
   constructor() {
     this.blocklist = new BlockList();
 
@@ -31,6 +33,14 @@ export class SafeHttpClient {
     this.blocklist.addSubnet("fe80::", 10, "ipv6"); // link-local
     this.blocklist.addSubnet("ff00::", 8, "ipv6"); // multicast
     this.blocklist.addSubnet("64:ff9b::", 96, "ipv6"); // NAT64 can reach private IPv4 space
+
+    this.agent = new Agent({
+      keepAliveTimeout: 10000,
+      connect: {
+        lookup: this.guardedLookup,
+        timeout: 10000,
+      },
+    });
   }
 
   unmapIPv4 = (ip: string) => {
@@ -127,18 +137,12 @@ export class SafeHttpClient {
   };
 
   makeRequest = async (url: string, options: RequestInit) => {
-    const agent = new Agent({
-      keepAliveTimeout: 10000,
-      connect: {
-        lookup: this.guardedLookup,
-        timeout: 10000,
-      },
-    });
-
-    return fetch(url, {
+    return fetch(this.assertPublicUrl(url), {
       ...options,
       redirect: "manual",
-      dispatcher: agent,
+      dispatcher: this.agent,
     });
   };
+
+  close = async () => this.agent.close();
 }

@@ -35,7 +35,7 @@ class Crypt {
   };
 
   decrypt = (ciphertext: string, aad?: string) => {
-    const [prefix, iv, tag, ct] = ciphertext.split(":");
+    const [prefix, iv, tag, ct] = ciphertext.split(".");
     if (prefix !== this.prefix || !iv || !tag || !ct) {
       throw new AppError("Invalid or unsupported encrypted payload");
     }

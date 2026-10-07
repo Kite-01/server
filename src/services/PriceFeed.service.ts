@@ -6,6 +6,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { type Address } from "viem";
 import { priceFeed } from "../db/schema";
 import { getChain } from "../shared/chains";
+import { OneDay } from "../shared/constants";
 import { db } from "../db";
 
 export class PriceFeedService {
@@ -78,6 +79,9 @@ export class PriceFeedService {
   };
 
   getPrice = async (baseCurrency: string, quoteCurrency: string) => {
+    baseCurrency = baseCurrency.toUpperCase();
+    quoteCurrency = quoteCurrency.toUpperCase();
+
     const priceFeed = await this.getPriceFeedByCurrency(
       baseCurrency,
       quoteCurrency,
@@ -101,8 +105,25 @@ export class PriceFeedService {
       functionName: "latestRoundData",
     });
 
-    const answer = Number(roundData[1]);
-    return answer / 10 ** priceFeed.decimals;
+    const [roundId, answer, , updatedAt, answeredInRound] = roundData;
+    const now = BigInt(Math.floor(Date.now() / 1000));
+
+    if (
+      answer <= 0n ||
+      updatedAt <= 0n ||
+      updatedAt > now ||
+      answeredInRound < roundId ||
+      now - updatedAt > BigInt(OneDay)
+    ) {
+      throw new AppError(
+        `${baseCurrency}/${quoteCurrency} cannot be priced at the moment`,
+      );
+    }
+
+    return {
+      answer,
+      decimals: priceFeed.decimals,
+    };
   };
 
   getPriceFeedByCurrency = async (

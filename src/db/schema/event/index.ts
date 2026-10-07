@@ -6,6 +6,7 @@ import {
   timestamp,
   index,
   check,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { toEnum, toSqlList } from "../utils";
 import { transferTimeline } from "../transferTimeline";
@@ -18,6 +19,7 @@ export const event = pgTable(
   "kite_event",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    sourceId: text("source_id"),
     appId: uuid("app_id")
       .notNull()
       .references(() => app.id, { onDelete: "restrict" }),
@@ -31,6 +33,7 @@ export const event = pgTable(
   },
   (table) => [
     index("kite_event_app_id_idx").on(table.appId),
+    uniqueIndex("kite_event_source_id_key").on(table.sourceId),
     check(
       "kite_event_category_check",
       sql`${table.category} IN (${toSqlList(toEnum(WebhookCategory))})`,

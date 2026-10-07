@@ -16,6 +16,8 @@ export const Queues = {
 };
 
 class Workers {
+  private readonly httpClient = new SafeHttpClient();
+
   constructor(
     private readonly boss: PgBoss,
     private workersStarted = false,
@@ -102,6 +104,8 @@ class Workers {
           startedAt: new Date(),
         });
 
+        if (!delivery) return result("completed");
+
         const payload = {
           id: delivery.id,
           eventId: event.id,
@@ -129,7 +133,7 @@ class Workers {
           error: Maybe<string>;
 
         try {
-          const response = await new SafeHttpClient().makeRequest(webhook.url, {
+          const response = await this.httpClient.makeRequest(webhook.url, {
             body: JSON.stringify(payload),
             signal: AbortSignal.timeout(common.toMs(webhook.timeoutInSeconds)),
             headers: {
@@ -174,6 +178,10 @@ class Workers {
     );
 
     this.workersStarted = true;
+  };
+
+  stop = async () => {
+    await this.httpClient.close();
   };
 }
 
@@ -227,5 +235,8 @@ export class Scheduler {
     return scheduler;
   };
 
-  stop = async () => this.boss.stop();
+  stop = async () => {
+    await this.boss.stop();
+    await this.workers.stop();
+  };
 }

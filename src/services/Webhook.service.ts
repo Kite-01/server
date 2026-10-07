@@ -1,4 +1,4 @@
-import { eq, and, desc, arrayContains } from "drizzle-orm";
+import { eq, and, desc, arrayContains, exists, sql } from "drizzle-orm";
 import { webhook, webhookDelivery } from "../db/schema";
 import { WebhookCategory } from "../shared/constants";
 import { common } from "../shared/common";
@@ -46,10 +46,21 @@ export class WebhookService {
   };
 
   getWebhookDeliveries = async (appId: string, webhookId: string) => {
-    return db.query.webhookDelivery.findMany({
-      where: eq(webhookDelivery.webhookId, webhookId),
-      orderBy: desc(webhookDelivery.createdAt),
-    });
+    return db
+      .select()
+      .from(webhookDelivery)
+      .where(
+        and(
+          eq(webhookDelivery.webhookId, webhookId),
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(webhook)
+              .where(and(eq(webhook.id, webhookId), eq(webhook.appId, appId))),
+          ),
+        ),
+      )
+      .orderBy(desc(webhookDelivery.createdAt));
   };
 
   deleteWebhook = async (appId: string, webhookId: string) => {
@@ -64,6 +75,7 @@ export class WebhookService {
     const [row] = await db
       .insert(webhookDelivery)
       .values(input)
+      .onConflictDoNothing()
       .returning({ id: webhookDelivery.id });
 
     return row;

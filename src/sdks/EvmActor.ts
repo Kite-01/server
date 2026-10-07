@@ -6,9 +6,9 @@ import {
   type Hex,
 } from "viem";
 import { getChain, getRpcsTransport, getViemChain } from "../shared/chains";
-import { privateKeyToAccount } from "viem/accounts";
 import { type OnchainActor } from "./interfaces/OnchainActor";
 import { type ChainService } from "../services/Chain.service";
+import { mnemonicToAccount } from "viem/accounts";
 import { type GasSponsor } from "./interfaces/GasSponsor";
 import { getProvider } from "../shared/providers";
 import { AppError } from "../shared/errors";
@@ -18,7 +18,7 @@ import { env } from "../shared/env";
 export class EvmActor implements OnchainActor {
   constructor(private readonly chainService: ChainService) {}
 
-  private account = privateKeyToAccount(env.KITE_ADMIN_PRIVATE_KEY as Hex);
+  private account = mnemonicToAccount(env.KITE_OPERATOR_MNEMONIC);
 
   private getRpcTransportForChain = async (caip2Id: Caip2Id) => {
     const urls: string[] = [];

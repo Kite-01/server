@@ -27,7 +27,7 @@ export class Alchemy implements GasSponsor {
       calls: [
         {
           to: input.to as Address,
-          data: input.data as Hex,
+          data: input.data as Hex | undefined,
           value: input.value,
         },
       ],

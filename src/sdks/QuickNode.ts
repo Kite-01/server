@@ -2,6 +2,7 @@ import {
   KeyType,
   KeyVars,
   KiteContractEventSignatures,
+  OneMinute,
   Provider,
 } from "../shared/constants";
 import { decodeEventLog, erc20Abi, type Hex, zeroAddress } from "viem";
@@ -254,6 +255,15 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
       return false;
     }
 
+    const timestampMs = common.toMs(Number(timestamp));
+
+    if (
+      !Number.isFinite(timestampMs) ||
+      Math.abs(Date.now() - timestampMs) > common.toMs(5 * OneMinute)
+    ) {
+      return false;
+    }
+
     const token = common.requireVar(
       options,
       KeyVars.QuickNodeWebhookSecurityToken,
@@ -326,6 +336,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
             type: "DepositReceived",
             caip2Id,
             blockchainHash: transaction.hash,
+            logIndex: "0",
             from: common.normalizeAddress(transaction.from),
             payinAddress: common.normalizeAddress(transaction.to),
             tokenAddress: zeroAddress,
@@ -354,6 +365,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
             type: "DepositReceived",
             caip2Id,
             blockchainHash: transaction.hash,
+            logIndex: log.logIndex,
             from: common.normalizeAddress(common.topicToAddress(log.topics[1])),
             payinAddress: common.normalizeAddress(to),
             tokenAddress: common.normalizeAddress(log.address),
@@ -393,6 +405,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
           const base = {
             caip2Id,
             blockchainHash: hash,
+            logIndex: log.logIndex,
             payinAddress: common.normalizeAddress(address),
           };
 

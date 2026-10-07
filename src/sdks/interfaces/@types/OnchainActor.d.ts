@@ -1,7 +1,7 @@
 type OnchainActorTransactionInput = {
   caip2Id: Caip2Id;
   to: string;
-  data: string;
+  data?: string;
   value: bigint;
 };
 

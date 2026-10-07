@@ -9,7 +9,7 @@ export class CustomerService {
       .insert(customer)
       .values(input)
       .onConflictDoUpdate({
-        target: customer.externalId,
+        target: [customer.appId, customer.externalId],
         set: { ...omit(input, ["appId"]), updatedAt: new Date() },
       })
       .returning();
@@ -18,7 +18,7 @@ export class CustomerService {
   };
 
   getCustomers = async (appId: string) => {
-    return await db.query.chain.findMany({
+    return await db.query.customer.findMany({
       where: eq(customer.appId, appId),
       orderBy: desc(customer.createdAt),
     });

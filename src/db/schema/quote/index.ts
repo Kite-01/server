@@ -42,7 +42,7 @@ export const quote = pgTable(
     sourceUsdAmount: numeric("source_usd_amount", {
       precision: 38,
       scale: 18,
-      mode: "number",
+      mode: "string",
     }).notNull(),
     sourceAmount: numeric("source_amount", {
       precision: 78,
@@ -57,7 +57,7 @@ export const quote = pgTable(
     targetUsdAmount: numeric("target_usd_amount", {
       precision: 38,
       scale: 18,
-      mode: "number",
+      mode: "string",
     }).notNull(),
     rate: numeric("rate", {
       precision: 38,

@@ -8,12 +8,12 @@ import {
   check,
   unique,
   uniqueIndex,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { sql, relations } from "drizzle-orm";
 import { chainConfig } from "../chainConfig";
 import { chain } from "../chain";
 import { quote } from "../quote";
-import { boolean } from "drizzle-orm/pg-core";
 
 export const token = pgTable(
   "kite_token",
@@ -26,6 +26,7 @@ export const token = pgTable(
     symbol: text("symbol").notNull(),
     decimals: integer("decimals").notNull(),
     name: text("name").notNull(),
+    version: text("version"),
     icon: text("icon"),
     supportsEIP3009: boolean("supports_eip3009").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })

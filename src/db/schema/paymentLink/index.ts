@@ -26,7 +26,7 @@ export const paymentLink = pgTable(
     amount: numeric("amount", {
       precision: 38,
       scale: 18,
-      mode: "number",
+      mode: "string",
     }).notNull(),
     lineItems: uuid("line_items"),
     createdAt: timestamp("created_at", { withTimezone: true })
