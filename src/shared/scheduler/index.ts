@@ -1,197 +1,13 @@
-import { WebhookService } from "../../services/Webhook.service";
-import { SafeHttpClient } from "../safeHttpClient";
-import { EventService } from "../../services/Event.service";
-import { createHmac } from "node:crypto";
-import { version } from "../../../package.json";
-import { OneHour } from "../constants";
-import { PgBoss } from "pg-boss";
-import { common } from "../common";
-import { crypt } from "../crypt";
+import { PgBoss, type Db as PgBossDb, type SendOptions } from "pg-boss";
+import { OneHour, OneMinute, Queue } from "../constants";
+import { startWorkers } from "./workers";
 import { env } from "../env";
-
-export const Queues = {
-  fanout: "event-fanout",
-  delivery: "webhook-delivery",
-  deliveryDlq: "webhook-delivery-dlq",
-};
-
-class Workers {
-  private readonly httpClient = new SafeHttpClient();
-
-  constructor(
-    private readonly boss: PgBoss,
-    private workersStarted = false,
-  ) {}
-
-  start = async () => {
-    if (this.workersStarted) {
-      return;
-    }
-
-    const eventService = new EventService();
-    const webhookService = new WebhookService();
-
-    await this.boss.work(
-      Queues.fanout,
-      { localConcurrency: 5 },
-      async ([job]) => {
-        const { appId, eventId } = job.data as {
-          appId: string;
-          eventId: string;
-        };
-
-        const event = await eventService.getEvent(appId, eventId);
-        if (!event) {
-          return;
-        }
-
-        const webhooks = await webhookService.getWebhooksByCategory(
-          appId,
-          event.category,
-        );
-
-        if (webhooks.length === 0) {
-          return;
-        }
-
-        await this.boss.insert(
-          Queues.delivery,
-          webhooks.map((webhook) => ({
-            data: {
-              appId,
-              eventId,
-              webhookId: webhook.id,
-            },
-            retryBackoff: false,
-            retryLimit: webhook.maxRetries,
-            retryDelay: webhook.retryIntervalInSeconds,
-          })),
-        );
-      },
-    );
-
-    await this.boss.work(
-      Queues.delivery,
-      { perJobResults: true, includeMetadata: true, localConcurrency: 50 },
-      async ([job]) => {
-        const result = (
-          status: "completed" | "failed" | "deadletter",
-          output?: object,
-        ) => [{ id: job.id, status, output }];
-
-        const { appId, eventId, webhookId } = job.data as {
-          appId: string;
-          eventId: string;
-          webhookId: string;
-        };
-
-        const attempt = job.retryCount + 1;
-        const canRetry = job.retryCount < job.retryLimit;
-
-        const [webhook, event] = await Promise.all([
-          webhookService.getWebhook(appId, webhookId),
-          eventService.getEvent(appId, eventId),
-        ]);
-
-        if (!webhook || !event) {
-          return result("failed");
-        }
-
-        const delivery = await webhookService.createWebhookDelivery({
-          eventId,
-          webhookId,
-          attempt,
-          startedAt: new Date(),
-        });
-
-        if (!delivery) return result("completed");
-
-        const payload = {
-          id: delivery.id,
-          eventId: event.id,
-          webhookId: webhook.id,
-          category: event.category,
-          previous: {
-            status: event.previousCategoryStatus,
-          },
-          current: {
-            status: event.currentCategoryStatus,
-          },
-          data: event.data,
-        };
-
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signingKey = crypt.decrypt(webhook.signingKey);
-        const signature = createHmac("sha256", signingKey)
-          .update(`t=${timestamp}&${JSON.stringify(payload)}`)
-          .digest("hex");
-
-        let ok: boolean = false,
-          httpResponseCode: Maybe<number>,
-          httpResponseHeaders: Maybe<Record<string, string>>,
-          httpResponseBody: Maybe<string>,
-          error: Maybe<string>;
-
-        try {
-          const response = await this.httpClient.makeRequest(webhook.url, {
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(common.toMs(webhook.timeoutInSeconds)),
-            headers: {
-              "Content-Type": "application/json",
-              "User-Agent": `kite/${version}`,
-              "X-Kite-Timestamp": String(timestamp),
-              "X-Kite-Signature": signature,
-              "X-Kite-Event-Id": event.id,
-            },
-          });
-
-          ok = response.ok;
-          httpResponseBody = await response.text();
-          httpResponseHeaders = Object.fromEntries(response.headers);
-          httpResponseCode = response.status;
-          if (!ok) error = `HTTP ${httpResponseCode}`;
-        } catch (e) {
-          error = (e as Error).message;
-        }
-
-        const willRetry = !ok && canRetry && httpResponseCode !== 410;
-
-        await webhookService.completeWebhookDelivery(delivery.id, {
-          httpResponseCode,
-          httpResponseHeaders,
-          httpResponseBody,
-          error,
-          completedAt: new Date(),
-          nextRetryAt: willRetry
-            ? new Date(Date.now() + common.toMs(job.retryDelay))
-            : null,
-        });
-
-        if (ok) {
-          return result("completed");
-        }
-
-        return result(willRetry ? "failed" : "deadletter", {
-          reason: error,
-        });
-      },
-    );
-
-    this.workersStarted = true;
-  };
-
-  stop = async () => {
-    await this.httpClient.close();
-  };
-}
 
 export class Scheduler {
   private static instance: Promise<Scheduler> | null = null;
+  private stopWorkers?: () => Promise<void>;
 
-  constructor(
-    public readonly boss: PgBoss,
-    public readonly workers: Workers,
-  ) {}
+  constructor(public readonly boss: PgBoss) {}
 
   static getInstance = async () => {
     Scheduler.instance ??= Scheduler.connect().catch((e) => {
@@ -202,12 +18,51 @@ export class Scheduler {
     return Scheduler.instance;
   };
 
-  static enqueueEvent = async (appId: string, eventId: string) => {
+  static start = () => Scheduler.getInstance();
+
+  static send = async (name: string, data: object, options?: SendOptions) => {
     const scheduler = await Scheduler.getInstance();
-    await scheduler.boss.send(Queues.fanout, {
-      appId,
-      eventId,
-    });
+    return scheduler.boss.send(name, data, options);
+  };
+
+  static enqueueEvent = (appId: string, eventId: string, db?: PgBossDb) => {
+    return Scheduler.send(Queue.EventFanout, { appId, eventId }, { db });
+  };
+
+  static enqueueSettle = (transferId: string, db?: PgBossDb) => {
+    return Scheduler.send(
+      Queue.SettleTransfer,
+      { transferId },
+      { singletonKey: transferId, db },
+    );
+  };
+
+  static enqueueRefund = (transferId: string, db?: PgBossDb) => {
+    return Scheduler.send(
+      Queue.RefundTransfer,
+      { transferId },
+      { singletonKey: transferId, db },
+    );
+  };
+
+  static enqueueRecover = (
+    transferId: string,
+    tokenAddress: string,
+    db?: PgBossDb,
+  ) => {
+    return Scheduler.send(
+      Queue.RecoverTransfer,
+      { transferId, tokenAddress },
+      { singletonKey: `${transferId}:${tokenAddress.toLowerCase()}`, db },
+    );
+  };
+
+  static enqueueForward = (forwardId: string, db?: PgBossDb) => {
+    return Scheduler.send(
+      Queue.OperatorForward,
+      { forwardId },
+      { singletonKey: forwardId, db },
+    );
   };
 
   private static connect = async () => {
@@ -221,22 +76,45 @@ export class Scheduler {
     boss.on("warning", console.warn);
 
     await boss.start();
-    await boss.createQueue(Queues.fanout);
-    await boss.createQueue(Queues.deliveryDlq);
-    await boss.createQueue(Queues.delivery, {
+    await boss.createQueue(Queue.EventFanout);
+    await boss.createQueue(Queue.WebhookDeliveryDlq);
+    await boss.createQueue(Queue.WebhookDelivery, {
       partition: true,
       notify: true,
       deleteAfterSeconds: OneHour,
-      deadLetter: Queues.deliveryDlq,
+      deadLetter: Queue.WebhookDeliveryDlq,
     });
 
-    const scheduler = new Scheduler(boss, new Workers(boss));
-    await scheduler.workers.start();
+    const OnchainJobQueue = {
+      policy: "stately",
+      retryLimit: 20,
+      retryDelay: 5,
+      retryBackoff: true,
+      retryDelayMax: 2 * OneMinute,
+      expireInSeconds: 10 * OneMinute,
+    };
+
+    await boss.createQueue(Queue.SettleTransfer, OnchainJobQueue);
+    await boss.createQueue(Queue.RefundTransfer, OnchainJobQueue);
+    await boss.createQueue(Queue.RecoverTransfer, OnchainJobQueue);
+    await boss.createQueue(Queue.OperatorForward, OnchainJobQueue);
+    await boss.createQueue(Queue.TransferSweep, {
+      policy: "stately",
+      retryLimit: 0,
+      expireInSeconds: 5 * OneMinute,
+    });
+
+    await boss.schedule(Queue.TransferSweep, "* * * * *");
+
+    const scheduler = new Scheduler(boss);
+
+    scheduler.stopWorkers = await startWorkers(boss);
+
     return scheduler;
   };
 
   stop = async () => {
     await this.boss.stop();
-    await this.workers.stop();
+    await this.stopWorkers?.();
   };
 }

@@ -27,6 +27,7 @@ type Chain = {
   };
   descriptors: Record<string, unknown>;
   contracts: {
+    WETH9: string;
     /**
      * @see https://developers.uniswap.org/deployments
      */
@@ -61,6 +62,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
         QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
@@ -90,6 +92,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
         QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
@@ -119,6 +122,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
         QuoterV2: "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",
@@ -148,6 +152,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
         QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
@@ -172,6 +177,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       QuickNode: "robinhood-mainnet",
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0xCaf681a66D020601342297493863E78C959E5cb2",
         QuoterV2: "0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7",
@@ -201,6 +207,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0x2626664c2603336E57B271c5C0b26F421741e481",
         QuoterV2: "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
@@ -230,6 +237,7 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
     contracts: {
+      WETH9: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
         QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",

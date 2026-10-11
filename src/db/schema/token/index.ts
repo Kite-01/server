@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql, relations } from "drizzle-orm";
 import { chainConfig } from "../chainConfig";
+import { deposit } from "../deposit";
 import { chain } from "../chain";
 import { quote } from "../quote";
 
@@ -56,4 +57,5 @@ export const tokenRelations = relations(token, ({ one, many }) => ({
   quotesAsSource: many(quote, { relationName: "kite_quote_source_token" }),
   quotesAsTarget: many(quote, { relationName: "kite_quote_target_token" }),
   settlementFor: many(chainConfig),
+  deposits: many(deposit),
 }));

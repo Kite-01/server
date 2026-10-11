@@ -1,15 +1,19 @@
-import { QuoteTTL_Ms, UniswapFeeTiers } from "../shared/constants";
+import {
+  KiteMaxFees,
+  QuoteTTLSeconds,
+  UniswapFeeTiers,
+} from "../shared/constants";
 import { AppError, NotFoundError } from "../shared/errors";
-import { type PaymentLinkService } from "./PaymentLink.service";
 import { formatUnits, parseUnits } from "viem";
-import { type PriceFeedService } from "./PriceFeed.service";
 import { and, eq, desc, isNull } from "drizzle-orm";
 import { quote, quoteFee, fee } from "../db/schema";
-import { type CustomerService } from "./Customer.service";
-import { type TokenService } from "./Token.service";
-import { type ChainService } from "./Chain.service";
+import { PaymentLinkService } from "./PaymentLink.service";
+import { PriceFeedService } from "./PriceFeed.service";
 import { getOnchainActor } from "../shared/onchainActor";
-import { type FeeService } from "./Fee.service";
+import { CustomerService } from "./Customer.service";
+import { TokenService } from "./Token.service";
+import { ChainService } from "./Chain.service";
+import { FeeService } from "./Fee.service";
 import { getChain } from "../shared/chains";
 import { Uniswap } from "../sdks/Uniswap";
 import { common } from "../shared/common";
@@ -24,15 +28,6 @@ type QuoteBase = {
 };
 
 export class QuoteService {
-  constructor(
-    private readonly paymentLinkService: PaymentLinkService,
-    private readonly chainService: ChainService,
-    private readonly tokenService: TokenService,
-    private readonly priceFeedService: PriceFeedService,
-    private readonly feeService: FeeService,
-    private readonly customerService: CustomerService,
-  ) {}
-
   private formatRate = (
     source: { amount: bigint; decimals: number },
     target: { amount: bigint; decimals: number },
@@ -46,11 +41,43 @@ export class QuoteService {
     );
   };
 
+  private quoteFees = (
+    fees: (typeof fee.$inferSelect)[],
+    targetAmount: bigint,
+    slippageBps: number,
+    operatorAddress: string,
+    settlementAddress: Maybe<string>,
+  ) => {
+    const fees_ = fees
+      .map((f) => ({
+        fee: f,
+        amount: new FeeService().computeFeeAmount(f, targetAmount),
+        feeAddress: common.normalizeAddress(
+          f.feeAddress ?? settlementAddress ?? operatorAddress,
+        ),
+      }))
+      .filter(
+        (item) => item.amount > 0n && !common.isZeroAddress(item.feeAddress),
+      );
+
+    if (fees_.length > KiteMaxFees) {
+      throw new AppError("Too many fees");
+    }
+
+    const totalFees = fees_.reduce((total, { amount }) => total + amount, 0n);
+    const minAmountOut =
+      (targetAmount * (10000n - BigInt(slippageBps))) / 10000n;
+
+    if (totalFees > minAmountOut) {
+      throw new AppError("Fees exceed the amount this payment settles for");
+    }
+
+    return fees_;
+  };
+
   private insertQuote = async (input: {
     quote: typeof quote.$inferInsert;
-    fees: (typeof fee.$inferSelect)[];
-    serverAddress: string;
-    settlementAddress: Maybe<string>;
+    fees: ReturnType<QuoteService["quoteFees"]>;
   }) => {
     return db.transaction(async (transaction) => {
       const [q] = await transaction
@@ -60,16 +87,12 @@ export class QuoteService {
 
       if (input.fees.length) {
         await transaction.insert(quoteFee).values(
-          input.fees.map((f) => ({
+          input.fees.map((item) => ({
             quoteId: q.id,
-            feeId: f.id,
-            label: f.label,
-            amount: this.feeService.computeFeeAmount(
-              f,
-              input.quote.targetAmount,
-            ),
-            feeAddress:
-              f.feeAddress ?? input.settlementAddress ?? input.serverAddress,
+            feeId: item.fee.id,
+            label: item.fee.label,
+            amount: item.amount,
+            feeAddress: item.feeAddress,
           })),
         );
       }
@@ -82,14 +105,14 @@ export class QuoteService {
     appId: string,
     input: QuoteBase & { amount: bigint },
   ) => {
-    const chain = await this.chainService.getChainById(input.chainId);
+    const chain = await new ChainService().getChainById(input.chainId);
     if (!chain) throw new NotFoundError("chain", input.chainId);
     if (!chain.config)
       throw new AppError("Selected chain is yet to be configured");
 
     const settlementToken = chain.config.settlementToken;
     const chainUsdToken = chain.config.usdPeggedToken;
-    const sourceToken = await this.tokenService.getTokenByAddress(
+    const sourceToken = await new TokenService().getTokenByAddress(
       chain.id,
       input.sourceTokenAddress,
     );
@@ -184,23 +207,26 @@ export class QuoteService {
     }
 
     const customer = input.customerId
-      ? await this.customerService.getCustomerById(appId, input.customerId)
+      ? await new CustomerService().getCustomerById(appId, input.customerId)
       : null;
 
-    const fees = await this.feeService.getMatchingFees(appId, chain.id, {
-      customer,
-      sourceAmount,
-      sourceToken,
-      targetToken: settlementToken,
-    });
+    const matchingFees = await new FeeService().getMatchingFees(
+      appId,
+      chain.id,
+      { customer, sourceAmount, sourceToken, targetToken: settlementToken },
+    );
 
     return this.insertQuote({
-      fees,
-      serverAddress: getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
-      settlementAddress: chain.config.settlementAddress,
+      fees: this.quoteFees(
+        matchingFees,
+        targetAmount,
+        chain.config.slippageBps,
+        getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
+        chain.config.settlementAddress,
+      ),
       quote: {
         appId,
-        customerId: input.customerId,
+        customerId: customer?.id,
         chainId: chain.id,
         sourceTokenId: sourceToken.id,
         targetTokenId: settlementToken.id,
@@ -215,7 +241,7 @@ export class QuoteService {
         uniswapPoolFeeTier: feeTier,
         reference: input.reference,
         meta: input.meta,
-        expiresAt: new Date(Date.now() + common.toMs(QuoteTTL_Ms)),
+        expiresAt: new Date(Date.now() + common.toMs(QuoteTTLSeconds)),
       },
     });
   };
@@ -225,7 +251,7 @@ export class QuoteService {
     paymentLinkId: string,
     input: QuoteBase,
   ) => {
-    const paymentLink = await this.paymentLinkService.getPaymentLink(
+    const paymentLink = await new PaymentLinkService().getPaymentLink(
       appId,
       paymentLinkId,
     );
@@ -234,14 +260,14 @@ export class QuoteService {
       throw new NotFoundError("paymentLink", paymentLinkId);
     }
 
-    const chain = await this.chainService.getChainById(input.chainId);
+    const chain = await new ChainService().getChainById(input.chainId);
     if (!chain) throw new NotFoundError("chain", input.chainId);
     if (!chain.config)
       throw new AppError("Selected chain is yet to be configured");
 
     const settlementToken = chain.config.settlementToken;
     const chainUsdToken = chain.config.usdPeggedToken;
-    const sourceToken = await this.tokenService.getTokenByAddress(
+    const sourceToken = await new TokenService().getTokenByAddress(
       chain.id,
       input.sourceTokenAddress,
     );
@@ -250,7 +276,7 @@ export class QuoteService {
     const fxPrice =
       currency === "USD"
         ? { answer: 1n, decimals: 0 }
-        : await this.priceFeedService.getPrice(currency, "USD");
+        : await new PriceFeedService().getPrice(currency, "USD");
 
     const AmountDecimals = 8;
 
@@ -349,20 +375,28 @@ export class QuoteService {
     const sourceUsdAmount = targetUsdAmount;
 
     const customer = input.customerId
-      ? await this.customerService.getCustomerById(appId, input.customerId)
+      ? await new CustomerService().getCustomerById(appId, input.customerId)
       : null;
 
-    const fees = await this.feeService.getMatchingFees(appId, chain.id, {
-      customer,
-      sourceAmount,
-      sourceToken,
-      targetToken: settlementToken,
-    });
+    const matchingFees = await new FeeService().getMatchingFees(
+      appId,
+      chain.id,
+      {
+        customer,
+        sourceAmount,
+        sourceToken,
+        targetToken: settlementToken,
+      },
+    );
 
     return this.insertQuote({
-      fees,
-      serverAddress: getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
-      settlementAddress: chain.config.settlementAddress,
+      fees: this.quoteFees(
+        matchingFees,
+        targetAmount,
+        chain.config.slippageBps,
+        getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
+        chain.config.settlementAddress,
+      ),
       quote: {
         appId,
         paymentLinkId,
@@ -381,7 +415,7 @@ export class QuoteService {
         uniswapPoolFeeTier: feeTier,
         reference: input.reference,
         meta: input.meta,
-        expiresAt: new Date(Date.now() + common.toMs(QuoteTTL_Ms)),
+        expiresAt: new Date(Date.now() + common.toMs(QuoteTTLSeconds)),
       },
     });
   };

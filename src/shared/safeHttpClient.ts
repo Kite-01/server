@@ -1,5 +1,5 @@
+import { Agent, fetch, type RequestInit, type Response } from "undici";
 import { BlockList, isIP, type LookupFunction } from "node:net";
-import { Agent, fetch, type RequestInit } from "undici";
 import { UnsafeUrlError } from "./errors";
 import { lookup } from "node:dns";
 
@@ -142,6 +142,29 @@ export class SafeHttpClient {
       redirect: "manual",
       dispatcher: this.agent,
     });
+  };
+
+  readText = async (response: Response, maxBytes: number) => {
+    if (!response.body) {
+      return null;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+
+    while (size < maxBytes) {
+      const result = await reader.read();
+      if (result.done) {
+        break;
+      }
+
+      chunks.push(result.value);
+      size += result.value.byteLength;
+    }
+
+    await reader.cancel().catch(() => undefined);
+    return Buffer.concat(chunks).subarray(0, maxBytes).toString("utf8");
   };
 
   close = async () => this.agent.close();

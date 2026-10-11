@@ -1,5 +1,16 @@
-import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory";
+import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
 import { common } from "./common";
+
+export enum Queue {
+  EventFanout = "EventFanout",
+  WebhookDelivery = "WebhookDelivery",
+  WebhookDeliveryDlq = "WebhookDeliveryDlq",
+  SettleTransfer = "SettleTransfer",
+  RefundTransfer = "RefundTransfer",
+  RecoverTransfer = "RecoverTransfer",
+  OperatorForward = "OperatorForward",
+  TransferSweep = "TransferSweep",
+}
 
 export enum PaymentLinkType {
   Api = "Api",
@@ -10,12 +21,13 @@ export enum ChainType {
   Evm = "Evm",
 }
 
+// TODO: make this better...i do not think this is a valid scope list
 export enum ApiKeyScope {
   Quote = "Quote",
   Transfer = "Transfer",
   Webhook = "Webhook",
-  X402Verify = "X402Verify",
-  X402Settle = "X402Settle",
+  PaymentLink = "PaymentLink",
+  Customer = "Customer",
 }
 
 export enum WebhookCategory {
@@ -40,6 +52,34 @@ export enum TransferStatus {
   Refunded = "Refunded",
   Failed = "Failed",
   Settled = "Settled",
+}
+
+export const TerminalTransferStatuses: readonly TransferStatus[] = [
+  TransferStatus.Cancelled,
+  TransferStatus.Refunded,
+  TransferStatus.Failed,
+  TransferStatus.Settled,
+];
+
+export const SettleableTransferStatuses: readonly TransferStatus[] = [
+  TransferStatus.AwaitingDeposit,
+  TransferStatus.DepositReceived,
+  TransferStatus.x402Settled,
+  TransferStatus.Processing,
+];
+
+export enum OperatorForwardStatus {
+  Pending = "Pending",
+  Submitted = "Submitted",
+  Sent = "Sent",
+  Held = "Held",
+  Failed = "Failed",
+}
+
+export enum OperatorForwardKind {
+  Refund = "Refund",
+  Excess = "Excess",
+  Recovery = "Recovery",
 }
 
 export enum Provider {
@@ -74,16 +114,27 @@ export const OneMinute = 60;
 export const OneHour = 60 * OneMinute;
 export const OneDay = 24 * OneHour;
 
-export const QuoteTTL_Ms = 5 * OneMinute;
+export const QuoteTTLSeconds = 5 * OneMinute;
 export const UniswapFeeTiers = [100, 500, 3000, 10000] as const;
 
-export const KiteContractEventSignatures = [
-  common.eventSignatureFromAbi(Kite__factory.abi, "Refunded"),
-  common.eventSignatureFromAbi(Kite__factory.abi, "Settled"),
-  common.eventSignatureFromAbi(Kite__factory.abi, "FeePaid"),
-  common.eventSignatureFromAbi(Kite__factory.abi, "ExcessRefunded"),
-  common.eventSignatureFromAbi(Kite__factory.abi, "Recovered"),
-];
+export const KiteMaxFees = 10;
+export const OperatorTxTimeoutMs = common.toMs(2 * OneMinute);
+
+export const x402_MaxTimeoutSeconds = 120;
+export const x402_MinTimeoutSeconds = 15;
+export const x402_SettlementReserveSeconds = 30;
+export const x402_SettlementLeaseSeconds = 3 * OneMinute;
+
+export const KiteContractEventTopics = (
+  [
+    "Refunded",
+    "Settled",
+    "FeePaid",
+    "ExcessRefunded",
+    "Recovered",
+    "Initialized",
+  ] as const
+).map((name) => common.eventTopicFromAbi(Kite__factory.abi, name)!);
 
 export const zeroBytes32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;

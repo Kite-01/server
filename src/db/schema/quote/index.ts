@@ -34,9 +34,7 @@ export const quote = pgTable(
     paymentLinkId: uuid("payment_link_id").references(() => paymentLink.id, {
       onDelete: "set null",
     }),
-    customerId: uuid("customer_id").references(() => customer.id, {
-      onDelete: "set null",
-    }),
+    customerId: uuid("customer_id"),
     sourceTokenId: uuid("source_token_id").notNull(),
     targetTokenId: uuid("target_token_id").notNull(),
     sourceUsdAmount: numeric("source_usd_amount", {
@@ -102,6 +100,11 @@ export const quote = pgTable(
       columns: [table.targetTokenId, table.chainId],
       foreignColumns: [token.id, token.chainId],
     }).onDelete("restrict"),
+    foreignKey({
+      name: "kite_quote_customer_id_app_id_fk",
+      columns: [table.customerId, table.appId],
+      foreignColumns: [customer.id, customer.appId],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -113,8 +116,8 @@ export const quoteRelations = relations(quote, ({ one, many }) => ({
     references: [paymentLink.id],
   }),
   customer: one(customer, {
-    fields: [quote.customerId],
-    references: [customer.id],
+    fields: [quote.customerId, quote.appId],
+    references: [customer.id, customer.appId],
   }),
   sourceToken: one(token, {
     fields: [quote.sourceTokenId],

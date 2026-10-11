@@ -1,19 +1,18 @@
+import { type Address, isAddress, keccak256, toHex } from "viem";
 import { isProviderConfiguredForAction } from "../shared/providers";
-import { Address, keccak256, toHex } from "viem";
 import { AppError, NotFoundError } from "../shared/errors";
 import { and, eq, isNull, desc } from "drizzle-orm";
-import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory";
+import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
 import { chain, chainConfig } from "../db/schema";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ProviderAction } from "../shared/constants";
-import { type KvService } from "./Kv.service";
+import { KvService } from "./Kv.service";
 import { getChain } from "../shared/chains";
+import { common } from "../shared/common";
 import { omit } from "lodash";
 import { db } from "../db";
 
 export class ChainService {
-  constructor(private readonly kvService: KvService) {}
-
   createChain = async (input: typeof chain.$inferInsert) => {
     const [row] = await db.insert(chain).values(input).returning();
     return row;
@@ -95,11 +94,20 @@ export class ChainService {
       input.rpcUrls ?? [],
     );
 
+    if (!isAddress(input.kiteFactoryAddress)) {
+      throw new AppError("The KiteFactory address is not a valid address");
+    }
+
+    if (input.settlementAddress && !isAddress(input.settlementAddress)) {
+      throw new AppError("The settlement address is not a valid address");
+    }
+
+    const operatorAddress = onchainActor.getAddress();
+
     try {
-      const operatorAddress = onchainActor.getAddress();
       const hasRole = await client.readContract({
         abi: KiteFactory__factory.abi,
-        address: input.kiteFactoryAddress as Address,
+        address: common.normalizeAddress(input.kiteFactoryAddress),
         functionName: "hasRole",
         args: [keccak256(toHex("OPERATOR_ROLE")), operatorAddress as Address],
       });
@@ -113,7 +121,7 @@ export class ChainService {
       throw new AppError("Is this a valid KiteFactory contract?");
     }
 
-    const variables = await this.kvService.getSdkOptionVariables();
+    const variables = await new KvService().getSdkOptionVariables();
 
     input.onchainNotifierProviders.map((provider) =>
       isProviderConfiguredForAction(provider, ProviderAction.OnchainNotifier, {
@@ -127,12 +135,20 @@ export class ChainService {
       }),
     );
 
+    const values = {
+      ...input,
+      kiteFactoryAddress: common.normalizeAddress(input.kiteFactoryAddress),
+      settlementAddress: input.settlementAddress
+        ? common.normalizeAddress(input.settlementAddress)
+        : null,
+    };
+
     await db
       .insert(chainConfig)
-      .values({ ...input, chainId })
+      .values({ ...values, chainId })
       .onConflictDoUpdate({
         target: chainConfig.chainId,
-        set: { ...omit(input, ["chainId"]), updatedAt: new Date() },
+        set: { ...omit(values, ["chainId"]), updatedAt: new Date() },
       });
   };
 

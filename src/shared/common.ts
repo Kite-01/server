@@ -1,23 +1,40 @@
 import {
   type Abi,
   type AbiEvent,
+  type Address,
+  type Hex,
   getAddress,
+  isAddress,
+  isAddressEqual,
   keccak256,
+  pad,
+  toEventSelector,
   zeroAddress,
   toHex,
 } from "viem";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createHash } from "node:crypto";
+import { AppError, SdkConfigError } from "./errors";
 import { timingSafeEqual } from "node:crypto";
-import { SdkConfigError } from "./errors";
 import { type KeyVars } from "./constants";
+import { english } from "viem/accounts";
 import { get } from "lodash";
 
 class Common {
   uuidv4 = () => randomUUID();
 
-  isZeroAddress = (address: string) => address === zeroAddress;
+  isZeroAddress = (address: string) => address.toLowerCase() === zeroAddress;
 
   normalizeAddress = (address: string) => getAddress(address);
+
+  isSameAddress = (a: Maybe<string>, b: Maybe<string>) => {
+    return (
+      !!a &&
+      !!b &&
+      isAddress(a, { strict: false }) &&
+      isAddress(b, { strict: false }) &&
+      isAddressEqual(a as Address, b as Address)
+    );
+  };
 
   toMs = (s: number) => s * 1000;
 
@@ -119,12 +136,75 @@ class Common {
     return `${eventName}(${inputs})`;
   };
 
-  serializeData = (data: unknown) => {
-    JSON.parse(
-      JSON.stringify(data, (_key, value) =>
-        typeof value === "bigint" ? value.toString() : value,
-      ),
+  eventTopicFromAbi = (abi: Abi, eventName: string) => {
+    const fragment = this.eventFragmentFromAbi(abi, eventName);
+    return fragment ? toEventSelector(fragment) : null;
+  };
+
+  serializeData = <T>(data: T): unknown => {
+    return JSON.parse(
+      JSON.stringify(data, (_key: string, value: unknown) => {
+        return typeof value === "bigint" ? value.toString() : value;
+      }),
     );
+  };
+
+  uuidToBytes32 = (uuid: string): Hex => {
+    const hex = uuid.replaceAll("-", "").toLowerCase();
+    if (!/^[0-9a-f]{32}$/.test(hex)) {
+      throw new AppError(`Invalid UUID: ${uuid}`);
+    }
+
+    return pad(`0x${hex}`, {
+      size: 32,
+    });
+  };
+
+  bytes32ToUuid = (value: string) => {
+    const hex = value.toLowerCase();
+    if (!/^0x0{32}[0-9a-f]{32}$/.test(hex)) {
+      return null;
+    }
+
+    const raw = hex.slice(34);
+    return [
+      raw.slice(0, 8),
+      raw.slice(8, 12),
+      raw.slice(12, 16),
+      raw.slice(16, 20),
+      raw.slice(20),
+    ].join("-");
+  };
+
+  isValidMnemonic = (value: string) => {
+    const words = value.trim().normalize("NFKD").split(/\s+/);
+    if (![12, 15, 18, 21, 24].includes(words.length)) {
+      return false;
+    }
+
+    const indexes = words.map((word) => english.indexOf(word));
+    if (indexes.some((index) => index < 0)) {
+      return false;
+    }
+
+    const bits = indexes
+      .map((index) => index.toString(2).padStart(11, "0"))
+      .join("");
+
+    const entropyBits = (bits.length * 32) / 33;
+    const entropy = Buffer.from(
+      bits
+        .slice(0, entropyBits)
+        .match(/.{8}/g)!
+        .map((byte) => parseInt(byte, 2)),
+    );
+
+    const checksum = [...createHash("sha256").update(entropy).digest()]
+      .map((byte) => byte.toString(2).padStart(8, "0"))
+      .join("")
+      .slice(0, bits.length - entropyBits);
+
+    return checksum === bits.slice(entropyBits);
   };
 }
 

@@ -1,7 +1,14 @@
 export interface GasSponsor {
-  sendSponsoredTransaction(
+  submitSponsoredCalls(
     input: OnchainActorTransactionInput,
     signer: import("viem").LocalAccount,
     options: SdkOptions,
-  ): Promise<string>;
+  ): Promise<{ callId: string }>;
+
+  getSponsoredCallsStatus(
+    caip2Id: Caip2Id,
+    callId: string,
+    signer: import("viem").LocalAccount,
+    options: SdkOptions,
+  ): Promise<OnchainActorCallStatus>;
 }

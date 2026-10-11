@@ -1,12 +1,22 @@
 import { type WebhookCategory } from "../shared/constants";
+import { db, dbWithTransaction } from "../db";
 import { eq, and, desc } from "drizzle-orm";
+import { Scheduler } from "../shared/scheduler";
 import { event } from "../db/schema";
-import { db } from "../db";
 
 export class EventService {
   createEvent = async (input: typeof event.$inferInsert) => {
-    const [row] = await db.insert(event).values(input).returning();
-    return row;
+    return db.transaction(async (transaction) => {
+      const [row] = await transaction.insert(event).values(input).returning();
+
+      await Scheduler.enqueueEvent(
+        row.appId,
+        row.id,
+        dbWithTransaction(transaction),
+      );
+
+      return row;
+    });
   };
 
   getEvent = async (appId: string, eventId: string) => {

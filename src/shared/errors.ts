@@ -11,23 +11,6 @@ export class UnsafeUrlError extends Error {
   }
 }
 
-export class JsonRpcCallError extends Error {
-  public readonly provider: Provider;
-  public readonly code: number;
-  public readonly data?: unknown;
-
-  constructor(provider: Provider, method: string, error?: JsonRpcError) {
-    super(
-      `${provider}: ${method} failed (${error?.code ?? "no code"}) ${error?.message ?? ""}`.trim(),
-    );
-
-    this.name = "JsonRpcCallError";
-    this.provider = provider;
-    this.code = error?.code ?? -32603;
-    this.data = error?.data;
-  }
-}
-
 export class AppError extends Error {
   constructor(message: string) {
     super(message);
@@ -135,6 +118,43 @@ export class SdkConfigError extends Error {
     super(`"${keyVar}" is not configured`);
     this.name = "SdkConfigError";
     this.keyVar = keyVar;
+  }
+}
+
+export class OperatorTransactionFailedError extends Error {
+  public readonly callId: string;
+  public readonly transactionHash?: string;
+
+  constructor(callId: string, transactionHash?: string) {
+    super("Operator transaction failed");
+    this.name = "OperatorTransactionFailedError";
+    this.callId = callId;
+    this.transactionHash = transactionHash;
+  }
+}
+
+export class OperatorTransactionPendingError extends Error {
+  public readonly callId: string;
+
+  constructor(callId: string) {
+    super("Operator transaction is still pending");
+    this.name = "OperatorTransactionPendingError";
+    this.callId = callId;
+  }
+}
+
+export class TransferStructMismatchError extends Error {
+  public readonly transferId: string;
+  public readonly expected: string;
+  public readonly got: string;
+
+  constructor(transferId: string, expected: string, got: string) {
+    super("Transfer clone address does not match expected");
+
+    this.name = "TransferStructMismatchError";
+    this.transferId = transferId;
+    this.expected = expected;
+    this.got = got;
   }
 }
 

@@ -16,7 +16,7 @@ export const getChain = (caip2Id: Caip2Id) => {
 export const getRpcsTransport = (urls: string[]) => {
   return fallback(
     urls.map((url) => http(url)),
-    { rank: true, retryCount: 3 },
+    { retryCount: 3 },
   );
 };
 

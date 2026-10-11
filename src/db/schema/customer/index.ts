@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   jsonb,
+  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -29,6 +30,7 @@ export const customer = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    unique("kite_customer_id_app_id_key").on(table.id, table.appId),
     uniqueIndex("kite_customer_app_id_external_id_key").on(
       table.appId,
       table.externalId,

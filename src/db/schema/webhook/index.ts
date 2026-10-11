@@ -33,6 +33,7 @@ export const webhook = pgTable(
       .notNull()
       .default(10),
     timeoutInSeconds: integer("timeout_in_seconds").notNull().default(60),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -42,7 +43,9 @@ export const webhook = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("kite_webhook_app_id_url_key").on(table.appId, table.url),
+    uniqueIndex("kite_webhook_app_id_url_key")
+      .on(table.appId, table.url)
+      .where(sql`${table.deletedAt} IS NULL`),
     check(
       "kite_webhook_categories_nonempty_check",
       sql`cardinality(${table.categories}) > 0`,

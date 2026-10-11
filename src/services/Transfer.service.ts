@@ -1,53 +1,68 @@
 import {
-  encodeFunctionData,
-  erc20Abi,
   formatUnits,
-  hexToString,
-  stringToHex,
+  getAddress,
+  isAddress,
   zeroAddress,
-  type Address,
   type Hex,
 } from "viem";
 import {
   event,
   quote,
+  quoteFee,
   transfer,
   transferTimeline,
   deposit,
 } from "../db/schema";
-import { AppError, NotFoundError, QuoteExpiredError } from "../shared/errors";
-import { TransferStatus, WebhookCategory } from "../shared/constants";
-import { and, count, desc, eq, isNull } from "drizzle-orm";
-import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory";
+import {
+  AppError,
+  NotFoundError,
+  QuoteExpiredError,
+  TransferStructMismatchError,
+} from "../shared/errors";
+import {
+  OneMinute,
+  Provider,
+  SettleableTransferStatuses,
+  TransferStatus,
+  WebhookCategory,
+} from "../shared/constants";
+import { db, dbWithTransaction, type DatabaseOrTransaction } from "../db";
+import { and, asc, count, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { OperatorForwardService } from "./OperatorForward.service";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { runProviderMethod } from "../shared/providers";
 import { getOnchainActor } from "../shared/onchainActor";
-import { type KvService } from "./Kv.service";
 import { ChainService } from "./Chain.service";
 import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
+import { KvService } from "./Kv.service";
 import { Scheduler } from "../shared/scheduler";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
-import { db } from "../db";
+import { kite } from "../shared/kiteContract";
 
 export class TransferService {
-  constructor(
-    private readonly kvService: KvService,
-    private readonly chainService: ChainService,
-    private readonly tokenService: TokenService,
-    private readonly quoteService: QuoteService,
-  ) {}
+  private sdkOptions = async (): Promise<SdkOptions> => {
+    return {
+      variables: await new KvService().getSdkOptionVariables(),
+    };
+  };
 
-  private getOnchainTransfer = async (transferId: string) => {
-    const row = await db.query.transfer.findFirst({
+  private callbackSourceId = (item: OnchainNotifierCallbackResultItem) => {
+    return `${item.caip2Id}/${item.blockchainHash.toLowerCase()}/${item.logIndex}/${item.type}`;
+  };
+
+  private loadTransfer = (
+    transferId: string,
+    executor: DatabaseOrTransaction = db,
+  ) => {
+    return executor.query.transfer.findFirst({
       where: eq(transfer.id, transferId),
       with: {
         quote: {
           with: {
             sourceToken: true,
             targetToken: true,
-            fees: true,
             chain: {
               with: {
                 config: true,
@@ -57,105 +72,257 @@ export class TransferService {
         },
       },
     });
+  };
 
-    if (!row) throw new NotFoundError("transfer", transferId);
-    if (!row.quote.chain.config)
+  private getOnchainTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    if (!row) {
+      throw new NotFoundError("transfer", transferId);
+    }
+
+    const config = row.quote.chain.config;
+    if (!config) {
       throw new AppError("Selected chain is not configured");
+    }
 
-    const chain = getChain(row.quote.chain.caip2Id);
+    const caip2Id = row.quote.chain.caip2Id;
+    const onchainActor = getOnchainActor(getChain(caip2Id).type);
+    const client = await onchainActor.publicClient(
+      caip2Id,
+      config.rpcUrls ?? [],
+    );
+
+    const struct = kite.deserializeTransferInput(row.kiteTransferInput);
+    const predictedAddress = await kite.predictAddress(
+      client,
+      config.kiteFactoryAddress,
+      struct,
+    );
+
+    if (!common.isSameAddress(predictedAddress, row.payinAddress)) {
+      throw new TransferStructMismatchError(
+        row.id,
+        row.payinAddress,
+        predictedAddress,
+      );
+    }
 
     return {
       row,
-      caip2Id: row.quote.chain.caip2Id,
-      factoryAddress: row.quote.chain.config.kiteFactoryAddress,
-      transferInput: {
-        id: stringToHex(row.id),
-        payInTokenAddress: row.quote.sourceToken.address as Address,
-        amountIn: row.quote.sourceAmount,
-        settlementTokenAddress: row.quote.targetToken.address as Address,
-        settlementRecipient: row.settlementRecipient,
-        minAmountOut: row.minAmountOut,
-        refundAddress: row.refundAddress,
-        expiresAt: BigInt(Math.floor(row.quote.expiresAt.getTime() / 1000)),
-        routerAddress: (row.quote.sourceToken.id === row.quote.targetToken.id
-          ? zeroAddress
-          : chain.contracts.Uniswap.SwapRouter02) as Address,
-        poolFeeTier: row.quote.uniswapPoolFeeTier ?? 0,
-        fees: row.quote.fees.map((fee) => ({
-          id: stringToHex(fee.id),
-          recipient: fee.feeAddress,
-          amount: fee.amount,
-        })),
-      },
+      caip2Id,
+      factoryAddress: config.kiteFactoryAddress,
+      struct,
+      client,
+      onchainActor,
     };
   };
 
   private sendFactoryCall = async (
-    caip2Id: Caip2Id,
-    factoryAddress: string,
-    data: string,
+    ctx: Awaited<ReturnType<TransferService["getOnchainTransfer"]>>,
+    data: Hex,
   ) => {
-    const onchainActor = getOnchainActor(getChain(caip2Id).type);
-    const options: SdkOptions = {
-      variables: await this.kvService.getSdkOptionVariables(),
-    };
-
-    const transactionHash = await onchainActor.sendTransaction(
-      { caip2Id, to: factoryAddress, data, value: 0n },
+    const options = await this.sdkOptions();
+    const transactionHash = await ctx.onchainActor.sendTransaction(
+      { caip2Id: ctx.caip2Id, to: ctx.factoryAddress, data, value: 0n },
       options,
     );
 
-    const receipt = await onchainActor.waitForReceipt(caip2Id, transactionHash);
-    if (receipt.status !== "success") {
-      throw new AppError(`Transaction reverted: ${transactionHash}`);
+    return ctx.onchainActor.waitForReceipt(ctx.caip2Id, transactionHash);
+  };
+
+  private triggerCallbackFromReceipt = async (
+    caip2Id: Caip2Id,
+    payinAddress: string,
+    receipt: OnchainActorReceipt,
+  ) => {
+    const items = kite
+      .parseContractLogs(
+        caip2Id,
+        receipt.logs.map((log) => ({
+          ...log,
+          logIndex: String(log.logIndex),
+          transactionHash: log.transactionHash ?? receipt.transactionHash,
+        })),
+      )
+      .filter((item) => common.isSameAddress(item.payinAddress, payinAddress));
+
+    await this.handleOnchainNotifierCallback(items);
+  };
+
+  private trackAddress = async (
+    caip2Id: Caip2Id,
+    address: string,
+    providers: Provider[],
+  ) => {
+    const options = await this.sdkOptions();
+
+    await Promise.all([
+      runProviderMethod<OnchainNotifier, "trackAddressActivity">(
+        providers,
+        "trackAddressActivity",
+        { caip2Id, address },
+        options,
+      ),
+      runProviderMethod<OnchainNotifier, "trackKiteContractEvent">(
+        providers,
+        "trackKiteContractEvent",
+        { caip2Id, contractAddress: address },
+        options,
+      ),
+    ]);
+  };
+
+  private abandonSettlement = async (
+    row: {
+      id: string;
+      status: TransferStatus;
+      x402SettledAt: Date | null;
+    },
+    reason: string,
+    balance: bigint,
+  ) => {
+    if (row.x402SettledAt) {
+      await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Failed,
+        `Settlement failed (${reason}); funds held for manual resolution because the x402 payment was accepted`,
+      );
+
+      return;
     }
 
-    return transactionHash;
+    if (balance === 0n) {
+      await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Cancelled,
+        "Transfer expired without payment",
+      );
+
+      return;
+    }
+
+    await db.transaction(async (transaction) => {
+      const moved = await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Failed,
+        `Settlement failed (${reason})`,
+        undefined,
+        transaction,
+      );
+
+      if (moved)
+        await Scheduler.enqueueRefund(row.id, dbWithTransaction(transaction));
+    });
   };
 
-  private callbackSourceId = (item: OnchainNotifierCallbackResultItem) => {
-    return `${item.caip2Id}/${item.blockchainHash.toLowerCase()}/${item.logIndex}/${item.type}`;
-  };
-
-  private doOperatorRefund = async (
-    caip2Id: Caip2Id,
-    tokenAddress: string,
-    to: string,
-    amount: bigint,
+  private reconcileClosedTransfer = async (
+    ctx: Awaited<ReturnType<TransferService["getOnchainTransfer"]>>,
   ) => {
-    let transactionHash;
+    const status = await kite.readStatus(ctx.client, ctx.row.payinAddress);
 
-    const onchainActor = getOnchainActor(getChain(caip2Id).type);
-    const options: SdkOptions = {
-      variables: await this.kvService.getSdkOptionVariables(),
-    };
-
-    if (common.isZeroAddress(tokenAddress)) {
-      transactionHash = await onchainActor.sendTransaction(
-        { caip2Id, to, value: amount },
-        options,
+    if (status === "Settled") {
+      await this.transitionTransferStatus(
+        ctx.row.id,
+        ctx.row.status,
+        TransferStatus.Settled,
+        "Transfer settled",
+      );
+    } else if (status === "Refunded") {
+      await this.transitionTransferStatus(
+        ctx.row.id,
+        ctx.row.status,
+        TransferStatus.Refunded,
+        "Transfer refunded",
       );
     } else {
-      const data = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: "transfer",
-        args: [to as Address, amount],
-      });
-
-      transactionHash = await onchainActor.sendTransaction(
-        { caip2Id, to: tokenAddress, data, value: 0n },
-        options,
-      );
-    }
-
-    const receipt = await onchainActor.waitForReceipt(caip2Id, transactionHash);
-    if (receipt.status !== "success") {
       throw new AppError(
-        `Operator refund transaction reverted: ${transactionHash}`,
+        `Transfer ${ctx.row.id} is ${status} on-chain; expected it to be closed`,
       );
     }
 
-    return transactionHash;
+    await this.enqueueLeftoverRecovery(ctx.row.id);
+  };
+
+  private enqueueLeftoverRecovery = async (transferId: string) => {
+    const row = await db.query.transfer.findFirst({
+      where: eq(transfer.id, transferId),
+      with: {
+        quote: {
+          with: {
+            sourceToken: true,
+            targetToken: true,
+          },
+        },
+        deposits: {
+          with: {
+            token: true,
+          },
+        },
+      },
+    });
+
+    if (!row) {
+      return;
+    }
+
+    const tokens = new Set(
+      [
+        row.quote.sourceToken.address,
+        row.quote.targetToken.address,
+        ...row.deposits.map((d) => d.token.address),
+      ].map((address) => getAddress(address)),
+    );
+
+    for (const tokenAddress of tokens) {
+      await Scheduler.enqueueRecover(transferId, tokenAddress);
+    }
+  };
+
+  private recoverToken = async (
+    transferId: string,
+    tokenAddress: string,
+    destinationAddress: string,
+  ) => {
+    const ctx = await this.getOnchainTransfer(transferId);
+    const balance = await ctx.onchainActor.getBalance(
+      ctx.caip2Id,
+      tokenAddress,
+      ctx.row.payinAddress,
+    );
+
+    if (balance === 0n) {
+      return null;
+    }
+
+    const data = kite.factory.recover(
+      ctx.struct,
+      tokenAddress,
+      destinationAddress,
+    );
+
+    const simulation = await kite.simulateFactoryCall(
+      ctx.client,
+      ctx.factoryAddress,
+      ctx.onchainActor.getAddress(),
+      data,
+    );
+
+    if (!simulation.ok) {
+      return simulation;
+    }
+
+    const receipt = await this.sendFactoryCall(ctx, data);
+
+    await this.triggerCallbackFromReceipt(
+      ctx.caip2Id,
+      ctx.row.payinAddress,
+      receipt,
+    );
+
+    return null;
   };
 
   transitionTransferStatus = async (
@@ -167,33 +334,13 @@ export class TransferService {
       settlementBlockchainHash?: string;
       refundBlockchainHash?: string;
     },
+    executor: DatabaseOrTransaction = db,
   ) => {
-    const row = await db.query.transfer.findFirst({
-      where: eq(transfer.id, transferId),
-      with: {
-        quote: {
-          with: {
-            sourceToken: true,
-            targetToken: true,
-            chain: true,
-            fees: true,
-            customer: true,
-            paymentLink: true,
-          },
-        },
-        timeline: {
-          with: {
-            event: true,
-          },
-        },
-      },
-    });
-
-    if (!row) throw new NotFoundError("transfer", transferId);
-    if (row.status !== previousStatus || previousStatus === currentStatus)
+    if (previousStatus === currentStatus) {
       return false;
+    }
 
-    const createdEvent = await db.transaction(async (transaction) => {
+    return executor.transaction(async (transaction) => {
       const [updated] = await transaction
         .update(transfer)
         .set({
@@ -210,20 +357,38 @@ export class TransferService {
         .where(
           and(eq(transfer.id, transferId), eq(transfer.status, previousStatus)),
         )
-        .returning();
+        .returning({ appId: transfer.appId });
 
-      if (!updated) return null;
+      if (!updated) {
+        return false;
+      }
+
+      const transfer_ = await transaction.query.transfer.findFirst({
+        where: eq(transfer.id, transferId),
+        with: {
+          quote: {
+            with: {
+              sourceToken: true,
+              targetToken: true,
+              chain: true,
+              fees: true,
+              customer: true,
+              paymentLink: true,
+            },
+          },
+        },
+      });
 
       const [createdEvent] = await transaction
         .insert(event)
         .values({
-          appId: row.appId,
+          appId: updated.appId,
           category: WebhookCategory.Transfer,
           previousCategoryStatus: previousStatus,
           currentCategoryStatus: currentStatus,
-          data: common.serializeData({ ...row, ...updated }),
+          data: common.serializeData(transfer_),
         })
-        .returning();
+        .returning({ id: event.id });
 
       await transaction.insert(transferTimeline).values({
         eventId: createdEvent.id,
@@ -231,15 +396,14 @@ export class TransferService {
         description,
       });
 
-      return createdEvent;
+      await Scheduler.enqueueEvent(
+        updated.appId,
+        createdEvent.id,
+        dbWithTransaction(transaction),
+      );
+
+      return true;
     });
-
-    if (!createdEvent) {
-      return false;
-    }
-
-    await Scheduler.enqueueEvent(row.appId, createdEvent.id);
-    return true;
   };
 
   createDeposit = async (
@@ -248,14 +412,16 @@ export class TransferService {
     transferId: string,
     sourceId: string,
   ) => {
-    const eventId = await db.transaction(async (transaction) => {
+    return db.transaction(async (transaction) => {
       const [row] = await transaction
         .insert(deposit)
         .values(input)
         .onConflictDoNothing()
         .returning();
 
-      if (!row) return null;
+      if (!row) {
+        return false;
+      }
 
       const [createdEvent] = await transaction
         .insert(event)
@@ -266,14 +432,19 @@ export class TransferService {
           sourceId,
           data: common.serializeData({ ...row, transferId }),
         })
+        .onConflictDoNothing()
         .returning({ id: event.id });
 
-      return createdEvent.id;
-    });
+      if (createdEvent) {
+        await Scheduler.enqueueEvent(
+          appId,
+          createdEvent.id,
+          dbWithTransaction(transaction),
+        );
+      }
 
-    if (eventId) {
-      await Scheduler.enqueueEvent(appId, eventId);
-    }
+      return true;
+    });
   };
 
   getDepositsByAddress = async (address: string) => {
@@ -294,98 +465,109 @@ export class TransferService {
       .where(eq(transfer.quoteId, quoteId));
 
     const hasQuoteBeenUsed = result[0].count > 0;
-    if (hasQuoteBeenUsed) {
+    if (hasQuoteBeenUsed)
       throw new AppError("Quote has been consumed, create a new one");
-    }
 
     const quote_ = await db.query.quote.findFirst({
       where: and(eq(quote.id, quoteId), eq(quote.appId, appId)),
       with: {
         sourceToken: true,
         targetToken: true,
-        fees: true,
+        fees: {
+          orderBy: [asc(quoteFee.id)],
+        },
         chain: {
           with: {
-            config: {
-              with: {
-                settlementToken: true,
-              },
-            },
+            config: true,
           },
         },
       },
     });
 
-    if (!quote_) {
-      throw new NotFoundError("quote", quoteId);
-    }
-
-    if (quote_.expiresAt.getTime() <= Date.now()) {
+    if (!quote_) throw new NotFoundError("quote", quoteId);
+    if (quote_.expiresAt.getTime() <= Date.now())
       throw new QuoteExpiredError(quote_.id);
-    }
 
-    if (!quote_.chain.config) {
-      throw new AppError("Selected chain is not configured");
-    }
+    const config = quote_.chain.config;
+    if (!config) throw new AppError("Selected chain is not configured");
+    if (!isAddress(refundAddress, { strict: false }))
+      throw new AppError("The refund address is not a valid address");
 
-    const chain = getChain(quote_.chain.caip2Id);
+    const caip2Id = quote_.chain.caip2Id;
+    const chain = getChain(caip2Id);
     const onchainActor = getOnchainActor(chain.type);
 
-    refundAddress = common.normalizeAddress(refundAddress);
-    const settlementRecipient = common.normalizeAddress(
-      quote_.chain.config.settlementAddress ?? onchainActor.getAddress(),
+    const settlementRecipient = getAddress(
+      config.settlementAddress ?? onchainActor.getAddress(),
     );
 
     const minAmountOut =
-      (quote_.targetAmount *
-        (10000n - BigInt(quote_.chain.config.slippageBps))) /
-      10000n;
+      (quote_.targetAmount * (10000n - BigInt(config.slippageBps))) / 10000n;
 
     const transferId = common.uuidv4();
     const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
-    const client = await onchainActor.publicClient(
-      quote_.chain.caip2Id,
-      quote_.chain.config.rpcUrls ?? [],
-    );
-
-    const kiteFactoryInterface = KiteFactory__factory.createInterface();
-    const predictAddressData = kiteFactoryInterface.encodeFunctionData(
-      "predictAddress",
-      [
-        {
-          id: stringToHex(transferId),
-          payInTokenAddress: quote_.sourceToken.address as Address,
-          amountIn: quote_.sourceAmount,
-          settlementTokenAddress: quote_.targetToken.address as Address,
-          settlementRecipient: settlementRecipient,
-          minAmountOut,
-          fees: quote_.fees.map((fee) => ({
-            id: stringToHex(fee.id),
-            recipient: fee.feeAddress,
-            amount: fee.amount,
-          })),
-          refundAddress,
-          expiresAt: BigInt(Math.floor(quote_.expiresAt.getTime() / 1000)),
-          routerAddress: (isSameToken
-            ? zeroAddress
-            : chain.contracts.Uniswap.SwapRouter02) as Address,
-          poolFeeTier: quote_.uniswapPoolFeeTier ?? 0,
-        },
-      ],
-    );
-
-    const predictAddressResult = await client.call({
-      to: quote_.chain.config.kiteFactoryAddress as Address,
-      data: predictAddressData as Hex,
+    const struct = kite.buildTransferInput({
+      transferId,
+      payInTokenAddress: quote_.sourceToken.address,
+      amountIn: quote_.sourceAmount,
+      settlementTokenAddress: quote_.targetToken.address,
+      settlementRecipient,
+      minAmountOut,
+      fees: quote_.fees.map((fee) => ({
+        id: fee.id,
+        recipient: fee.feeAddress,
+        amount: fee.amount,
+      })),
+      refundAddress,
+      expiresAt: quote_.expiresAt,
+      routerAddress: isSameToken
+        ? zeroAddress
+        : chain.contracts.Uniswap.SwapRouter02,
+      poolFeeTier: quote_.uniswapPoolFeeTier ?? 0,
     });
 
-    if (!predictAddressResult.data)
-      throw new AppError("Could not generate deposit address");
+    const error = kite.validateTransferInput(struct);
+    if (error) throw new AppError(error);
 
-    const [payinAddress] = kiteFactoryInterface.decodeFunctionResult(
-      "predictAddress",
-      predictAddressResult.data,
+    const client = await onchainActor.publicClient(
+      caip2Id,
+      config.rpcUrls ?? [],
     );
+
+    const deployment = await kite.simulateFactoryCall(
+      client,
+      config.kiteFactoryAddress,
+      onchainActor.getAddress(),
+      kite.factory.deploy(struct),
+    );
+
+    if (!deployment.ok) {
+      throw new AppError(
+        deployment.kind === "revert"
+          ? (deployment.errorName ?? deployment.message)
+          : deployment.message,
+      );
+    }
+
+    const payinAddress = await kite.predictAddress(
+      client,
+      config.kiteFactoryAddress,
+      struct,
+    );
+
+    await this.trackAddress(
+      caip2Id,
+      payinAddress,
+      config.onchainNotifierProviders ?? [],
+    );
+
+    const paymentInstructions = {
+      caip2Id,
+      address: payinAddress,
+      tokenAddress: quote_.sourceToken.address,
+      amount: quote_.sourceAmount.toString(),
+      expiresAt: quote_.expiresAt,
+    };
 
     const saved = await db.transaction(async (transaction) => {
       const [created] = await transaction
@@ -396,8 +578,9 @@ export class TransferService {
           quoteId,
           settlementRecipient,
           minAmountOut,
-          refundAddress,
-          payinAddress: common.normalizeAddress(payinAddress),
+          refundAddress: struct.refundAddress,
+          payinAddress,
+          kiteTransferInput: kite.serializeTransferInput(struct),
           status: TransferStatus.AwaitingDeposit,
         })
         .returning();
@@ -409,9 +592,13 @@ export class TransferService {
           category: WebhookCategory.Transfer,
           previousCategoryStatus: TransferStatus.Created,
           currentCategoryStatus: TransferStatus.AwaitingDeposit,
-          data: { transferId: created.id, status: created.status },
+          data: {
+            ...created,
+            quote: quote_,
+            paymentInstructions,
+          },
         })
-        .returning();
+        .returning({ id: event.id });
 
       await transaction.insert(transferTimeline).values({
         transferId: created.id,
@@ -419,46 +606,173 @@ export class TransferService {
         description: "Transfer created; awaiting deposit",
       });
 
-      return { transfer: created, eventId: createdEvent.id };
+      await Scheduler.enqueueEvent(
+        appId,
+        createdEvent.id,
+        dbWithTransaction(transaction),
+      );
+
+      return created;
     });
 
-    await Scheduler.enqueueEvent(appId, saved.eventId);
-
-    const options: SdkOptions = {
-      variables: await this.kvService.getSdkOptionVariables(),
+    return {
+      ...saved,
+      paymentInstructions,
     };
+  };
 
-    const providers = quote_.chain.config.onchainNotifierProviders ?? [];
+  settleTransfer = async (transferId: string) => {
+    const ctx = await this.getOnchainTransfer(transferId);
+    let row = ctx.row;
 
-    try {
-      await runProviderMethod<OnchainNotifier, "trackAddressActivity">(
-        providers,
-        "trackAddressActivity",
-        { caip2Id: quote_.chain.caip2Id, address: payinAddress },
-        options,
-      );
-
-      await runProviderMethod<OnchainNotifier, "trackKiteContractEvent">(
-        providers,
-        "trackKiteContractEvent",
-        { caip2Id: quote_.chain.caip2Id, contractAddress: payinAddress },
-        options,
-      );
-    } catch {
-      // nothing
+    if (!SettleableTransferStatuses.includes(row.status)) {
+      return;
     }
 
-    return {
-      ...saved.transfer,
-      minAmountOut: minAmountOut.toString(),
-      paymentInstructions: {
-        caip2Id: quote_.chain.caip2Id,
-        address: payinAddress,
-        tokenAddress: quote_.sourceToken.address,
-        amount: quote_.sourceAmount.toString(),
-        expiresAt: quote_.expiresAt,
-      },
-    };
+    const balance = await ctx.onchainActor.getBalance(
+      ctx.caip2Id,
+      ctx.struct.payInTokenAddress,
+      row.payinAddress,
+    );
+
+    const expired =
+      BigInt(Math.floor(Date.now() / 1000)) > ctx.struct.expiresAt;
+
+    if (balance < ctx.struct.amountIn) {
+      if (expired) {
+        return this.abandonSettlement(
+          row,
+          "Transfer expired before it was paid in full",
+          balance,
+        );
+      }
+
+      if (row.status === TransferStatus.AwaitingDeposit) {
+        return;
+      }
+
+      throw new AppError("Transfer is awaiting full deposit");
+    }
+
+    if (expired) {
+      return this.abandonSettlement(
+        row,
+        "Transfer expired before it was settled",
+        balance,
+      );
+    }
+
+    if (row.status !== TransferStatus.Processing) {
+      const moved = await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Processing,
+        "Transfer settlement submitted",
+      );
+
+      if (!moved) {
+        return;
+      }
+
+      row = {
+        ...row,
+        status: TransferStatus.Processing,
+      };
+    }
+
+    const data = kite.factory.settle(ctx.struct);
+    const simulation = await kite.simulateFactoryCall(
+      ctx.client,
+      ctx.factoryAddress,
+      ctx.onchainActor.getAddress(),
+      data,
+    );
+
+    if (!simulation.ok) {
+      if (simulation.kind === "transient")
+        throw new AppError(simulation.message);
+
+      if (simulation.errorName === "InvoiceNotOpen")
+        return this.reconcileClosedTransfer({ ...ctx, row });
+
+      if (simulation.errorName === "InsufficientPayment")
+        throw new AppError("Deposit not visible to the contract yet");
+
+      return this.abandonSettlement(
+        row,
+        simulation.errorName ?? simulation.message,
+        balance,
+      );
+    }
+
+    const receipt = await this.sendFactoryCall(ctx, data);
+
+    await this.triggerCallbackFromReceipt(
+      ctx.caip2Id,
+      row.payinAddress,
+      receipt,
+    );
+  };
+
+  refundTransfer = async (transferId: string) => {
+    const ctx = await this.getOnchainTransfer(transferId);
+    const row = ctx.row;
+
+    if (
+      row.status === TransferStatus.Settled ||
+      row.status === TransferStatus.Refunded ||
+      (row.status === TransferStatus.Failed && row.x402SettledAt)
+    ) {
+      return;
+    }
+
+    const data = kite.factory.refund(ctx.struct);
+    const simulation = await kite.simulateFactoryCall(
+      ctx.client,
+      ctx.factoryAddress,
+      ctx.onchainActor.getAddress(),
+      data,
+    );
+
+    if (!simulation.ok) {
+      if (simulation.kind === "transient")
+        throw new AppError(simulation.message);
+      if (simulation.errorName === "InvoiceNotOpen")
+        return this.reconcileClosedTransfer(ctx);
+
+      throw new AppError(simulation.errorName ?? simulation.message);
+    }
+
+    const receipt = await this.sendFactoryCall(ctx, data);
+
+    await this.triggerCallbackFromReceipt(
+      ctx.caip2Id,
+      ctx.row.payinAddress,
+      receipt,
+    );
+  };
+
+  recoverTransferToken = async (transferId: string, tokenAddress: string) => {
+    const row = await this.loadTransfer(transferId);
+    if (!row || (row.status === TransferStatus.Failed && row.x402SettledAt)) {
+      return;
+    }
+
+    const failure = await this.recoverToken(
+      transferId,
+      tokenAddress,
+      zeroAddress,
+    );
+
+    if (!failure || failure.ok) return;
+    if (failure.kind === "transient") throw new AppError(failure.message);
+
+    // RecoveryNotAllowed: the transfer is still open; it's retried once it closes.
+    if (failure.errorName !== "RecoveryNotAllowed") {
+      console.warn(
+        `Recovering ${tokenAddress} from transfer ${transferId} needs attention: ${failure.errorName ?? failure.message}`,
+      );
+    }
   };
 
   recover = async (
@@ -466,40 +780,84 @@ export class TransferService {
     tokenAddress: string,
     destinationAddress: string,
   ) => {
-    const { caip2Id, factoryAddress, transferInput } =
-      await this.getOnchainTransfer(transferId);
-
-    const data = KiteFactory__factory.createInterface().encodeFunctionData(
-      "recover",
-      [
-        transferInput,
-        common.normalizeAddress(tokenAddress),
-        common.normalizeAddress(destinationAddress),
-      ],
+    const failure = await this.recoverToken(
+      transferId,
+      common.normalizeAddress(tokenAddress),
+      common.normalizeAddress(destinationAddress),
     );
 
-    return this.sendFactoryCall(caip2Id, factoryAddress, data);
+    if (failure && !failure.ok) {
+      throw new AppError(
+        failure.kind === "revert"
+          ? (failure.errorName ?? failure.message)
+          : failure.message,
+      );
+    }
   };
 
-  refund = async (transferId: string) => {
-    const { caip2Id, factoryAddress, transferInput } =
-      await this.getOnchainTransfer(transferId);
+  sweep = async () => {
+    const staleBefore = new Date(Date.now() - common.toMs(2 * OneMinute));
+    const rows = await db.query.transfer.findMany({
+      where: inArray(transfer.status, [...SettleableTransferStatuses]),
+      orderBy: asc(transfer.updatedAt),
+      columns: {
+        id: true,
+        status: true,
+        updatedAt: true,
+      },
+      with: {
+        quote: {
+          columns: {
+            expiresAt: true,
+          },
+        },
+      },
+      limit: 500,
+    });
 
-    const data = KiteFactory__factory.createInterface().encodeFunctionData(
-      "refund",
-      [transferInput],
-    );
+    for (const row of rows) {
+      const expired = row.quote.expiresAt.getTime() <= Date.now();
 
-    return this.sendFactoryCall(caip2Id, factoryAddress, data);
+      if (
+        expired ||
+        row.status === TransferStatus.AwaitingDeposit ||
+        row.updatedAt < staleBefore
+      ) {
+        await Scheduler.enqueueSettle(row.id);
+      }
+    }
+
+    const failed = await db.query.transfer.findMany({
+      columns: {
+        id: true,
+      },
+      where: and(
+        eq(transfer.status, TransferStatus.Failed),
+        isNull(transfer.x402SettledAt),
+        lt(transfer.updatedAt, staleBefore),
+      ),
+      limit: 200,
+    });
+
+    for (const row of failed) {
+      await Scheduler.enqueueRefund(row.id);
+    }
+
+    await new OperatorForwardService().requeueStuck();
   };
 
   handleOnchainNotifierCallback = async (
     result: OnchainNotifierCallbackResult,
   ) => {
-    for (const item of result) {
-      const onchainActor = getOnchainActor(getChain(item.caip2Id).type);
-      const chain = await this.chainService.getChainByCaip2Id(item.caip2Id);
-      if (!chain) continue;
+    const errors: unknown[] = [];
+
+    const handleOnchainItem = async (
+      item: OnchainNotifierCallbackResultItem,
+    ) => {
+      const chain = await new ChainService().getChainByCaip2Id(item.caip2Id);
+      if (!chain) {
+        return;
+      }
 
       const transfer_ = await db.query.transfer.findFirst({
         where: eq(
@@ -507,256 +865,268 @@ export class TransferService {
           common.normalizeAddress(item.payinAddress),
         ),
         with: {
-          quote: {
-            with: {
-              sourceToken: true,
-            },
-          },
+          deposits: { with: { token: true } },
+          quote: { with: { sourceToken: true } },
         },
       });
 
-      if (!transfer_) continue;
+      if (!transfer_ || transfer_.quote.chainId !== chain.id) {
+        return;
+      }
 
-      if (item.type === "DepositReceived") {
-        const address = common.normalizeAddress(item.payinAddress);
-        const token = await this.tokenService.getTokenByAddress(
-          chain.id,
-          item.tokenAddress,
-        );
+      const sourceId = this.callbackSourceId(item);
 
-        await this.createDeposit(
-          {
-            address,
-            senderAddress: common.normalizeAddress(item.from),
-            amount: item.amount,
-            blockchainHash: item.blockchainHash,
-            logIndex: item.logIndex,
-            chainId: chain.id,
-            tokenId: token.id,
-          },
-          transfer_.appId,
-          transfer_.id,
-          this.callbackSourceId(item),
-        );
+      switch (item.type) {
+        case "DepositReceived": {
+          const token = await new TokenService().findTokenByAddress(
+            chain.id,
+            item.tokenAddress,
+          );
 
-        if (
-          transfer_.x402Payer &&
-          common.normalizeAddress(item.from) === transfer_.x402Payer &&
-          transfer_.quote.sourceToken.id === token.id &&
-          item.amount === transfer_.quote.sourceAmount
-        ) {
-          await db
-            .update(transfer)
-            .set({ x402BlockchainHash: item.blockchainHash })
-            .where(
-              and(
-                eq(transfer.id, transfer_.id),
-                eq(transfer.x402Payer, transfer_.x402Payer),
-                isNull(transfer.x402BlockchainHash),
-              ),
-            );
-        }
+          if (!token) {
+            return;
+          }
 
-        if (
-          transfer_.quote.sourceToken.id === token.id &&
-          [
-            TransferStatus.AwaitingDeposit,
-            TransferStatus.x402Settled,
-            TransferStatus.DepositReceived,
-          ].includes(transfer_.status)
-        ) {
-          const deposits = await db.query.deposit.findMany({
-            columns: {
-              amount: true,
+          const address = common.normalizeAddress(item.payinAddress);
+
+          await this.createDeposit(
+            {
+              address,
+              senderAddress: common.normalizeAddress(item.from),
+              amount: item.amount,
+              blockchainHash: item.blockchainHash,
+              logIndex: item.logIndex,
+              chainId: chain.id,
+              tokenId: token.id,
             },
-            where: and(
-              eq(deposit.address, address),
-              eq(deposit.tokenId, token.id),
-            ),
-          });
+            transfer_.appId,
+            transfer_.id,
+            sourceId,
+          );
+
+          const isPayInToken = transfer_.quote.sourceToken.id === token.id;
+
+          if (
+            isPayInToken &&
+            transfer_.x402Payer &&
+            common.isSameAddress(item.from, transfer_.x402Payer) &&
+            item.amount === transfer_.quote.sourceAmount
+          ) {
+            await db
+              .update(transfer)
+              .set({ x402BlockchainHash: item.blockchainHash })
+              .where(
+                and(
+                  eq(transfer.id, transfer_.id),
+                  eq(transfer.x402Payer, transfer_.x402Payer),
+                  isNull(transfer.x402BlockchainHash),
+                ),
+              );
+          }
+
+          switch (transfer_.status) {
+            case TransferStatus.Settled:
+            case TransferStatus.Refunded:
+              await Scheduler.enqueueRecover(transfer_.id, token.address);
+              return;
+
+            case TransferStatus.Cancelled:
+              await Scheduler.enqueueRefund(transfer_.id);
+              return;
+
+            case TransferStatus.Failed:
+              return;
+          }
+
+          if (!isPayInToken) {
+            await Scheduler.enqueueRecover(transfer_.id, token.address);
+            return;
+          }
+
+          if (
+            ![
+              TransferStatus.AwaitingDeposit,
+              TransferStatus.x402Settled,
+              TransferStatus.DepositReceived,
+            ].includes(transfer_.status)
+          ) {
+            return;
+          }
+
+          const deposits = transfer_.deposits
+            .filter((deposit) => deposit.tokenId === token.id)
+            .map((deposit) => deposit.amount);
 
           const totalReceived = deposits.reduce(
-            (total, row) => total + row.amount,
+            (total, amount) => total + amount,
             0n,
           );
 
-          if (totalReceived >= transfer_.quote.sourceAmount) {
-            if (transfer_.status !== TransferStatus.DepositReceived) {
-              const ok = await this.transitionTransferStatus(
-                transfer_.id,
-                transfer_.status,
-                TransferStatus.DepositReceived,
-                "Expected deposit received",
-              );
+          if (totalReceived < transfer_.quote.sourceAmount) {
+            return;
+          }
 
-              if (!ok) {
-                continue;
-              }
+          if (transfer_.status !== TransferStatus.DepositReceived) {
+            await this.transitionTransferStatus(
+              transfer_.id,
+              transfer_.status,
+              TransferStatus.DepositReceived,
+              "Expected deposit received",
+            );
+          }
+
+          await Scheduler.enqueueSettle(transfer_.id);
+
+          return;
+        }
+
+        case "FeePaid": {
+          const quoteFeeId = common.bytes32ToUuid(item.feeId);
+          if (quoteFeeId) {
+            await new QuoteService().addQuoteFeeReceipt(
+              quoteFeeId,
+              item.blockchainHash,
+            );
+          }
+
+          return;
+        }
+
+        case "ExcessRefunded":
+        case "Recovered": {
+          await db.transaction(async (tx) => {
+            const [createdEvent] = await tx
+              .insert(event)
+              .values({
+                appId: transfer_.appId,
+                category:
+                  item.type === "ExcessRefunded"
+                    ? WebhookCategory.ExcessRefund
+                    : WebhookCategory.Recovery,
+                currentCategoryStatus: "Completed",
+                sourceId,
+                data: common.serializeData({
+                  transferId: transfer_.id,
+                  caip2Id: item.caip2Id,
+                  tokenAddress: item.tokenAddress,
+                  amount: item.amount,
+                  to: item.to,
+                  blockchainHash: item.blockchainHash,
+                }),
+              })
+              .onConflictDoNothing()
+              .returning({ id: event.id });
+
+            if (!createdEvent) {
+              return;
             }
 
-            const { transferInput, caip2Id, factoryAddress } =
-              await this.getOnchainTransfer(transfer_.id);
-
-            const data =
-              KiteFactory__factory.createInterface().encodeFunctionData(
-                "settle",
-                [transferInput],
-              );
-
-            const ok = await this.transitionTransferStatus(
-              transfer_.id,
-              TransferStatus.DepositReceived,
-              TransferStatus.Processing,
-              "Transfer settlement submitted",
+            await Scheduler.enqueueEvent(
+              transfer_.appId,
+              createdEvent.id,
+              dbWithTransaction(tx),
             );
 
-            if (!ok) {
-              continue;
-            }
+            await new OperatorForwardService().recordForward(tx, {
+              transfer: transfer_,
+              item,
+              sourceId,
+            });
+          });
 
-            try {
-              await this.sendFactoryCall(caip2Id, factoryAddress, data);
-            } catch (e) {
-              await this.transitionTransferStatus(
-                transfer_.id,
-                TransferStatus.Processing,
-                TransferStatus.Failed,
-                "Transfer settlement attempt failed",
-              );
-
-              await this.refund(transfer_.id);
-
-              throw e;
-            }
-          }
+          return;
         }
 
-        continue;
-      }
-
-      if (item.type === "FeePaid") {
-        await this.quoteService.addQuoteFeeReceipt(
-          hexToString(item.feeId as Hex),
-          item.blockchainHash,
-        );
-
-        continue;
-      }
-
-      if (item.type === "ExcessRefunded") {
-        if (
-          !!transfer_.x402Payer &&
-          onchainActor.getAddress() === item.to &&
-          transfer_.refundAddress === onchainActor.getAddress()
-        ) {
-          await this.doOperatorRefund(
-            item.caip2Id,
-            item.tokenAddress,
-            transfer_.x402Payer,
-            item.amount,
+        case "Refunded": {
+          const symbol = transfer_.quote.sourceToken.symbol;
+          const amount = formatUnits(
+            item.amountRefunded,
+            transfer_.quote.sourceToken.decimals,
           );
-        }
 
-        const [createdEvent] = await db
-          .insert(event)
-          .values({
-            appId: transfer_.appId,
-            category: WebhookCategory.ExcessRefund,
-            currentCategoryStatus: "Completed",
-            sourceId: this.callbackSourceId(item),
-            data: common.serializeData({
-              transferId: transfer_.id,
-              caip2Id: item.caip2Id,
-              tokenAddress: item.tokenAddress,
-              amount: item.amount,
-              to: item.to,
-              blockchainHash: item.blockchainHash,
-            }),
-          })
-          .onConflictDoNothing()
-          .returning({ id: event.id });
-
-        if (createdEvent)
-          await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
-
-        continue;
-      }
-
-      if (item.type === "Recovered") {
-        const [createdEvent] = await db
-          .insert(event)
-          .values({
-            appId: transfer_.appId,
-            category: WebhookCategory.Recovery,
-            currentCategoryStatus: "Completed",
-            sourceId: this.callbackSourceId(item),
-            data: common.serializeData({
-              transferId: transfer_.id,
-              caip2Id: item.caip2Id,
-              tokenAddress: item.tokenAddress,
-              amount: item.amount,
-              to: item.to,
-              blockchainHash: item.blockchainHash,
-            }),
-          })
-          .onConflictDoNothing()
-          .returning({ id: event.id });
-
-        if (createdEvent)
-          await Scheduler.enqueueEvent(transfer_.appId, createdEvent.id);
-
-        continue;
-      }
-
-      if (item.type === "Refunded") {
-        if (
-          !!transfer_.x402Payer &&
-          onchainActor.getAddress() === item.refundAddress &&
-          transfer_.refundAddress === onchainActor.getAddress()
-        ) {
-          await this.doOperatorRefund(
+          const onchainActor = getOnchainActor(getChain(item.caip2Id).type);
+          const balance = await onchainActor.getBalance(
             item.caip2Id,
             transfer_.quote.sourceToken.address,
-            transfer_.x402Payer,
-            item.amountRefunded,
+            transfer_.payinAddress,
           );
+
+          const undelivered = item.amountRefunded === 0n && balance > 0n;
+          const description = undelivered
+            ? `Refund to ${item.refundAddress} could not be delivered`
+            : `Refunded ${amount} ${symbol} to ${item.refundAddress}`;
+
+          await db.transaction(async (tx) => {
+            await this.transitionTransferStatus(
+              transfer_.id,
+              transfer_.status,
+              TransferStatus.Refunded,
+              description,
+              { refundBlockchainHash: item.blockchainHash },
+              tx,
+            );
+
+            await new OperatorForwardService().recordForward(tx, {
+              transfer: transfer_,
+              item,
+              sourceId,
+            });
+          });
+
+          await db
+            .update(transfer)
+            .set({ refundBlockchainHash: item.blockchainHash })
+            .where(
+              and(
+                eq(transfer.id, transfer_.id),
+                eq(transfer.status, TransferStatus.Refunded),
+                isNull(transfer.refundBlockchainHash),
+              ),
+            );
+
+          await this.enqueueLeftoverRecovery(transfer_.id);
+          return;
         }
 
-        const symbol = transfer_.quote.sourceToken.symbol;
-        const amount = formatUnits(
-          item.amountRefunded,
-          transfer_.quote.sourceToken.decimals,
-        );
+        case "Settled": {
+          await this.transitionTransferStatus(
+            transfer_.id,
+            transfer_.status,
+            TransferStatus.Settled,
+            "Transfer settled",
+            { settlementBlockchainHash: item.blockchainHash },
+          );
 
-        await this.transitionTransferStatus(
-          transfer_.id,
-          transfer_.status,
-          TransferStatus.Refunded,
-          `Refunded ${Number(amount).toLocaleString()} ${symbol} to ${item.refundAddress}`,
-          { refundBlockchainHash: item.blockchainHash },
-        );
+          await db
+            .update(transfer)
+            .set({ settlementBlockchainHash: item.blockchainHash })
+            .where(
+              and(
+                eq(transfer.id, transfer_.id),
+                eq(transfer.status, TransferStatus.Settled),
+                isNull(transfer.settlementBlockchainHash),
+              ),
+            );
 
-        continue;
+          await this.enqueueLeftoverRecovery(transfer_.id);
+          return;
+        }
       }
+    };
 
-      if (item.type === "Settled") {
-        await this.transitionTransferStatus(
-          transfer_.id,
-          transfer_.status,
-          TransferStatus.Settled,
-          "Transfer settled",
-          { settlementBlockchainHash: item.blockchainHash },
-        );
-
-        continue;
-      }
+    for (const item of result) {
+      await handleOnchainItem(item).catch((e) => errors.push(e));
     }
+
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors);
   };
 
   getTransfer = async (appId: string, transferId: string) => {
     return await db.query.transfer.findFirst({
       where: and(eq(transfer.appId, appId), eq(transfer.id, transferId)),
       with: {
+        timeline: true,
         quote: {
           with: {
             sourceToken: true,
@@ -767,17 +1137,18 @@ export class TransferService {
             paymentLink: true,
           },
         },
-        timeline: { with: { event: true } },
-        deposits: { with: { token: true } },
       },
     });
   };
 
   getTransferByPayinAddress = async (appId: string, payinAddress: string) => {
-    const address = common.normalizeAddress(payinAddress);
     return await db.query.transfer.findFirst({
-      where: and(eq(transfer.appId, appId), eq(transfer.payinAddress, address)),
+      where: and(
+        eq(transfer.appId, appId),
+        eq(transfer.payinAddress, common.normalizeAddress(payinAddress)),
+      ),
       with: {
+        timeline: true,
         quote: {
           with: {
             sourceToken: true,
@@ -788,8 +1159,6 @@ export class TransferService {
             paymentLink: true,
           },
         },
-        timeline: { with: { event: true } },
-        deposits: { with: { token: true } },
       },
     });
   };
@@ -799,6 +1168,7 @@ export class TransferService {
       where: eq(transfer.appId, appId),
       orderBy: desc(transfer.createdAt),
       with: {
+        timeline: true,
         quote: {
           with: {
             sourceToken: true,

@@ -1,34 +1,60 @@
-import { type Address, erc20Abi, type Hex, parseAbi } from "viem";
+import {
+  type Address,
+  type Hex,
+  erc20Abi,
+  getAddress,
+  isAddress,
+  parseAbi,
+} from "viem";
 import { getChain, providerDescriptorOfChain } from "../shared/chains";
 import { AppError, NotFoundError } from "../shared/errors";
 import { Provider, zeroBytes32 } from "../shared/constants";
-import { type ChainService } from "./Chain.service";
 import { getOnchainActor } from "../shared/onchainActor";
 import { and, eq, desc } from "drizzle-orm";
+import { ChainService } from "./Chain.service";
 import { common } from "../shared/common";
 import { token } from "../db/schema";
 import { Http } from "../sdks/Http";
 import { db } from "../db";
 
 export class TokenService {
-  constructor(private readonly chainService: ChainService) {}
+  findTokenByAddress = async (chainId: string, tokenAddress: string) => {
+    if (!isAddress(tokenAddress, { strict: false })) {
+      return undefined;
+    }
+
+    return db.query.token.findFirst({
+      with: { chain: true },
+      where: and(
+        eq(token.chainId, chainId),
+        eq(token.address, getAddress(tokenAddress)),
+      ),
+    });
+  };
 
   getTokenByAddress = async (chainId: string, tokenAddress: string) => {
     const address = common.normalizeAddress(tokenAddress);
-    const row = await db.query.token.findFirst({
-      where: and(eq(token.chainId, chainId), eq(token.address, address)),
-      with: { chain: true },
-    });
+    const row = await this.findTokenByAddress(chainId, address);
 
     if (row) return row;
 
-    const chain = await this.chainService.getChainById(chainId);
+    const chain = await new ChainService().getChainById(chainId);
     if (!chain) throw new NotFoundError("chain", chainId);
 
-    const baseUrl =
-      "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains";
-    const http = new Http(baseUrl);
+    const saveToken = async (values: typeof token.$inferInsert) => {
+      await db
+        .insert(token)
+        .values(values)
+        .onConflictDoNothing({ target: [token.chainId, token.address] });
 
+      const row = await this.findTokenByAddress(values.chainId, values.address);
+      if (!row) throw new AppError("Could not save token");
+      return row;
+    };
+
+    const TWAssetsUrl =
+      "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains";
+    const http = new Http(TWAssetsUrl);
     const descriptor = providerDescriptorOfChain<string>(
       chain.caip2Id,
       Provider.TrustWallet,
@@ -36,30 +62,25 @@ export class TokenService {
 
     const chainBaseUrl = `/${descriptor}`;
 
-    if (common.isZeroAddress(tokenAddress)) {
+    if (common.isZeroAddress(address)) {
       const chain_ = getChain(chain.caip2Id);
-      const [row] = await db
-        .insert(token)
-        .values({
-          chainId,
-          address,
-          symbol: chain_.nativeCurrency.symbol,
-          decimals: chain_.nativeCurrency.decimals,
-          name: chain_.nativeCurrency.name,
-          supportsEIP3009: false,
-          icon: `${chainBaseUrl}/info/logo.png`,
-        })
-        .returning();
-
-      return row;
+      return saveToken({
+        chainId,
+        address,
+        symbol: chain_.nativeCurrency.symbol,
+        decimals: chain_.nativeCurrency.decimals,
+        name: chain_.nativeCurrency.name,
+        supportsEIP3009: false,
+        icon: `${TWAssetsUrl}${chainBaseUrl}/info/logo.png`,
+      });
     }
 
-    const domain = await this.readTokenDomain(chain.caip2Id, tokenAddress);
+    const domain = await this.readTokenDomain(chain.caip2Id, address);
     const supportsEIP3009 = !!domain;
     const version = domain?.version;
 
     const tokenBaseUrl = `${chainBaseUrl}/assets/${address}`;
-    const iconUrl = `${tokenBaseUrl}/logo.png`;
+    const iconUrl = `${TWAssetsUrl}${tokenBaseUrl}/logo.png`;
 
     const response = await http.get<{
       name: string;
@@ -76,21 +97,16 @@ export class TokenService {
     }>(`${tokenBaseUrl}/info.json`);
 
     if (response.isOk && !!response.data) {
-      const [row] = await db
-        .insert(token)
-        .values({
-          chainId,
-          address,
-          symbol: response.data.symbol,
-          decimals: response.data.decimals,
-          name: response.data.name,
-          version,
-          supportsEIP3009,
-          icon: iconUrl,
-        })
-        .returning();
-
-      return row;
+      return saveToken({
+        chainId,
+        address,
+        symbol: response.data.symbol,
+        decimals: response.data.decimals,
+        name: response.data.name,
+        version,
+        supportsEIP3009,
+        icon: iconUrl,
+      });
     }
 
     const onchainActor = getOnchainActor(getChain(chain.caip2Id).type);
@@ -120,20 +136,15 @@ export class TokenService {
       throw new AppError("Could not get meta information for token");
     }
 
-    const [row2] = await db
-      .insert(token)
-      .values({
-        chainId,
-        address: tokenAddress,
-        symbol,
-        decimals,
-        name,
-        version,
-        supportsEIP3009,
-      })
-      .returning();
-
-    return row2;
+    return saveToken({
+      chainId,
+      address,
+      symbol,
+      decimals,
+      name,
+      version,
+      supportsEIP3009,
+    });
   };
 
   getTokenById = async (tokenId: string) => {

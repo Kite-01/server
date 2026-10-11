@@ -7,18 +7,16 @@ import {
   type Log,
 } from "viem";
 import { type FacilitatorEvmSigner } from "@x402/evm";
-import { type ChainService } from "../services/Chain.service";
 import { type OnchainActor } from "./interfaces/OnchainActor";
+import { getX402Observer } from "../shared/context/x402";
+import { ChainService } from "../services/Chain.service";
+import { KvService } from "../services/Kv.service";
 import { AppError } from "../shared/errors";
-import { reportX402TransactionHash } from "../shared/x402TransactionContext";
 
 export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
   constructor(
-    private readonly chainService: ChainService,
     private readonly caip2Id: Caip2Id,
     private readonly onchainActor: OnchainActor,
-    private readonly options: SdkOptions,
-    private readonly rpcUrls?: string[],
   ) {}
 
   getAddresses = () => [this.onchainActor.getAddress() as Address];
@@ -29,13 +27,10 @@ export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
     functionName: string;
     args?: readonly unknown[];
   }): Promise<unknown> => {
-    const client = await this.onchainActor.publicClient(
-      this.caip2Id,
-      this.rpcUrls,
-    );
+    const client = await this.onchainActor.publicClient(this.caip2Id);
 
-    return await client.readContract({
-      abi: args.abi,
+    return client.readContract({
+      abi: args.abi as Abi,
       address: args.address,
       functionName: args.functionName,
       args: args.args,
@@ -79,20 +74,28 @@ export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
   };
 
   sendTransaction = async (args: { to: Hex; data: Hex }): Promise<Hex> => {
-    const chain = await this.chainService.getChainByCaip2Id(this.caip2Id);
-
+    const chainService = new ChainService();
+    const chain = await chainService.getChainByCaip2Id(this.caip2Id);
     if (chain?.config?.maxGasPrice) {
       const gasPrice = await this.onchainActor.getGasPrice(this.caip2Id);
-      if (gasPrice > chain.config.maxGasPrice)
+      if (gasPrice > chain.config.maxGasPrice) {
         throw new AppError("Gas price exceeds the configured facilitator cap");
+      }
     }
 
+    const kvService = new KvService();
+    const options: SdkOptions = {
+      variables: await kvService.getSdkOptionVariables(),
+    };
+
+    const observer = getX402Observer();
     const transactionHash = await this.onchainActor.sendTransaction(
       { caip2Id: this.caip2Id, to: args.to, data: args.data, value: 0n },
-      this.options,
+      options,
+      { onSubmitted: observer?.onSubmitted },
     );
 
-    await reportX402TransactionHash(transactionHash);
+    await observer?.onBroadcast(transactionHash);
 
     return transactionHash as Hex;
   };
@@ -104,6 +107,7 @@ export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
     const receipt = await this.onchainActor.waitForReceipt(
       this.caip2Id,
       args.hash,
+      args.timeout,
     );
 
     return {
@@ -117,6 +121,7 @@ export class x402EvmFacilitatorSigner implements FacilitatorEvmSigner {
       this.caip2Id,
       args.address,
     );
+
     return code === "0x" ? undefined : (code as Hex);
   };
 }

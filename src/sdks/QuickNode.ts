@@ -1,26 +1,23 @@
 import {
   KeyType,
   KeyVars,
-  KiteContractEventSignatures,
+  KiteContractEventTopics,
   OneMinute,
   Provider,
 } from "../shared/constants";
-import { decodeEventLog, erc20Abi, type Hex, zeroAddress } from "viem";
 import { providerDescriptorOfChain } from "../shared/chains";
 import { type OnchainNotifier } from "./interfaces/OnchainNotifier";
 import { SdkRequestError } from "../shared/errors";
-import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory";
 import { type BaseSdk } from "./interfaces/BaseSdk";
+import { zeroAddress } from "viem";
 import { createHmac } from "node:crypto";
 import { KvService } from "../services/Kv.service";
 import { common } from "../shared/common";
-import { first } from "lodash";
+import { kite } from "../shared/kiteContract";
 import { Http } from "./Http";
 import { env } from "../shared/env";
 
 export class QuickNode implements OnchainNotifier, BaseSdk {
-  constructor(private readonly kvService: KvService) {}
-
   getClient = (options: SdkOptions): Http => {
     const apiKey = common.requireVar(options, KeyVars.QuickNodeApiKey);
 
@@ -45,6 +42,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
     network: string,
     options: SdkOptions,
   ) => {
+    const kvService = new KvService();
     const client = this.getClient(options);
 
     const upsertListItem = async (key: string, items: string[]) => {
@@ -52,7 +50,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
       const getListResponse = await client.get<{
         data: { items: Array<string> };
-      }>("/kv/rest/v1/lists", { params: { key } });
+      }>(`/kv/rest/v1/lists${key}`);
 
       if (!getListResponse.isOk || !getListResponse.data?.data.items.length) {
         const url = "/kv/rest/v1/lists";
@@ -105,7 +103,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
       if (!walletsListName) {
         walletsListName = "evmWalletFilterWalletsList";
 
-        await this.kvService.upsertKv({
+        await kvService.upsertKv({
           key: KeyVars.QuickNodeEvmWalletFilter_WalletsListName,
           value: walletsListName,
           type: KeyType.String,
@@ -126,7 +124,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
       if (!contractsListName) {
         contractsListName = "evmContractEventsContractsListName";
 
-        await this.kvService.upsertKv({
+        await kvService.upsertKv({
           key: KeyVars.QuickNodeEvmContractEvents_ContractsListName,
           value: contractsListName,
           type: KeyType.String,
@@ -142,12 +140,9 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
       if (!eventHashesListName) {
         eventHashesListName = "evmContractEventsEventHashesListName";
-        await upsertListItem(
-          eventHashesListName,
-          KiteContractEventSignatures.filter((s): s is string => !!s),
-        );
+        await upsertListItem(eventHashesListName, KiteContractEventTopics);
 
-        await this.kvService.upsertKv({
+        await kvService.upsertKv({
           key: KeyVars.QuickNodeEvmContractEvents_EventHashesListName,
           value: eventHashesListName,
           type: KeyType.String,
@@ -166,7 +161,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
       if (!securityToken) {
         securityToken = common.uuidv4();
 
-        await this.kvService.upsertKv({
+        await kvService.upsertKv({
           key: KeyVars.QuickNodeWebhookSecurityToken,
           value: securityToken,
           type: KeyType.SecureString,
@@ -177,8 +172,8 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
       const response = await client.post<{ id: string }>(url, {
         name:
           template === "evmWalletFilter"
-            ? "Track EVM wallet activity"
-            : "Track Kite contract activity",
+            ? `Track EVM wallet activity (${network})`
+            : `Track Kite contract activity (${network})`,
         network,
         destination_attributes: {
           url: this.getCallbackUrl(
@@ -198,7 +193,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
       webhookId = response.data.id;
 
-      await this.kvService.upsertKv({
+      await kvService.upsertKv({
         key:
           template === "evmWalletFilter"
             ? KeyVars.QuickNodeEvmWalletFilter_WebhookId
@@ -331,6 +326,33 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
         const caip2Id = toCaip2Id(transaction.chainId);
         const value = BigInt(transaction.value ?? "0x0");
+        const logs = receipt.logs ?? [];
+
+        // in a Kite settle/refund/recover transaction, transfers into the clone are the
+        // contract's own (e.g. swap output), not deposits.
+        const clones = new Set(
+          kite
+            .parseContractLogs(caip2Id, logs)
+            .map((item) => item.payinAddress.toLowerCase()),
+        );
+
+        if (
+          transaction.to &&
+          !clones.has(transaction.to.toLowerCase()) &&
+          value > 0n
+        ) {
+          result.push({
+            type: "DepositReceived",
+            caip2Id,
+            blockchainHash: transaction.hash,
+            logIndex: "native",
+            from: common.normalizeAddress(transaction.from),
+            payinAddress: common.normalizeAddress(transaction.to),
+            tokenAddress: zeroAddress,
+            amount: value,
+          });
+        }
+
         if (transaction.to && value > 0n) {
           result.push({
             type: "DepositReceived",
@@ -344,32 +366,25 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
           });
         }
 
-        const erc20TransferTopic = common.eventSignatureFromAbi(
-          erc20Abi,
-          "Transfer",
-        );
-
-        for (const log of receipt.logs ?? []) {
-          if (first(log.topics) !== erc20TransferTopic) {
+        for (const log of logs) {
+          const erc20Transfer = kite.parseErc20TransferLog(log);
+          if (
+            !erc20Transfer ||
+            erc20Transfer.amount === 0n ||
+            clones.has(erc20Transfer.to.toLowerCase())
+          ) {
             continue;
           }
-
-          const amount = BigInt(log.data);
-          if (amount === 0n) {
-            continue;
-          }
-
-          const to = common.topicToAddress(log.topics[2]);
 
           result.push({
             type: "DepositReceived",
             caip2Id,
             blockchainHash: transaction.hash,
-            logIndex: log.logIndex,
-            from: common.normalizeAddress(common.topicToAddress(log.topics[1])),
-            payinAddress: common.normalizeAddress(to),
-            tokenAddress: common.normalizeAddress(log.address),
-            amount,
+            logIndex: BigInt(log.logIndex).toString(),
+            from: erc20Transfer.from,
+            payinAddress: erc20Transfer.to,
+            tokenAddress: erc20Transfer.token,
+            amount: erc20Transfer.amount,
           });
         }
       }
@@ -387,92 +402,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
           continue;
         }
 
-        for (const log of receipt.logs ?? []) {
-          let decoded;
-
-          try {
-            decoded = decodeEventLog({
-              abi: Kite__factory.abi,
-              data: log.data as Hex,
-              topics: log.topics as [Hex, ...Hex[]],
-            });
-          } catch {
-            // not one of the Kite events
-            continue;
-          }
-
-          const address = log.address;
-          const base = {
-            caip2Id,
-            blockchainHash: hash,
-            logIndex: log.logIndex,
-            payinAddress: common.normalizeAddress(address),
-          };
-
-          let event: OnchainNotifierCallbackResultItem | undefined;
-
-          switch (decoded.eventName) {
-            case "Settled":
-              event = {
-                ...base,
-                type: "Settled",
-                transferId: decoded.args.transferId,
-              };
-
-              break;
-
-            case "FeePaid":
-              event = {
-                ...base,
-                type: "FeePaid",
-                transferId: decoded.args.transferId,
-                feeId: decoded.args.feeId,
-              };
-
-              break;
-
-            case "Refunded":
-              event = {
-                ...base,
-                type: "Refunded",
-                transferId: decoded.args.transferId,
-                amountRefunded: decoded.args.amountRefunded,
-                refundAddress: common.normalizeAddress(
-                  decoded.args.refundAddress,
-                ),
-              };
-
-              break;
-
-            case "ExcessRefunded":
-              event = {
-                ...base,
-                type: "ExcessRefunded",
-                transferId: decoded.args.transferId,
-                tokenAddress: common.normalizeAddress(decoded.args.token),
-                amount: decoded.args.amount,
-                to: common.normalizeAddress(decoded.args.to),
-              };
-
-              break;
-
-            case "Recovered":
-              event = {
-                ...base,
-                type: "Recovered",
-                transferId: decoded.args.transferId,
-                tokenAddress: common.normalizeAddress(decoded.args.token),
-                amount: decoded.args.amount,
-                to: common.normalizeAddress(decoded.args.to),
-              };
-
-              break;
-          }
-
-          if (event) {
-            result.push(event);
-          }
-        }
+        result.push(...kite.parseContractLogs(caip2Id, receipt.logs));
       }
     }
 

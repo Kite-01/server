@@ -12,3 +12,12 @@ type OnchainActorReceipt = {
   gasUsed: bigint;
   logs: Array<import("viem").Log>;
 };
+
+type OnchainActorCallStatus =
+  | { status: "pending" }
+  | { status: "success"; transactionHash: string }
+  | { status: "failure"; transactionHash?: string };
+
+type OnchainActorSendHooks = {
+  onSubmitted?(callId: string): Promise<void>;
+};

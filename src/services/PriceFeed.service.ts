@@ -1,8 +1,8 @@
 import { AppError, NotFoundError } from "../shared/errors";
 import { ChainLinkAggregatorV3 } from "../shared/abis/ChainLinkAggregatorV3";
-import { type ChainService } from "./Chain.service";
 import { getOnchainActor } from "../shared/onchainActor";
 import { and, eq, desc } from "drizzle-orm";
+import { ChainService } from "./Chain.service";
 import { type Address } from "viem";
 import { priceFeed } from "../db/schema";
 import { getChain } from "../shared/chains";
@@ -10,15 +10,14 @@ import { OneDay } from "../shared/constants";
 import { db } from "../db";
 
 export class PriceFeedService {
-  constructor(private readonly chainService: ChainService) {}
-
   createPriceFeed = async (
     input: Omit<
       typeof priceFeed.$inferInsert,
       "baseCurrency" | "quoteCurrency" | "decimals"
     >,
   ) => {
-    const chain = await this.chainService.getChainById(input.chainId);
+    const chainService = new ChainService();
+    const chain = await chainService.getChainById(input.chainId);
     if (!chain) throw new NotFoundError("chain", input.chainId);
 
     const onchainActor = getOnchainActor(getChain(chain.caip2Id).type);
@@ -46,10 +45,18 @@ export class PriceFeedService {
     const description = description_.result,
       decimals = decimals_.result;
 
-    if (!description || !decimals)
+    if (!description || typeof decimals !== "number") {
       throw new AppError("Could not get meta information from address");
+    }
 
-    const [baseCurrency, quoteCurrency] = description.split("/");
+    const [baseCurrency, quoteCurrency, ...rest] = description
+      .split("/")
+      .map((part) => part.trim().toUpperCase());
+
+    if (!baseCurrency || !quoteCurrency || rest.length) {
+      throw new AppError(`Unrecognised price feed description: ${description}`);
+    }
+
     const [row] = await db
       .insert(priceFeed)
       .values({ ...input, decimals, baseCurrency, quoteCurrency })

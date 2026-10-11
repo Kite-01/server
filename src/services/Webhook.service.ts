@@ -1,4 +1,4 @@
-import { eq, and, desc, arrayContains, exists, sql } from "drizzle-orm";
+import { eq, and, desc, arrayContains, exists, isNull, sql } from "drizzle-orm";
 import { webhook, webhookDelivery } from "../db/schema";
 import { WebhookCategory } from "../shared/constants";
 import { common } from "../shared/common";
@@ -7,7 +7,10 @@ import { db } from "../db";
 
 export class WebhookService {
   createWebhook = async (
-    input: Omit<typeof webhook.$inferInsert, "signingKey" | "signingKeyHint">,
+    input: Omit<
+      typeof webhook.$inferInsert,
+      "signingKey" | "signingKeyHint" | "deletedAt"
+    >,
   ) => {
     const { secret, secretHint } = common.generateSecret("whsec_");
     const [row] = await db
@@ -24,13 +27,17 @@ export class WebhookService {
 
   getWebhook = async (appId: string, webhookId: string) => {
     return db.query.webhook.findFirst({
-      where: and(eq(webhook.appId, appId), eq(webhook.id, webhookId)),
+      where: and(
+        eq(webhook.appId, appId),
+        eq(webhook.id, webhookId),
+        isNull(webhook.deletedAt),
+      ),
     });
   };
 
   getWebhooks = async (appId: string) => {
     return db.query.webhook.findMany({
-      where: eq(webhook.appId, appId),
+      where: and(eq(webhook.appId, appId), isNull(webhook.deletedAt)),
       orderBy: desc(webhook.createdAt),
     });
   };
@@ -39,6 +46,7 @@ export class WebhookService {
     return db.query.webhook.findMany({
       where: and(
         eq(webhook.appId, appId),
+        isNull(webhook.deletedAt),
         arrayContains(webhook.categories, [category]),
       ),
       orderBy: desc(webhook.createdAt),
@@ -65,8 +73,15 @@ export class WebhookService {
 
   deleteWebhook = async (appId: string, webhookId: string) => {
     await db
-      .delete(webhook)
-      .where(and(eq(webhook.appId, appId), eq(webhook.id, webhookId)));
+      .update(webhook)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(webhook.appId, appId),
+          eq(webhook.id, webhookId),
+          isNull(webhook.deletedAt),
+        ),
+      );
   };
 
   createWebhookDelivery = async (
