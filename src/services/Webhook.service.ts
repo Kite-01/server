@@ -1,4 +1,21 @@
-import { eq, and, desc, arrayContains, exists, isNull, sql } from "drizzle-orm";
+import {
+  eq,
+  and,
+  desc,
+  arrayContains,
+  isNull,
+  count,
+  ilike,
+  or,
+  exists,
+  sql,
+} from "drizzle-orm";
+import {
+  paginate,
+  searchPattern,
+  type WithPageInput,
+  type PageInput,
+} from "../shared/pagination";
 import { webhook, webhookDelivery } from "../db/schema";
 import { WebhookCategory } from "../shared/constants";
 import { common } from "../shared/common";
@@ -35,11 +52,40 @@ export class WebhookService {
     });
   };
 
-  getWebhooks = async (appId: string) => {
-    return db.query.webhook.findMany({
-      where: and(eq(webhook.appId, appId), isNull(webhook.deletedAt)),
-      orderBy: desc(webhook.createdAt),
-    });
+  getWebhooks = async (
+    input: WithPageInput<{
+      appId?: string;
+      q?: string;
+    }>,
+  ) => {
+    const pattern = input.q ? searchPattern(input.q) : undefined;
+    const where = and(
+      pattern
+        ? or(ilike(webhook.label, pattern), ilike(webhook.url, pattern))
+        : undefined,
+      input.appId ? eq(webhook.appId, input.appId) : undefined,
+      isNull(webhook.deletedAt),
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.webhook.findMany({
+          where,
+          orderBy: desc(webhook.createdAt),
+          limit,
+          offset,
+        });
+      },
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(webhook)
+          .where(where);
+
+        return row.value;
+      },
+    );
   };
 
   getWebhooksByCategory = async (appId: string, category: WebhookCategory) => {
@@ -53,26 +99,45 @@ export class WebhookService {
     });
   };
 
-  getWebhookDeliveries = async (appId: string, webhookId: string) => {
-    return db
-      .select()
-      .from(webhookDelivery)
-      .where(
-        and(
-          eq(webhookDelivery.webhookId, webhookId),
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(webhook)
-              .where(and(eq(webhook.id, webhookId), eq(webhook.appId, appId))),
-          ),
-        ),
-      )
-      .orderBy(desc(webhookDelivery.createdAt));
+  getWebhookDeliveries = async (
+    appId: string,
+    webhookId: string,
+    input: PageInput = {},
+  ) => {
+    const filter = and(
+      eq(webhookDelivery.webhookId, webhookId),
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(webhook)
+          .where(and(eq(webhook.id, webhookId), eq(webhook.appId, appId))),
+      ),
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db
+          .select()
+          .from(webhookDelivery)
+          .where(filter)
+          .limit(limit)
+          .offset(offset)
+          .orderBy(desc(webhookDelivery.createdAt));
+      },
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(webhookDelivery)
+          .where(filter);
+
+        return row.value;
+      },
+    );
   };
 
   deleteWebhook = async (appId: string, webhookId: string) => {
-    await db
+    const [row] = await db
       .update(webhook)
       .set({ deletedAt: new Date() })
       .where(
@@ -81,7 +146,10 @@ export class WebhookService {
           eq(webhook.id, webhookId),
           isNull(webhook.deletedAt),
         ),
-      );
+      )
+      .returning();
+
+    return row;
   };
 
   createWebhookDelivery = async (

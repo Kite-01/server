@@ -9,9 +9,9 @@ import {
   NotFoundError,
   OperatorTransactionFailedError,
 } from "../shared/errors";
-import { encodeFunctionData, erc20Abi, getAddress, type Address } from "viem";
+import { encodeFunctionData, erc20Abi, type Address } from "viem";
 import { db, dbWithTransaction, type Transaction } from "../db";
-import { operatorForward, token } from "../db/schema";
+import { deposit, operatorForward, token } from "../db/schema";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import { getOnchainActor } from "../shared/onchainActor";
 import { Scheduler } from "../shared/scheduler";
@@ -179,7 +179,12 @@ export class OperatorForwardService {
         eq(token.address, common.normalizeAddress(source.tokenAddress)),
       ),
       with: {
-        deposits: true,
+        deposits: {
+          where: eq(
+            deposit.address,
+            common.normalizeAddress(transfer.payinAddress),
+          ),
+        },
       },
     });
 

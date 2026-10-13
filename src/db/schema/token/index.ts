@@ -30,6 +30,7 @@ export const token = pgTable(
     version: text("version"),
     icon: text("icon"),
     supportsEIP3009: boolean("supports_eip3009").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -45,10 +46,9 @@ export const token = pgTable(
       "kite_token_decimals_check",
       sql`${table.decimals} BETWEEN 0 AND 255`,
     ),
-    uniqueIndex("kite_token_chain_id_address_key").on(
-      table.chainId,
-      table.address,
-    ),
+    uniqueIndex("kite_token_chain_id_address_key")
+      .on(table.chainId, table.address)
+      .where(sql`${table.deletedAt} IS NULL`),
   ],
 );
 

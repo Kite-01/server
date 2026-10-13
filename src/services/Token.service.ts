@@ -6,11 +6,16 @@ import {
   isAddress,
   parseAbi,
 } from "viem";
+import {
+  paginate,
+  searchPattern,
+  type WithPageInput,
+} from "../shared/pagination";
 import { getChain, providerDescriptorOfChain } from "../shared/chains";
+import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
 import { AppError, NotFoundError } from "../shared/errors";
 import { Provider, zeroBytes32 } from "../shared/constants";
 import { getOnchainActor } from "../shared/onchainActor";
-import { and, eq, desc } from "drizzle-orm";
 import { ChainService } from "./Chain.service";
 import { common } from "../shared/common";
 import { token } from "../db/schema";
@@ -28,6 +33,7 @@ export class TokenService {
       where: and(
         eq(token.chainId, chainId),
         eq(token.address, getAddress(tokenAddress)),
+        isNull(token.deletedAt),
       ),
     });
   };
@@ -149,14 +155,65 @@ export class TokenService {
 
   getTokenById = async (tokenId: string) => {
     return await db.query.token.findFirst({
-      where: eq(token.id, tokenId),
+      where: and(eq(token.id, tokenId), isNull(token.deletedAt)),
       with: { chain: true },
     });
   };
 
+  getTokens = async (
+    input: WithPageInput<{
+      chainId?: string;
+      q?: string;
+    }>,
+  ) => {
+    const pattern = input.q ? searchPattern(input.q) : undefined;
+    const where = and(
+      isNull(token.deletedAt),
+      input.chainId ? eq(token.chainId, input.chainId) : undefined,
+      pattern
+        ? or(
+            ilike(token.symbol, pattern),
+            ilike(token.name, pattern),
+            ilike(token.address, pattern),
+          )
+        : undefined,
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.token.findMany({
+          where,
+          orderBy: desc(token.createdAt),
+          limit,
+          offset,
+          with: { chain: true },
+        });
+      },
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(token)
+          .where(where);
+
+        return row.value;
+      },
+    );
+  };
+
+  deleteToken = async (tokenId: string) => {
+    const [row] = await db
+      .update(token)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(token.id, tokenId), isNull(token.deletedAt)))
+      .returning();
+
+    return row;
+  };
+
   getTokensByChainId = async (chainId: string) => {
     return await db.query.token.findMany({
-      where: eq(token.chainId, chainId),
+      where: and(eq(token.chainId, chainId), isNull(token.deletedAt)),
       orderBy: desc(token.createdAt),
       with: { chain: true },
     });

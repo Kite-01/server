@@ -1,4 +1,9 @@
-import { and, eq, isNull, or } from "drizzle-orm";
+import {
+  paginate,
+  searchPattern,
+  type WithPageInput,
+} from "../shared/pagination";
+import { and, eq, isNull, or, desc, count, ilike } from "drizzle-orm";
 import { FeeType } from "../shared/constants";
 import { common } from "../shared/common";
 import { fee } from "../db/schema";
@@ -31,11 +36,45 @@ export class FeeService {
     return row;
   };
 
-  getFees = async (appId: string) => {
-    return db.query.fee.findMany({
-      where: or(eq(fee.appId, appId), isNull(fee.appId)),
-      with: { chain: true },
-    });
+  private ownedBy = (appId: string | null) => {
+    return appId === null ? isNull(fee.appId) : eq(fee.appId, appId);
+  };
+
+  getFees = async (
+    input: WithPageInput<{
+      appId: string | null;
+      chainId?: string;
+      q?: string;
+    }>,
+  ) => {
+    const where = and(
+      input.q ? ilike(fee.label, searchPattern(input.q)) : undefined,
+      input.appId === null
+        ? isNull(fee.appId)
+        : or(eq(fee.appId, input.appId), isNull(fee.appId)),
+      input.chainId ? eq(fee.chainId, input.chainId) : undefined,
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.fee.findMany({
+          where,
+          orderBy: desc(fee.createdAt),
+          limit,
+          offset,
+          with: { chain: true },
+        });
+      },
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(fee)
+          .where(where);
+
+        return row.value;
+      },
+    );
   };
 
   getFeesByChainId = async (appId: string, chainId: string) => {
@@ -48,26 +87,39 @@ export class FeeService {
     });
   };
 
-  getFee = async (appId: string, feeId: string) => {
+  getFee = async (appId: string | null, feeId: string) => {
     return db.query.fee.findFirst({
-      where: and(eq(fee.id, feeId), eq(fee.appId, appId)),
+      where: and(
+        eq(fee.id, feeId),
+        appId === null
+          ? isNull(fee.appId)
+          : or(eq(fee.appId, appId), isNull(fee.appId)),
+      ),
       with: { chain: true },
     });
   };
 
   updateFee = async (
-    appId: string,
+    appId: string | null,
     feeId: string,
     input: Partial<Omit<typeof fee.$inferInsert, "appId">>,
   ) => {
-    await db
+    const [row] = await db
       .update(fee)
       .set(input)
-      .where(and(eq(fee.id, feeId), eq(fee.appId, appId)));
+      .where(and(eq(fee.id, feeId), this.ownedBy(appId)))
+      .returning();
+
+    return row;
   };
 
-  deleteFee = async (appId: string, feeId: string) => {
-    await db.delete(fee).where(and(eq(fee.id, feeId), eq(fee.appId, appId)));
+  deleteFee = async (appId: string | null, feeId: string) => {
+    const [row] = await db
+      .delete(fee)
+      .where(and(eq(fee.id, feeId), this.ownedBy(appId)))
+      .returning();
+
+    return row;
   };
 
   matchesCondition = (condition: Record<string, any>, ctx: FeeMatchContext) => {

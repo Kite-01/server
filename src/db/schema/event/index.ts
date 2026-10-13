@@ -33,6 +33,7 @@ export const event = pgTable(
   },
   (table) => [
     index("kite_event_app_id_idx").on(table.appId),
+    index("kite_event_created_at_idx").on(table.createdAt),
     uniqueIndex("kite_event_source_id_key").on(table.sourceId),
     check(
       "kite_event_category_check",

@@ -27,7 +27,7 @@ export const operatorForward = pgTable(
     sourceId: text("source_id").notNull(),
     sourceBlockchainHash: text("source_blockchain_hash").notNull(),
     kind: text("kind", { enum: toEnum(OperatorForwardKind) }).notNull(),
-    tokenId: text("token_id")
+    tokenId: uuid("token_id")
       .notNull()
       .references(() => token.id, { onDelete: "restrict" }),
     amount: numeric("amount", {

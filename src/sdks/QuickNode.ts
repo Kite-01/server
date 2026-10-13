@@ -265,7 +265,10 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
     );
 
     const digest = createHmac("sha256", token)
-      .update(`${nonce}${timestamp}${common.rawBodyToString(input)}`, "utf8")
+      .update(
+        `${nonce}${timestamp}${common.rawBodyToString(input.body, input.rawBody)}`,
+        "utf8",
+      )
       .digest("hex");
 
     return common.safeCompare(signature.toLowerCase(), digest.toLowerCase());
@@ -346,19 +349,6 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
             caip2Id,
             blockchainHash: transaction.hash,
             logIndex: "native",
-            from: common.normalizeAddress(transaction.from),
-            payinAddress: common.normalizeAddress(transaction.to),
-            tokenAddress: zeroAddress,
-            amount: value,
-          });
-        }
-
-        if (transaction.to && value > 0n) {
-          result.push({
-            type: "DepositReceived",
-            caip2Id,
-            blockchainHash: transaction.hash,
-            logIndex: "0",
             from: common.normalizeAddress(transaction.from),
             payinAddress: common.normalizeAddress(transaction.to),
             tokenAddress: zeroAddress,

@@ -76,6 +76,7 @@ export const quote = pgTable(
   },
   (table) => [
     index("kite_quote_app_id_idx").on(table.appId),
+    index("kite_quote_created_at_idx").on(table.createdAt),
     index("kite_quote_chain_id_idx").on(table.chainId),
     index("kite_quote_payment_link_id_idx").on(table.paymentLinkId),
     index("kite_quote_customer_id_idx").on(table.customerId),

@@ -3,9 +3,14 @@ import {
   QuoteTTLSeconds,
   UniswapFeeTiers,
 } from "../shared/constants";
+import {
+  paginate,
+  searchPattern,
+  type WithPageInput,
+} from "../shared/pagination";
+import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
 import { AppError, NotFoundError } from "../shared/errors";
 import { formatUnits, parseUnits } from "viem";
-import { and, eq, desc, isNull } from "drizzle-orm";
 import { quote, quoteFee, fee } from "../db/schema";
 import { PaymentLinkService } from "./PaymentLink.service";
 import { PriceFeedService } from "./PriceFeed.service";
@@ -39,6 +44,23 @@ export class QuoteService {
       ),
       18,
     );
+  };
+
+  private resolveCustomer = async (appId: string, customerId?: string) => {
+    if (!customerId) {
+      return null;
+    }
+
+    const customer = await new CustomerService().getCustomerById(
+      appId,
+      customerId,
+    );
+
+    if (!customer) {
+      throw new NotFoundError("customer", customerId);
+    }
+
+    return customer;
   };
 
   private quoteFees = (
@@ -206,10 +228,7 @@ export class QuoteService {
       targetUsdAmount = sourceUsdAmount;
     }
 
-    const customer = input.customerId
-      ? await new CustomerService().getCustomerById(appId, input.customerId)
-      : null;
-
+    const customer = await this.resolveCustomer(appId, input.customerId);
     const matchingFees = await new FeeService().getMatchingFees(
       appId,
       chain.id,
@@ -374,10 +393,7 @@ export class QuoteService {
     const targetUsdAmount = formatUnits(usdTokenAmount, chainUsdToken.decimals);
     const sourceUsdAmount = targetUsdAmount;
 
-    const customer = input.customerId
-      ? await new CustomerService().getCustomerById(appId, input.customerId)
-      : null;
-
+    const customer = await this.resolveCustomer(appId, input.customerId);
     const matchingFees = await new FeeService().getMatchingFees(
       appId,
       chain.id,
@@ -427,19 +443,56 @@ export class QuoteService {
       .where(and(eq(quoteFee.id, feeId), isNull(quoteFee.blockchainHash)));
   };
 
-  getQuotes = async (appId: string) => {
-    return db.query.quote.findMany({
-      where: eq(quote.appId, appId),
-      orderBy: desc(quote.createdAt),
-      with: {
-        customer: true,
-        paymentLink: true,
-        chain: true,
-        sourceToken: true,
-        targetToken: true,
-        fees: true,
+  getQuotes = async (
+    input: WithPageInput<{
+      paymentLinkId?: string;
+      customerId?: string;
+      appId?: string;
+      q?: string;
+    }>,
+  ) => {
+    const pattern = input.q ? searchPattern(input.q) : undefined;
+    const where = and(
+      pattern
+        ? or(
+            sql`${quote.id}::text ilike ${pattern}`,
+            ilike(quote.reference, pattern),
+          )
+        : undefined,
+      input.appId ? eq(quote.appId, input.appId) : undefined,
+      input.customerId ? eq(quote.customerId, input.customerId) : undefined,
+      input.paymentLinkId
+        ? eq(quote.paymentLinkId, input.paymentLinkId)
+        : undefined,
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.quote.findMany({
+          where,
+          orderBy: desc(quote.createdAt),
+          limit,
+          offset,
+          with: {
+            customer: true,
+            paymentLink: true,
+            chain: true,
+            sourceToken: true,
+            targetToken: true,
+            fees: true,
+          },
+        });
       },
-    });
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(quote)
+          .where(where);
+
+        return row.value;
+      },
+    );
   };
 
   getQuote = async (appId: string, quoteId: string) => {

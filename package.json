@@ -1,14 +1,20 @@
 {
-  "name": "server",
+  "name": "@kite-01/server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "test": "vitest run",
-    "build": "tsc",
     "check": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "api:build": "tsc",
+    "api:dev": "tsx watch src/index.ts",
+    "client:dev": "npm --prefix client run dev",
+    "client:build": "npm --prefix client ci && npm --prefix client run build",
+    "build": "npm run api:build && npm run client:build",
+    "dev": "npm run api:dev || npm run client:dev",
+    "start": "node dist/src/index.js"
   },
   "repository": {
     "type": "git",
@@ -26,6 +32,8 @@
     "@types/lodash": "^4.17.25",
     "@types/node": "^26.6.2",
     "drizzle-kit": "^0.31.11",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"
@@ -33,8 +41,8 @@
   "dependencies": {
     "@alchemy/wallet-apis": "^5.2.7",
     "@elysiajs/node": "^1.4.5",
+    "@elysiajs/openapi": "^1.4.16",
     "@kite-01/contracts": "^1.0.4",
-    "@opentelemetry/api": "^1.9.0",
     "@sinclair/typebox": "^0.34.52",
     "@x402/core": "^2.28.0",
     "@x402/evm": "^2.28.0",

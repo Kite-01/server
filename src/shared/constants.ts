@@ -10,24 +10,36 @@ export enum Queue {
   RecoverTransfer = "RecoverTransfer",
   OperatorForward = "OperatorForward",
   TransferSweep = "TransferSweep",
-}
-
-export enum PaymentLinkType {
-  Api = "Api",
-  Ui = "Ui",
+  ApiNonceCleanup = "ApiNonceCleanup",
 }
 
 export enum ChainType {
   Evm = "Evm",
 }
 
-// TODO: make this better...i do not think this is a valid scope list
 export enum ApiKeyScope {
-  Quote = "Quote",
-  Transfer = "Transfer",
-  Webhook = "Webhook",
-  PaymentLink = "PaymentLink",
-  Customer = "Customer",
+  ApiKeyWrite = "Apikey:Write",
+  ApiKeyDelete = "Apikey:Delete",
+  ApiKeyRead = "Apikey:Read",
+  AppWrite = "App:Write",
+  AppDelete = "App:Delete",
+  CustomerRead = "Customer:Read",
+  CustomerWrite = "Customer:Write",
+  CustomerDelete = "Customer:Delete",
+  FeeRead = "Fee:Read",
+  FeeWrite = "Fee:Write",
+  FeeDelete = "Fee:Delete",
+  PaymentLinkRead = "PaymentLink:Read",
+  PaymentLinkWrite = "PaymentLink:Write",
+  PaymentLinkDelete = "PaymentLink:Delete",
+  QuoteRead = "quotes:read",
+  QuoteWrite = "quotes:write",
+  TransferRead = "Transfer:Read",
+  TransferWrite = "Transfer:Write",
+  WebhookRead = "Webhook:Read",
+  WebhookWrite = "Webhook:Write",
+  WebhookDelete = "Webhook:Delete",
+  x402 = "x402",
 }
 
 export enum WebhookCategory {

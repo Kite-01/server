@@ -14,7 +14,19 @@ import { db } from "../db";
 
 export class ChainService {
   createChain = async (input: typeof chain.$inferInsert) => {
+    getChain(input.caip2Id); // to be sure chain is supported
+
     const [row] = await db.insert(chain).values(input).returning();
+    return row;
+  };
+
+  updateChainActiveStatus = async (chainId: string, isActive: boolean) => {
+    const [row] = await db
+      .update(chain)
+      .set({ isActive })
+      .where(and(eq(chain.id, chainId), isNull(chain.deletedAt)))
+      .returning();
+
     return row;
   };
 
@@ -103,22 +115,21 @@ export class ChainService {
     }
 
     const operatorAddress = onchainActor.getAddress();
-
-    try {
-      const hasRole = await client.readContract({
+    const hasRole = await client
+      .readContract({
         abi: KiteFactory__factory.abi,
         address: common.normalizeAddress(input.kiteFactoryAddress),
         functionName: "hasRole",
         args: [keccak256(toHex("OPERATOR_ROLE")), operatorAddress as Address],
+      })
+      .catch(() => {
+        throw new AppError("Is this a valid KiteFactory contract?");
       });
 
-      if (!hasRole) {
-        throw new AppError(
-          "Server wallet is not a configured operator on provided KiteFactory",
-        );
-      }
-    } catch {
-      throw new AppError("Is this a valid KiteFactory contract?");
+    if (!hasRole) {
+      throw new AppError(
+        "Server wallet is not a configured operator on provided KiteFactory",
+      );
     }
 
     const variables = await new KvService().getSdkOptionVariables();
@@ -153,9 +164,12 @@ export class ChainService {
   };
 
   deleteChain = async (chainId: string) => {
-    await db
+    const [row] = await db
       .update(chain)
       .set({ deletedAt: new Date() })
-      .where(and(eq(chain.id, chainId), isNull(chain.deletedAt)));
+      .where(and(eq(chain.id, chainId), isNull(chain.deletedAt)))
+      .returning();
+
+    return row;
   };
 }

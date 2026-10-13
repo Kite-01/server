@@ -1,6 +1,31 @@
 import { KeyVars, ProviderAction, type Provider } from "./constants";
 import type * as schema from "../db/schema";
 
+type HttpErrorCode =
+  | "BadRequest"
+  | "Unauthorized"
+  | "NotFound"
+  | "ValidationError"
+  | "Forbidden"
+  | "QuoteExpired"
+  | "PreconditionFailed"
+  | "Conflict"
+  | "NotSupported"
+  | "PayloadTooLarge";
+
+export class HttpError extends Error {
+  public readonly status: number;
+  public readonly code: HttpErrorCode;
+
+  constructor(status: number, code: HttpErrorCode, message: string) {
+    super(message);
+
+    this.name = "HttpError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 export class UnsafeUrlError extends Error {
   public readonly url?: string;
 

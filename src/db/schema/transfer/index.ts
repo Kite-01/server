@@ -61,6 +61,7 @@ export const transfer = pgTable(
   },
   (table) => [
     index("kite_transfer_app_id_idx").on(table.appId),
+    index("kite_transfer_created_at_idx").on(table.createdAt),
     index("kite_transfer_status_idx").on(table.status),
     uniqueIndex("kite_transfer_quote_id_key").on(table.quoteId),
     uniqueIndex("kite_transfer_payin_address_key").on(table.payinAddress),

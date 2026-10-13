@@ -1,6 +1,7 @@
-import { type WebhookCategory } from "../shared/constants";
+import { paginate, type WithPageInput } from "../shared/pagination";
 import { db, dbWithTransaction } from "../db";
-import { eq, and, desc } from "drizzle-orm";
+import { type WebhookCategory } from "../shared/constants";
+import { eq, and, desc, count } from "drizzle-orm";
 import { Scheduler } from "../shared/scheduler";
 import { event } from "../db/schema";
 
@@ -32,21 +33,35 @@ export class EventService {
     });
   };
 
-  getEvents = async (appId: string, category?: WebhookCategory) => {
-    const where = category
-      ? and(eq(event.appId, appId), eq(event.category, category))
-      : eq(event.appId, appId);
+  getEvents = async (
+    input: WithPageInput<{
+      category?: WebhookCategory;
+      appId?: string;
+    }>,
+  ) => {
+    const where = and(
+      input.appId ? eq(event.appId, input.appId) : undefined,
+      input.category ? eq(event.category, input.category) : undefined,
+    );
 
-    return await db.query.event.findMany({
-      where,
-      orderBy: desc(event.createdAt),
-      with: {
-        deliveries: {
-          with: {
-            webhook: true,
-          },
-        },
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.event.findMany({
+          where,
+          orderBy: desc(event.createdAt),
+          limit,
+          offset,
+        });
       },
-    });
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(event)
+          .where(where);
+
+        return row.value;
+      },
+    );
   };
 }

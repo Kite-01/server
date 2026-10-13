@@ -3,3 +3,7 @@ dist
 .env
 .env.*
 .DS_Store
+.kite
+dashboard/dist
+dashboard/node_modules
+!.env.example

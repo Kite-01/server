@@ -1,14 +1,15 @@
 import { OperatorForwardService } from "../../services/OperatorForward.service";
+import { OneMinute, Queue } from "../constants";
 import { TransferService } from "../../services/Transfer.service";
 import { WebhookService } from "../../services/Webhook.service";
 import { SafeHttpClient } from "../safeHttpClient";
+import { ApiKeyService } from "../../services/ApiKey.service";
 import { EventService } from "../../services/Event.service";
 import { type PgBoss } from "pg-boss";
 import { createHmac } from "node:crypto";
 import { version } from "../../../package.json";
 import { common } from "../common";
 import { crypt } from "../crypt";
-import { Queue } from "../constants";
 
 export const startWorkers = async (boss: PgBoss) => {
   const httpClient = new SafeHttpClient();
@@ -16,6 +17,7 @@ export const startWorkers = async (boss: PgBoss) => {
   const webhookService = new WebhookService();
   const transferService = new TransferService();
   const operatorForwardService = new OperatorForwardService();
+  const apiKeyService = new ApiKeyService();
 
   await boss.work(Queue.EventFanout, { localConcurrency: 5 }, async ([job]) => {
     const { appId, eventId } = job.data as {
@@ -54,7 +56,12 @@ export const startWorkers = async (boss: PgBoss) => {
 
   await boss.work(
     Queue.WebhookDelivery,
-    { perJobResults: true, includeMetadata: true, localConcurrency: 50 },
+    {
+      perJobResults: true,
+      includeMetadata: true,
+      localConcurrency: 50,
+      notifyPollingIntervalSeconds: 2,
+    },
     async ([job]) => {
       const result = (
         status: "completed" | "failed" | "deadletter",
@@ -187,6 +194,11 @@ export const startWorkers = async (boss: PgBoss) => {
   );
 
   await boss.work(Queue.TransferSweep, async () => transferService.sweep());
+
+  await boss.work(Queue.ApiNonceCleanup, async () => {
+    const olderThan = new Date(Date.now() - common.toMs(10 * OneMinute));
+    return apiKeyService.pruneNonces(olderThan);
+  });
 
   return async () => {
     await httpClient.close();

@@ -5,13 +5,12 @@ import {
 } from "../errors";
 import { Provider, ProviderAction } from "../constants";
 import { ProviderKeyVars } from "./registry";
-import { KvService } from "../../services/Kv.service";
 import { QuickNode } from "../../sdks/QuickNode";
 import { Alchemy } from "../../sdks/Alchemy";
 
 export const ProvidersMap = {
   [Provider.Alchemy]: new Alchemy(),
-  [Provider.QuickNode]: new QuickNode(new KvService()),
+  [Provider.QuickNode]: new QuickNode(),
   [Provider.TrustWallet]: null,
 };
 
@@ -59,8 +58,9 @@ export const isProviderConfiguredForAction = (
 ) => {
   const entry = ProviderKeyVars[provider];
   const configuredVars = entry?.[action];
-  if (!configuredVars)
+  if (!configuredVars) {
     throw new ProviderNotConfiguredForActionError(provider, action);
+  }
 
   let isConfigured = true;
   const vars = options.variables;
@@ -72,5 +72,7 @@ export const isProviderConfiguredForAction = (
     }
   }
 
-  if (!isConfigured) throw new ProviderYetToBeConfiguredError(provider, action);
+  if (!isConfigured) {
+    throw new ProviderYetToBeConfiguredError(provider, action);
+  }
 };

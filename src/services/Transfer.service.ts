@@ -6,6 +6,7 @@ import {
   type Hex,
 } from "viem";
 import {
+  customer,
   event,
   quote,
   quoteFee,
@@ -26,8 +27,25 @@ import {
   TransferStatus,
   WebhookCategory,
 } from "../shared/constants";
+import {
+  paginate,
+  searchPattern,
+  type WithPageInput,
+} from "../shared/pagination";
 import { db, dbWithTransaction, type DatabaseOrTransaction } from "../db";
-import { and, asc, count, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { OperatorForwardService } from "./OperatorForward.service";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { runProviderMethod } from "../shared/providers";
@@ -592,11 +610,11 @@ export class TransferService {
           category: WebhookCategory.Transfer,
           previousCategoryStatus: TransferStatus.Created,
           currentCategoryStatus: TransferStatus.AwaitingDeposit,
-          data: {
+          data: common.serializeData({
             ...created,
             quote: quote_,
             paymentInstructions,
-          },
+          }),
         })
         .returning({ id: event.id });
 
@@ -865,8 +883,11 @@ export class TransferService {
           common.normalizeAddress(item.payinAddress),
         ),
         with: {
-          deposits: { with: { token: true } },
-          quote: { with: { sourceToken: true } },
+          quote: {
+            with: {
+              sourceToken: true,
+            },
+          },
         },
       });
 
@@ -953,12 +974,16 @@ export class TransferService {
             return;
           }
 
-          const deposits = transfer_.deposits
-            .filter((deposit) => deposit.tokenId === token.id)
-            .map((deposit) => deposit.amount);
+          const received = await db.query.deposit.findMany({
+            columns: { amount: true },
+            where: and(
+              eq(deposit.address, transfer_.payinAddress),
+              eq(deposit.tokenId, token.id),
+            ),
+          });
 
-          const totalReceived = deposits.reduce(
-            (total, amount) => total + amount,
+          const totalReceived = received.reduce(
+            (total, row) => total + row.amount,
             0n,
           );
 
@@ -1163,23 +1188,83 @@ export class TransferService {
     });
   };
 
-  getTransfers = async (appId: string) => {
-    return db.query.transfer.findMany({
-      where: eq(transfer.appId, appId),
-      orderBy: desc(transfer.createdAt),
-      with: {
-        timeline: true,
-        quote: {
+  getTransfers = async (
+    input: WithPageInput<{
+      appId?: string;
+      status?: TransferStatus;
+      q?: string;
+    }>,
+  ) => {
+    const pattern = input.q ? searchPattern(input.q) : undefined;
+    const where = and(
+      input.appId ? eq(transfer.appId, input.appId) : undefined,
+      input.status ? eq(transfer.status, input.status) : undefined,
+      pattern
+        ? or(
+            sql`${transfer.id}::text ilike ${pattern}`,
+            ilike(transfer.payinAddress, pattern),
+            inArray(
+              transfer.quoteId,
+              db
+                .select({ id: quote.id })
+                .from(quote)
+                .leftJoin(
+                  customer,
+                  and(
+                    eq(customer.id, quote.customerId),
+                    eq(customer.appId, quote.appId),
+                  ),
+                )
+                .where(
+                  or(
+                    ilike(quote.reference, pattern),
+                    ilike(customer.name, pattern),
+                    ilike(customer.externalId, pattern),
+                  ),
+                ),
+            ),
+          )
+        : undefined,
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.transfer.findMany({
+          where,
+          orderBy: desc(transfer.createdAt),
+          limit,
+          offset,
           with: {
-            sourceToken: true,
-            targetToken: true,
-            chain: true,
-            fees: true,
-            customer: true,
-            paymentLink: true,
+            app: {
+              columns: {
+                id: true,
+                icon: true,
+                name: true,
+              },
+            },
+            timeline: true,
+            quote: {
+              with: {
+                sourceToken: true,
+                targetToken: true,
+                chain: true,
+                fees: true,
+                customer: true,
+                paymentLink: true,
+              },
+            },
           },
-        },
+        });
       },
-    });
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(transfer)
+          .where(where);
+
+        return row.value;
+      },
+    );
   };
 }

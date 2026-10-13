@@ -206,6 +206,18 @@ class Common {
 
     return checksum === bits.slice(entropyBits);
   };
+
+  toJson = <T = Record<string, unknown>>(
+    value: string,
+    onError?: (error: Error) => void,
+  ) => {
+    try {
+      return JSON.parse(value) as T;
+    } catch (e) {
+      onError?.(e as Error);
+      return null;
+    }
+  };
 }
 
 export const common = new Common();

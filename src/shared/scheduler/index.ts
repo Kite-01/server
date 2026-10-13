@@ -104,7 +104,14 @@ export class Scheduler {
       expireInSeconds: 5 * OneMinute,
     });
 
+    await boss.createQueue(Queue.ApiNonceCleanup, {
+      policy: "stately",
+      retryLimit: 0,
+      expireInSeconds: 5 * OneMinute,
+    });
+
     await boss.schedule(Queue.TransferSweep, "* * * * *");
+    await boss.schedule(Queue.ApiNonceCleanup, "*/10 * * * *");
 
     const scheduler = new Scheduler(boss);
 

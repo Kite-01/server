@@ -1,4 +1,9 @@
-import { and, eq, desc } from "drizzle-orm";
+import {
+  paginate,
+  searchPattern,
+  type WithPageInput,
+} from "../shared/pagination";
+import { and, eq, desc, count, ilike, or } from "drizzle-orm";
 import { customer } from "../db/schema";
 import { omit } from "lodash";
 import { db } from "../db";
@@ -17,11 +22,41 @@ export class CustomerService {
     return row;
   };
 
-  getCustomers = async (appId: string) => {
-    return await db.query.customer.findMany({
-      where: eq(customer.appId, appId),
-      orderBy: desc(customer.createdAt),
-    });
+  getCustomers = async (
+    input: WithPageInput<{
+      appId?: string;
+      externalId?: string;
+      q?: string;
+    }>,
+  ) => {
+    const pattern = input.q ? searchPattern(input.q) : undefined;
+    const where = and(
+      input.appId ? eq(customer.appId, input.appId) : undefined,
+      input.externalId ? eq(customer.externalId, input.externalId) : undefined,
+      pattern
+        ? or(ilike(customer.name, pattern), ilike(customer.externalId, pattern))
+        : undefined,
+    );
+
+    return paginate(
+      input,
+      (limit, offset) => {
+        return db.query.customer.findMany({
+          where,
+          orderBy: desc(customer.createdAt),
+          limit,
+          offset,
+        });
+      },
+      async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(customer)
+          .where(where);
+
+        return row.value;
+      },
+    );
   };
 
   getCustomerById = async (appId: string, customerId: string) => {
@@ -40,8 +75,11 @@ export class CustomerService {
   };
 
   deleteCustomer = async (appId: string, customerId: string) => {
-    await db
+    const [row] = await db
       .delete(customer)
-      .where(and(eq(customer.appId, appId), eq(customer.id, customerId)));
+      .where(and(eq(customer.appId, appId), eq(customer.id, customerId)))
+      .returning();
+
+    return row;
   };
 }
