@@ -91,5 +91,5 @@ const serve = async (request: Request) => {
 };
 
 export const dashboardRoutes = new Elysia({ name: "Dashboard" })
-  .get("/", ({ request }) => serve(request))
-  .get("/*", ({ request }) => serve(request));
+  .get("/", ({ request }) => serve(request), { detail: { hide: true } })
+  .get("/*", ({ request }) => serve(request), { detail: { hide: true } });
