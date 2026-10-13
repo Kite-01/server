@@ -12,6 +12,7 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "db:generate": "bunx --bun drizzle-kit generate",
+    "db:studio": "bunx --bun drizzle-kit studio",
     "db:migrate": "bunx --bun drizzle-kit migrate"
   },
   "repository": {

@@ -167,5 +167,5 @@ export class SafeHttpClient {
     return Buffer.concat(chunks).subarray(0, maxBytes).toString("utf8");
   };
 
-  close = async () => this.agent.close();
+  close = async () => this.agent.close?.();
 }

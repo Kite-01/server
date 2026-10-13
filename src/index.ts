@@ -7,7 +7,11 @@ const main = async () => {
   const scheduler = await Scheduler.getInstance();
 
   const port = env.KITE_PORT;
-  const app = createApp().listen(port);
+  let stopServer: (() => void) | undefined;
+
+  createApp().listen(port, (server) => {
+    stopServer = () => server.stop();
+  });
 
   console.log(`Kite is listening on port: ${port}`);
 
@@ -22,7 +26,7 @@ const main = async () => {
   }
 
   const shutdown = async () => {
-    app.stop();
+    stopServer?.();
 
     await scheduler.stop();
     await sql.end({ timeout: 5 });
