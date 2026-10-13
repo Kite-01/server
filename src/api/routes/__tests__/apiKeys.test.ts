@@ -52,7 +52,7 @@ describe("API keys", () => {
       privateKey: pair.privateKey,
     });
 
-    const res = await asNewKey.get("/api/app");
+    const res = await asNewKey.get("/api/apps");
     expect(res.status).toBe(200);
   });
 
@@ -121,7 +121,7 @@ describe("API keys", () => {
     const revoked = await admin.post(`/api/api-key/${other.row.id}/revoke`);
     expect(revoked.json.revokedAt).toBeTruthy();
 
-    expect((await client(other.credentials).get("/api/app")).status).toBe(401);
+    expect((await client(other.credentials).get("/api/apps")).status).toBe(401);
 
     const deleted = await admin.delete(`/api/api-key/${other.row.id}`);
     expect(deleted.status).toBe(200);

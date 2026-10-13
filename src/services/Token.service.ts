@@ -11,14 +11,14 @@ import {
   searchPattern,
   type WithPageInput,
 } from "../shared/pagination";
-import { getChain, providerDescriptorOfChain } from "../shared/chains";
+import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
 import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
-import { AppError, NotFoundError } from "../shared/errors";
+import { getChain, providerDescriptorOfChain } from "../shared/chains";
 import { Provider, zeroBytes32 } from "../shared/constants";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ChainService } from "./Chain.service";
 import { common } from "../shared/common";
-import { token } from "../db/schema";
+import { chainConfig, token } from "../db/schema";
 import { Http } from "../sdks/Http";
 import { db } from "../db";
 
@@ -51,7 +51,10 @@ export class TokenService {
       await db
         .insert(token)
         .values(values)
-        .onConflictDoNothing({ target: [token.chainId, token.address] });
+        .onConflictDoNothing({
+          target: [token.chainId, token.address],
+          where: isNull(token.deletedAt),
+        });
 
       const row = await this.findTokenByAddress(values.chainId, values.address);
       if (!row) throw new AppError("Could not save token");
@@ -202,6 +205,19 @@ export class TokenService {
   };
 
   deleteToken = async (tokenId: string) => {
+    const result = await db
+      .select({ count: count() })
+      .from(chainConfig)
+      .where(
+        or(
+          eq(chainConfig.settlementTokenId, tokenId),
+          eq(chainConfig.usdPeggedTokenId, tokenId),
+        ),
+      );
+
+    if (result[0].count > 0)
+      throw new PreconditionError("Token is in use by a chain's configuration");
+
     const [row] = await db
       .update(token)
       .set({ deletedAt: new Date() })

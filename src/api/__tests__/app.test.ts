@@ -114,9 +114,9 @@ describe("OpenAPI", { timeout: 60_000 }, () => {
     expect(spec.info.title).toBe("Kite");
     expect(Object.keys(spec.paths)).toEqual(
       expect.arrayContaining([
-        "/api/app",
+        "/api/apps/all",
         "/api/customers/{id}",
-        "/api/payment-links/{id}/quotes",
+        "/api/payment-links/{id}/pay",
         "/api/x402/settle",
         "/api/apps",
       ]),

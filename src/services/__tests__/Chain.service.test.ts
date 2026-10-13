@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createApp,
   createConfiguredChain,
@@ -13,8 +12,9 @@ import {
   NotFoundError,
   AppError,
 } from "../../shared/errors";
-import { KeyType, KeyVars, Provider } from "../../shared/constants";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeActor, operatorAddress, resetMocks } from "../../test/mocks";
+import { KeyType, KeyVars, Provider } from "../../shared/constants";
 import { ChainService } from "../Chain.service";
 import { KvService } from "../Kv.service";
 
@@ -95,11 +95,11 @@ describe("ChainService", () => {
     it("toggles a chain active and hides inactive ones from the active list", async () => {
       const { chain } = await createConfiguredChain();
 
-      await service.updateChain(chain.id, { isActive: false });
+      await service.updateChainActiveStatus(chain.id, false);
       expect(await service.getActiveChains()).toHaveLength(0);
       expect(await service.getChains()).toHaveLength(1);
 
-      await service.updateChain(chain.id, { isActive: true });
+      await service.updateChainActiveStatus(chain.id, true);
       expect(await service.getActiveChains()).toHaveLength(1);
     });
 

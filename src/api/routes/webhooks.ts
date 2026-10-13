@@ -103,6 +103,9 @@ export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
         query,
       );
 
+      if (!deliveries)
+        throw new HttpError(404, "NotFound", "Webhook not found");
+
       return deliveries;
     },
     {

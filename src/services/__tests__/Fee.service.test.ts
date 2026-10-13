@@ -1,22 +1,24 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import {
   createApp,
   createChain,
   createFee,
   address,
 } from "../../test/factories";
-import { FeeType } from "../../shared/constants";
+import { beforeEach, describe, expect, it } from "vitest";
 import { FeeService } from "../Fee.service";
+import { FeeType } from "../../shared/constants";
 
 const service = new FeeService();
 
-const ctx = (overrides: Record<string, unknown> = {}) => ({
-  customer: { id: "c-1", traits: { plan: "pro", billing: { tier: "gold" } } },
-  sourceAmount: 1_000_000n,
-  sourceToken: { address: address(0xaaa) },
-  targetToken: { address: address(0xbbb) },
-  ...overrides,
-});
+const ctx = (overrides: Record<string, unknown> = {}) => {
+  return {
+    customer: { id: "c-1", traits: { plan: "pro", billing: { tier: "gold" } } },
+    sourceAmount: 1_000_000n,
+    sourceToken: { address: address(0xaaa) },
+    targetToken: { address: address(0xbbb) },
+    ...overrides,
+  };
+};
 
 describe("FeeService conditions", () => {
   it("matches an empty condition", () => {

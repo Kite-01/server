@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createApp,
   createChain,
@@ -11,17 +10,18 @@ import {
   USDC,
   WETH,
 } from "../../test/factories";
-import { AppError, NotFoundError } from "../../shared/errors";
 import {
   fakeActor,
   operatorAddress,
   resetMocks,
   stubQuoter,
 } from "../../test/mocks";
-import { PriceFeedService } from "../PriceFeed.service";
 import { FeeType, KiteMaxFees, QuoteTTLSeconds } from "../../shared/constants";
-import { QuoteService } from "../Quote.service";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError, NotFoundError } from "../../shared/errors";
 import { chainConfig, quoteFee } from "../../db/schema";
+import { PriceFeedService } from "../PriceFeed.service";
+import { QuoteService } from "../Quote.service";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 

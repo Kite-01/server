@@ -28,7 +28,7 @@ const deliveries = vi.hoisted(() => ({
   statuses: [] as number[],
 }));
 
-vi.mock("../../../safeHttpClient", () => ({
+vi.mock("../../safeHttpClient", () => ({
   SafeHttpClient: class {
     makeRequest = async (
       url: string,

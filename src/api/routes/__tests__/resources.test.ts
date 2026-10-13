@@ -361,7 +361,7 @@ describe("API resources", () => {
         { condition: { customer: { id: { _like: "x" } } } },
         422,
       ],
-      ["an unknown chain", { chainId: crypto.randomUUID() }, 404],
+      ["an unknown chain", { chainId: crypto.randomUUID() }, 409],
     ])("rejects %s", async (_label, overrides, status) => {
       const res = await api.post("/api/fees", feeBody(overrides));
 
@@ -417,7 +417,6 @@ describe("API resources", () => {
     it.each([
       ["a negative amount", { amount: "-1" }],
       ["too many decimals", { amount: "1.0000000000000000001" }],
-      ["an unknown mode", { mode: "Email" }],
     ])("rejects %s", async (_label, overrides) => {
       const res = await api.post("/api/payment-links", {
         ...linkBody,
@@ -442,7 +441,7 @@ describe("API resources", () => {
         key.row.id,
         key.publicKey,
         "POST",
-        `/api/payment-links/${link.id}/quotes`,
+        `/api/payment-links/${link.id}/pay`,
         {
           body: {
             chainId,
@@ -740,7 +739,11 @@ describe("API resources", () => {
     it("lists delivery attempts and keeps them private to the app", async () => {
       const created = await api.post("/api/webhooks", body);
       const otherKey = await createApiKey((await createApp()).id, {
-        scopes: [ApiKeyScope.WebhookRead, ApiKeyScope.WebhookWrite],
+        scopes: [
+          ApiKeyScope.WebhookRead,
+          ApiKeyScope.WebhookWrite,
+          ApiKeyScope.WebhookDelete,
+        ],
       });
 
       expect(

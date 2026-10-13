@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { WebhookCategory } from "../../shared/constants";
 import { resetMocks, schedulerMock } from "../../test/mocks";
-import { createApp } from "../../test/factories";
+import { WebhookCategory } from "../../shared/constants";
 import { EventService } from "../Event.service";
+import { createApp } from "../../test/factories";
 import { event } from "../../db/schema";
 import { db } from "../../db";
 

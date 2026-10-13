@@ -7,8 +7,6 @@ import {
   count,
   ilike,
   or,
-  exists,
-  sql,
 } from "drizzle-orm";
 import {
   paginate,
@@ -104,15 +102,12 @@ export class WebhookService {
     webhookId: string,
     input: PageInput = {},
   ) => {
-    const filter = and(
-      eq(webhookDelivery.webhookId, webhookId),
-      exists(
-        db
-          .select({ one: sql`1` })
-          .from(webhook)
-          .where(and(eq(webhook.id, webhookId), eq(webhook.appId, appId))),
-      ),
-    );
+    const webhook_ = await this.getWebhook(appId, webhookId);
+    if (!webhook_) {
+      return null;
+    }
+
+    const where = eq(webhookDelivery.webhookId, webhookId);
 
     return paginate(
       input,
@@ -120,7 +115,7 @@ export class WebhookService {
         return db
           .select()
           .from(webhookDelivery)
-          .where(filter)
+          .where(where)
           .limit(limit)
           .offset(offset)
           .orderBy(desc(webhookDelivery.createdAt));
@@ -129,7 +124,7 @@ export class WebhookService {
         const [row] = await db
           .select({ value: count() })
           .from(webhookDelivery)
-          .where(filter);
+          .where(where);
 
         return row.value;
       },

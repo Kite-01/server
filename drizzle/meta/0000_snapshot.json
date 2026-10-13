@@ -1,5 +1,5 @@
 {
-  "id": "5757a0c8-c68d-4eb5-bc3b-3d770312956b",
+  "id": "dc4f7fea-7277-4d1b-bdcb-eda5d3ed9dfd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -116,7 +116,7 @@
       "checkConstraints": {
         "kite_api_key_scopes_check": {
           "name": "kite_api_key_scopes_check",
-          "value": "\"kite_api_key\".\"scopes\" <@ ARRAY['api_keys:read', 'api_keys:write', 'app:write', 'customers:read', 'customers:write', 'fees:read', 'fees:write', 'payment_links:read', 'payment_links:write', 'quotes:read', 'quotes:write', 'transfers:read', 'transfers:write', 'webhooks:read', 'webhooks:write', 'x402']::text[]"
+          "value": "\"kite_api_key\".\"scopes\" <@ ARRAY['Apikey:Write', 'Apikey:Delete', 'Apikey:Read', 'App:Write', 'App:Delete', 'Customer:Read', 'Customer:Write', 'Customer:Delete', 'Fee:Read', 'Fee:Write', 'Fee:Delete', 'PaymentLink:Read', 'PaymentLink:Write', 'PaymentLink:Delete', 'quotes:read', 'quotes:write', 'Transfer:Read', 'Transfer:Write', 'Webhook:Read', 'Webhook:Write', 'Webhook:Delete', 'x402']::text[]"
         }
       },
       "isRLSEnabled": false
@@ -1328,12 +1328,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "mode": {
-          "name": "mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "amount": {
           "name": "amount",
           "type": "numeric(38, 18)",
@@ -1411,12 +1405,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "kite_payment_link_mode_check": {
-          "name": "kite_payment_link_mode_check",
-          "value": "\"kite_payment_link\".\"mode\" IN ('Api', 'Ui')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.kite_price_feed": {
@@ -2043,6 +2032,12 @@
           "notNull": true,
           "default": false
         },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2091,6 +2086,7 @@
             }
           ],
           "isUnique": true,
+          "where": "\"kite_token\".\"deleted_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}

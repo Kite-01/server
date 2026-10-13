@@ -10,12 +10,12 @@ import postgres from "postgres";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    adminUrl: string;
+    testDbUrl: string;
   }
 }
 
-const freePort = () =>
-  new Promise<number>((resolve, reject) => {
+const freePort = () => {
+  return new Promise<number>((resolve, reject) => {
     const server = createServer();
     server.on("error", reject);
     server.listen(0, () => {
@@ -23,38 +23,34 @@ const freePort = () =>
       server.close(() => resolve(port));
     });
   });
+};
 
 export default async function setup(project: TestProject) {
-  let adminUrl = process.env.KITE_PG_DB_URL;
-  let stop = async () => {};
+  const dir = await mkdtemp(join(tmpdir(), "kite-pg-"));
+  const port = await freePort();
+  const pg = new EmbeddedPostgres({
+    databaseDir: dir,
+    user: "postgres",
+    password: "postgres",
+    port,
+    persistent: false,
+    onLog: () => {},
+  });
 
-  if (!adminUrl) {
-    const dir = await mkdtemp(join(tmpdir(), "kite-pg-"));
-    const port = await freePort();
-    const pg = new EmbeddedPostgres({
-      databaseDir: dir,
-      user: "postgres",
-      password: "postgres",
-      port,
-      persistent: false,
-      onLog: () => {},
+  await pg.initialise();
+  await pg.start();
+
+  const testDbUrl = `postgres://postgres:postgres@localhost:${port}/postgres`;
+  const stop = async () => {
+    await pg.stop();
+    await rm(dir, {
+      recursive: true,
+      force: true,
     });
-
-    await pg.initialise();
-    await pg.start();
-
-    adminUrl = `postgres://postgres:postgres@localhost:${port}/postgres`;
-    stop = async () => {
-      await pg.stop();
-      await rm(dir, {
-        recursive: true,
-        force: true,
-      });
-    };
-  }
+  };
 
   try {
-    const admin = postgres(adminUrl, {
+    const admin = postgres(testDbUrl, {
       max: 1,
       onnotice: () => {},
     });
@@ -63,7 +59,7 @@ export default async function setup(project: TestProject) {
     await admin.unsafe("CREATE DATABASE kite_template");
     await admin.end();
 
-    const templateUrl = new URL(adminUrl);
+    const templateUrl = new URL(testDbUrl);
     templateUrl.pathname = "/kite_template";
 
     const client = postgres(templateUrl.toString(), {
@@ -82,7 +78,7 @@ export default async function setup(project: TestProject) {
     throw error;
   }
 
-  project.provide("adminUrl", adminUrl);
+  project.provide("testDbUrl", testDbUrl);
 
   return stop;
 }

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { WebhookCategory } from "../../shared/constants";
-import { createApp } from "../../test/factories";
 import { WebhookService } from "../Webhook.service";
-import { crypt } from "../../shared/crypt";
+import { createApp } from "../../test/factories";
 import { eventFor } from "../../test/events";
 import { webhook } from "../../db/schema";
+import { crypt } from "../../shared/crypt";
 import { db } from "../../db";
 
 const service = new WebhookService();

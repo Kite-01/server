@@ -112,7 +112,7 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
       const appId = await Scope.appFor(actor, "apiKey", params.id);
       const entry = await apiKeyService.getApiKey(appId, params.id);
 
-      if (!entry) throw new HttpError(400, "NotFound", "API key not found");
+      if (!entry) throw new HttpError(404, "NotFound", "API key not found");
       return entry;
     },
     {
@@ -130,7 +130,7 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
       const appId = await Scope.appFor(actor, "apiKey", params.id);
       const entry = await apiKeyService.updateApiKey(appId, params.id, body);
 
-      if (!entry) throw new HttpError(400, "NotFound", "API key not found");
+      if (!entry) throw new HttpError(404, "NotFound", "API key not found");
       return entry;
     },
     {
@@ -154,7 +154,7 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
       const appId = await Scope.appFor(actor, "apiKey", params.id);
       const entry = await apiKeyService.revokeApiKey(appId, params.id);
 
-      if (!entry) throw new HttpError(400, "NotFound", "API key not found");
+      if (!entry) throw new HttpError(404, "NotFound", "API key not found");
       return entry;
     },
     {
@@ -172,7 +172,7 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
       const appId = await Scope.appFor(actor, "apiKey", params.id);
       const entry = await apiKeyService.deleteApiKey(appId, params.id);
 
-      if (!entry) throw new HttpError(400, "NotFound", "API key not found");
+      if (!entry) throw new HttpError(404, "NotFound", "API key not found");
       return entry;
     },
     {

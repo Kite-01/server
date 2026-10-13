@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { PaymentLinkType } from "../../shared/constants";
 import { PaymentLinkService } from "../PaymentLink.service";
 import { createApp } from "../../test/factories";
 
@@ -21,7 +20,6 @@ describe("PaymentLinkService", () => {
       appId,
       title: "Pro plan",
       currency: "USD",
-      mode: PaymentLinkType.Ui,
       amount: "49.99",
       ...values,
     });
@@ -80,7 +78,6 @@ describe("PaymentLinkService", () => {
       appId: otherAppId,
       title: "Pro plan",
       currency: "USD",
-      mode: PaymentLinkType.Api,
       amount: "1",
     });
 

@@ -10,7 +10,7 @@ CREATE TABLE "kite_api_key" (
 	"expires_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "kite_api_key_scopes_check" CHECK ("kite_api_key"."scopes" <@ ARRAY['api_keys:read', 'api_keys:write', 'app:write', 'customers:read', 'customers:write', 'fees:read', 'fees:write', 'payment_links:read', 'payment_links:write', 'quotes:read', 'quotes:write', 'transfers:read', 'transfers:write', 'webhooks:read', 'webhooks:write', 'x402']::text[])
+	CONSTRAINT "kite_api_key_scopes_check" CHECK ("kite_api_key"."scopes" <@ ARRAY['Apikey:Write', 'Apikey:Delete', 'Apikey:Read', 'App:Write', 'App:Delete', 'Customer:Read', 'Customer:Write', 'Customer:Delete', 'Fee:Read', 'Fee:Write', 'Fee:Delete', 'PaymentLink:Read', 'PaymentLink:Write', 'PaymentLink:Delete', 'quotes:read', 'quotes:write', 'Transfer:Read', 'Transfer:Write', 'Webhook:Read', 'Webhook:Write', 'Webhook:Delete', 'x402']::text[])
 );
 --> statement-breakpoint
 CREATE TABLE "kite_api_nonce" (
@@ -143,12 +143,10 @@ CREATE TABLE "kite_payment_link" (
 	"app_id" uuid NOT NULL,
 	"title" text NOT NULL,
 	"currency" text NOT NULL,
-	"mode" text NOT NULL,
 	"amount" numeric(38, 18) NOT NULL,
 	"line_items" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "kite_payment_link_mode_check" CHECK ("kite_payment_link"."mode" IN ('Api', 'Ui'))
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "kite_price_feed" (
@@ -208,6 +206,7 @@ CREATE TABLE "kite_token" (
 	"version" text,
 	"icon" text,
 	"supports_eip3009" boolean DEFAULT false NOT NULL,
+	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "kite_token_id_chain_id_key" UNIQUE("id","chain_id"),
@@ -346,7 +345,7 @@ CREATE INDEX "kite_quote_target_token_id_idx" ON "kite_quote" USING btree ("targ
 CREATE UNIQUE INDEX "kite_quote_app_id_reference_key" ON "kite_quote" USING btree ("app_id","reference");--> statement-breakpoint
 CREATE INDEX "kite_quote_fee_quote_id_idx" ON "kite_quote_fee" USING btree ("quote_id");--> statement-breakpoint
 CREATE INDEX "kite_token_chain_id_idx" ON "kite_token" USING btree ("chain_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "kite_token_chain_id_address_key" ON "kite_token" USING btree ("chain_id","address");--> statement-breakpoint
+CREATE UNIQUE INDEX "kite_token_chain_id_address_key" ON "kite_token" USING btree ("chain_id","address") WHERE "kite_token"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "kite_transfer_app_id_idx" ON "kite_transfer" USING btree ("app_id");--> statement-breakpoint
 CREATE INDEX "kite_transfer_created_at_idx" ON "kite_transfer" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "kite_transfer_status_idx" ON "kite_transfer" USING btree ("status");--> statement-breakpoint

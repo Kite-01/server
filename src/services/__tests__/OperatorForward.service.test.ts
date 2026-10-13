@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import {
   createApp,
   createConfiguredChain,
@@ -27,6 +26,7 @@ import {
   resetMocks,
   schedulerMock,
 } from "../../test/mocks";
+import { beforeEach, describe, expect, it } from "vitest";
 import { OperatorForwardService } from "../OperatorForward.service";
 import { operatorForward } from "../../db/schema";
 import { eq } from "drizzle-orm";

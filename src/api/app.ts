@@ -68,8 +68,11 @@ export const createApp = () => {
       }
     })
     .onError({ as: "global" }, ({ code, error, set }) => {
+      const cause =
+        code === "PARSE" && error instanceof Error ? error.cause : undefined;
+
       const http =
-        handleError(error) ??
+        handleError(cause instanceof HttpError ? cause : error) ??
         (code === "VALIDATION"
           ? new HttpError(422, "ValidationError", error.message)
           : code === "NOT_FOUND"

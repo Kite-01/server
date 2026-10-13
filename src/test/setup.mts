@@ -4,17 +4,17 @@ import { randomBytes } from "node:crypto";
 import { rootKey } from "./rootKey.js";
 import postgres from "postgres";
 
-const adminUrl = inject("adminUrl");
+const testDbUrl = inject("testDbUrl");
 const database = `kite_test_${randomBytes(6).toString("hex")}`;
 
-const admin = postgres(adminUrl, {
+const admin = postgres(testDbUrl, {
   max: 1,
 });
 
 await admin.unsafe(`CREATE DATABASE ${database} TEMPLATE kite_template`);
 await admin.end();
 
-const databaseUrl = new URL(adminUrl);
+const databaseUrl = new URL(testDbUrl);
 databaseUrl.pathname = `/${database}`;
 
 process.env.KITE_PG_DB_URL = databaseUrl.toString();
@@ -39,7 +39,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await resetClient.end();
-  const cleanup = postgres(adminUrl, { max: 1 });
+  const cleanup = postgres(testDbUrl, { max: 1 });
   await cleanup.unsafe(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
   await cleanup.end();
 });

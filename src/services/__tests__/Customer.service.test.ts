@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../test/factories";
 import { CustomerService } from "../Customer.service";
+import { createApp } from "../../test/factories";
 
 const service = new CustomerService();
 

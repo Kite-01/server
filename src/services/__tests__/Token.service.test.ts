@@ -1,17 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createConfiguredChain,
   createToken,
   address,
   ZERO,
 } from "../../test/factories";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError, NotFoundError } from "../../shared/errors";
 import { fakeActor, resetMocks } from "../../test/mocks";
 import { TokenService } from "../Token.service";
 
 const httpGet = vi.hoisted(() => vi.fn());
 
-vi.mock("../sdks/Http", () => ({
+vi.mock("../../sdks/Http", () => ({
   Http: class {
     get = httpGet;
   },

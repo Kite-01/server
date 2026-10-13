@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import {
   createApp,
   createConfiguredChain,
@@ -7,6 +6,7 @@ import {
   WETH,
 } from "../../test/factories";
 import { createQuoteRow, createTransferRow } from "../../test/transfers";
+import { beforeEach, describe, expect, it } from "vitest";
 import { TransferStatus } from "../../shared/constants";
 import { StatsService } from "../Stats.service";
 import { customer } from "../../db/schema";
@@ -34,7 +34,12 @@ describe("StatsService", () => {
     const configured = await createConfiguredChain();
     chainId = configured.chain.id;
     usdcId = configured.usdc.id;
-    wethId = (await createToken(chainId, { address: WETH, symbol: "WETH" })).id;
+    wethId = (
+      await createToken(chainId, {
+        address: WETH,
+        symbol: "WETH",
+      })
+    ).id;
   });
 
   const settle = async (input: {

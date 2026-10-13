@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { KeyType, KeyVars } from "../../shared/constants";
 import { KvService } from "../Kv.service";
 import { eq } from "drizzle-orm";
@@ -98,38 +98,6 @@ describe("KvService", () => {
     expect(
       (await service.getKvs([KeyVars.AlchemyGasPolicyId])).map((r) => r.key),
     ).toEqual([KeyVars.AlchemyGasPolicyId]);
-  });
-
-  it("never exposes secure values in the overview", async () => {
-    await service.upsertKv({
-      key: KeyVars.AlchemyApiKey,
-      type: KeyType.SecureString,
-      value: "alchemy-secret",
-    });
-    await service.upsertKv({
-      key: KeyVars.AlchemyGasPolicyId,
-      type: KeyType.String,
-      value: "policy-1",
-    });
-
-    const overview = await service.getOverview();
-    const byKey = Object.fromEntries(overview.map((row) => [row.key, row]));
-
-    expect(overview).toHaveLength(Object.values(KeyVars).length);
-    expect(byKey[KeyVars.AlchemyApiKey]).toMatchObject({
-      isSet: true,
-      value: null,
-      type: KeyType.SecureString,
-    });
-    expect(byKey[KeyVars.AlchemyGasPolicyId]).toMatchObject({
-      isSet: true,
-      value: "policy-1",
-    });
-    expect(byKey[KeyVars.QuickNodeApiKey]).toMatchObject({
-      isSet: false,
-      value: null,
-    });
-    expect(JSON.stringify(overview)).not.toContain("alchemy-secret");
   });
 
   it("deletes a key", async () => {

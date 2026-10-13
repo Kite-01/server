@@ -50,7 +50,7 @@ describe("API authentication", () => {
 
   describe("signed requests", () => {
     it("accepts an app key and returns the app it belongs to", async () => {
-      const res = await signedCall(key.credentials, "GET", "/api/app");
+      const res = await signedCall(key.credentials, "GET", "/api/apps");
 
       expect(res.status).toBe(200);
       expect(res.json).toMatchObject({
@@ -60,14 +60,14 @@ describe("API authentication", () => {
     });
 
     it("accepts the root key acting as an app", async () => {
-      const res = await signedCall(rootCredentials(appId), "GET", "/api/app");
+      const res = await signedCall(rootCredentials(appId), "GET", "/api/apps");
 
       expect(res.status).toBe(200);
       expect(res.json.id).toBe(appId);
     });
 
     it("signs the query string and the body", async () => {
-      const res = await signedCall(key.credentials, "PATCH", "/api/app", {
+      const res = await signedCall(key.credentials, "PATCH", "/api/apps", {
         body: {
           name: "Renamed",
         },
@@ -110,8 +110,10 @@ describe("API authentication", () => {
         }),
       ],
     ])("rejects %s", async (_label, mutate) => {
-      const headers = mutate(signedHeaders(key.credentials, "GET", "/api/app"));
-      const res = await call("GET", "/api/app", headers);
+      const headers = mutate(
+        signedHeaders(key.credentials, "GET", "/api/apps"),
+      );
+      const res = await call("GET", "/api/apps", headers);
 
       expect(res.status).toBe(401);
       expect(res.json.error.code).toBe("Unauthorized");
@@ -122,26 +124,26 @@ describe("API authentication", () => {
       const res = await signedCall(
         { keyId: key.credentials.keyId, privateKey: other.privateKey },
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(res.status).toBe(401);
     });
 
     it("rejects a signature replayed against another path, method or body", async () => {
-      const headers = signedHeaders(key.credentials, "GET", "/api/app");
+      const headers = signedHeaders(key.credentials, "GET", "/api/apps");
 
-      expect((await call("GET", "/api/app?x=1", headers)).status).toBe(401);
-      expect((await call("DELETE", "/api/app", headers)).status).toBe(401);
+      expect((await call("GET", "/api/apps?x=1", headers)).status).toBe(401);
+      expect((await call("DELETE", "/api/apps", headers)).status).toBe(401);
 
       const signedForBody = signedHeaders(
         key.credentials,
         "PATCH",
-        "/api/app",
+        "/api/apps",
         { body: { name: "A" } },
       );
 
-      const res = await call("PATCH", "/api/app", signedForBody, {
+      const res = await call("PATCH", "/api/apps", signedForBody, {
         body: { name: "B" },
       });
 
@@ -152,7 +154,7 @@ describe("API authentication", () => {
       const now = Math.floor(Date.now() / 1000);
 
       for (const timestamp of [now - 6 * 60, now + 6 * 60]) {
-        const res = await signedCall(key.credentials, "GET", "/api/app", {
+        const res = await signedCall(key.credentials, "GET", "/api/apps", {
           timestamp,
         });
 
@@ -160,7 +162,7 @@ describe("API authentication", () => {
         expect(res.json.error.message).toMatch(/timestamp/);
       }
 
-      const near = await signedCall(key.credentials, "GET", "/api/app", {
+      const near = await signedCall(key.credentials, "GET", "/api/apps", {
         timestamp: now - 4 * 60,
       });
 
@@ -168,26 +170,26 @@ describe("API authentication", () => {
     });
 
     it("accepts a nonce once", async () => {
-      const first = await signedCall(key.credentials, "GET", "/api/app", {
+      const first = await signedCall(key.credentials, "GET", "/api/apps", {
         nonce: "replay-nonce-0001",
       });
 
-      const second = await signedCall(key.credentials, "GET", "/api/app", {
+      const second = await signedCall(key.credentials, "GET", "/api/apps", {
         nonce: "replay-nonce-0001",
       });
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(401);
-      expect(second.json.error.message).toMatch(/nonce/);
+      expect(second.json.error.message).toMatch(/nonce/i);
     });
 
     it("lets two keys use the same nonce", async () => {
       const other = await createApiKey(appId);
-      const res1 = await signedCall(key.credentials, "GET", "/api/app", {
+      const res1 = await signedCall(key.credentials, "GET", "/api/apps", {
         nonce: "shared-nonce-001",
       });
 
-      const res2 = await signedCall(other.credentials, "GET", "/api/app", {
+      const res2 = await signedCall(other.credentials, "GET", "/api/apps", {
         nonce: "shared-nonce-001",
       });
 
@@ -202,11 +204,11 @@ describe("API authentication", () => {
       await signedCall(
         { keyId: key.credentials.keyId, privateKey: other.privateKey },
         "GET",
-        "/api/app",
+        "/api/apps",
         { nonce },
       );
 
-      const res = await signedCall(key.credentials, "GET", "/api/app", {
+      const res = await signedCall(key.credentials, "GET", "/api/apps", {
         nonce,
       });
 
@@ -225,28 +227,28 @@ describe("API authentication", () => {
         { ...key.credentials, keyId: crypto.randomUUID() },
         { ...key.credentials, keyId: "not-a-uuid" },
       ]) {
-        const res = await signedCall(credentials, "GET", "/api/app");
+        const res = await signedCall(credentials, "GET", "/api/apps");
         expect(res.status).toBe(401);
       }
 
       await new AppService().deleteApp(appId);
 
-      const res = await signedCall(key.credentials, "GET", "/api/app");
+      const res = await signedCall(key.credentials, "GET", "/api/apps");
       expect(res.status).toBe(401);
     });
 
     it("stops accepting a key as soon as it is revoked", async () => {
-      const res1 = await signedCall(key.credentials, "GET", "/api/app");
+      const res1 = await signedCall(key.credentials, "GET", "/api/apps");
       expect(res1.status).toBe(200);
 
       await new ApiKeyService().revokeApiKey(appId, key.row.id);
 
-      const res2 = await signedCall(key.credentials, "GET", "/api/app");
+      const res2 = await signedCall(key.credentials, "GET", "/api/apps");
       expect(res2.status).toBe(401);
     });
 
     it("records when a key was last used", async () => {
-      await signedCall(key.credentials, "GET", "/api/app");
+      await signedCall(key.credentials, "GET", "/api/apps");
       await expect
         .poll(
           async () =>
@@ -259,18 +261,22 @@ describe("API authentication", () => {
 
   describe("root key", () => {
     it("needs an app to act on an app resource", async () => {
-      const res = await signedCall(rootCredentials(), "GET", "/api/app");
+      const res = await signedCall(rootCredentials(), "GET", "/api/apps");
 
       expect(res.status).toBe(400);
       expect(res.json.error.message).toMatch(/x-kite-app-id/);
     });
 
     it("rejects an unknown or malformed app id", async () => {
-      const res1 = await signedCall(rootCredentials("nope"), "GET", "/api/app");
+      const res1 = await signedCall(
+        rootCredentials("nope"),
+        "GET",
+        "/api/apps",
+      );
       const res2 = await signedCall(
         rootCredentials(crypto.randomUUID()),
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(res1.status).toBe(400);
@@ -278,7 +284,7 @@ describe("API authentication", () => {
     });
 
     it("authenticates with the x-kite-root-key header alone", async () => {
-      const res = await call("GET", "/api/overview/system", {
+      const res = await call("GET", "/api/overview/info", {
         "x-kite-root-key": rootKey,
       });
 
@@ -287,7 +293,7 @@ describe("API authentication", () => {
 
     it("rejects any other value", async () => {
       for (const value of [`${rootKey}-not`, rootKey.slice(1), "x"]) {
-        const res = await call("GET", "/api/overview/system", {
+        const res = await call("GET", "/api/overview/info", {
           "x-kite-root-key": value,
         });
 
@@ -297,8 +303,8 @@ describe("API authentication", () => {
     });
 
     it("does not fall back to an API key when the root key is wrong", async () => {
-      const res = await call("GET", "/api/app", {
-        ...signedHeaders(key.credentials, "GET", "/api/app"),
+      const res = await call("GET", "/api/apps", {
+        ...signedHeaders(key.credentials, "GET", "/api/apps"),
         "x-kite-root-key": "not the root key at all",
       });
 
@@ -309,20 +315,20 @@ describe("API authentication", () => {
       const res = await signedCall(
         { keyId: "root", privateKey: signing.generateKeyPair().privateKey },
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(res.status).toBe(401);
     });
 
     it("cannot be used with only the public key", async () => {
-      const res1 = await publicCall("root", rootKey, "GET", "/api/app", {
+      const res1 = await publicCall("root", rootKey, "GET", "/api/apps", {
         headers: {
           "x-kite-app-id": appId,
         },
       });
 
-      const res2 = await call("GET", "/api/app", {
+      const res2 = await call("GET", "/api/apps", {
         "x-kite-api-key-id": "root",
         "x-kite-public-key": rootKey,
       });
@@ -336,7 +342,7 @@ describe("API authentication", () => {
       const res = await signedCall(
         { ...key.credentials, appId: other.id },
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(res.json.id).toBe(appId);
@@ -349,8 +355,8 @@ describe("API authentication", () => {
         key.row.id,
         key.publicKey,
         "GET",
-        "/api/app",
-        { headers: { origin: "https://shop.example" } },
+        "/api/apps",
+        { headers: { origin: "https://test.app" } },
       );
 
       expect(res.status).toBe(200);
@@ -362,7 +368,7 @@ describe("API authentication", () => {
         key.row.id,
         key.publicKey,
         "PATCH",
-        "/api/app",
+        "/api/apps",
         { body: { name: "x" } },
       );
 
@@ -375,7 +381,7 @@ describe("API authentication", () => {
         key.row.id,
         signing.generateKeyPair().publicKey,
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(res.status).toBe(401);
@@ -386,7 +392,7 @@ describe("API authentication", () => {
         key.row.id,
         key.publicKey,
         "GET",
-        "/api/app",
+        "/api/apps",
         { headers: { origin: "https://evil.example" } },
       );
 
@@ -394,7 +400,7 @@ describe("API authentication", () => {
         key.row.id,
         key.publicKey,
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(blocked.status).toBe(403);
@@ -408,7 +414,7 @@ describe("API authentication", () => {
         key.row.id,
         key.publicKey,
         "GET",
-        "/api/app",
+        "/api/apps",
       );
 
       expect(res.status).toBe(401);
@@ -421,19 +427,19 @@ describe("API authentication", () => {
         scopes: [ApiKeyScope.QuoteRead],
       });
 
-      const res = await signedCall(readOnly.credentials, "PATCH", "/api/app", {
+      const res = await signedCall(readOnly.credentials, "PATCH", "/api/apps", {
         body: { name: "x" },
       });
 
       expect(res.status).toBe(403);
-      expect(res.json.error.message).toContain(ApiKeyScope.AppWrite);
+      expect(res.json.error.message).toBe("Cannot access resource");
     });
 
     it("lets the root key do anything", async () => {
       const res = await signedCall(
         rootCredentials(appId),
         "PATCH",
-        "/api/app",
+        "/api/apps",
         { body: { name: "By root" } },
       );
 
@@ -443,8 +449,8 @@ describe("API authentication", () => {
 
   describe("request handling", () => {
     it("answers CORS preflights without credentials", async () => {
-      const res = await call("OPTIONS", "/api/app", {
-        origin: "https://shop.example",
+      const res = await call("OPTIONS", "/api/apps", {
+        origin: "https://test.app",
         "access-control-request-method": "GET",
       });
 
@@ -467,12 +473,12 @@ describe("API authentication", () => {
     it("validates bodies after authenticating", async () => {
       const unauth = await call(
         "PATCH",
-        "/api/app",
+        "/api/apps",
         { "content-type": "application/json" },
         { body: { name: 5 } },
       );
 
-      const invalid = await signedCall(key.credentials, "PATCH", "/api/app", {
+      const invalid = await signedCall(key.credentials, "PATCH", "/api/apps", {
         body: { name: 5 },
       });
 
@@ -482,27 +488,27 @@ describe("API authentication", () => {
     });
 
     it("rejects malformed json and other content types", async () => {
-      const headers = signedHeaders(key.credentials, "PATCH", "/api/app", {
+      const headers = signedHeaders(key.credentials, "PATCH", "/api/apps", {
         body: { name: "x" },
       });
 
       const text = await send(
         "PATCH",
-        "/api/app",
+        "/api/apps",
         { ...headers, "content-type": "text/plain" },
         "{}",
       );
 
       expect(text.status).toBe(400);
 
-      const broken = await send("PATCH", "/api/app", headers, "{not json");
+      const broken = await send("PATCH", "/api/apps", headers, "{not json");
       expect(broken.status).toBe(400);
     });
 
     it("rejects bodies over 1 MiB before reading them all", async () => {
       const res = await send(
         "PATCH",
-        "/api/app",
+        "/api/apps",
         { "content-type": "application/json" },
         JSON.stringify({ name: "x".repeat(1024 * 1024 + 1) }),
       );
@@ -511,7 +517,7 @@ describe("API authentication", () => {
     });
 
     it("adds the CORS header to api responses", async () => {
-      const res = await signedCall(key.credentials, "GET", "/api/app");
+      const res = await signedCall(key.credentials, "GET", "/api/apps");
 
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
     });

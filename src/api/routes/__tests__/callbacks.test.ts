@@ -67,6 +67,12 @@ describe("provider callbacks", () => {
     resetMocks();
 
     await new KvService().upsertKv({
+      key: KeyVars.QuickNodeApiKey,
+      type: KeyType.SecureString,
+      value: "qn-api-key",
+    });
+
+    await new KvService().upsertKv({
       key: KeyVars.QuickNodeWebhookSecurityToken,
       type: KeyType.SecureString,
       value: TOKEN,
@@ -130,7 +136,7 @@ describe("provider callbacks", () => {
       signedHeaders(raw),
     );
 
-    expect(res).toMatchObject({ status: 200, json: { received: 1 } });
+    expect(res).toMatchObject({ status: 200, json: { items: 1 } });
     expect(await db.select().from(deposit)).toHaveLength(1);
 
     const [row] = await db
@@ -152,7 +158,7 @@ describe("provider callbacks", () => {
 
     expect(res).toMatchObject({
       status: 200,
-      json: { received: 1 },
+      json: { items: 1 },
     });
   });
 
@@ -211,7 +217,7 @@ describe("provider callbacks", () => {
 
     expect(res).toMatchObject({
       status: 200,
-      json: { received: 0 },
+      json: { items: 0 },
     });
   });
 

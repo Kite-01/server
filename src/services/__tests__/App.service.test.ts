@@ -6,29 +6,32 @@ const service = new AppService();
 describe("AppService", () => {
   it("creates and reads an app", async () => {
     const created = await service.createApp({
-      name: "Shop",
-      websiteUrl: "https://shop.example",
+      name: "Test app",
+      websiteUrl: "https://test.app",
     });
 
     expect(await service.getApp(created.id)).toMatchObject({
-      name: "Shop",
-      websiteUrl: "https://shop.example",
+      name: "Test app",
+      websiteUrl: "https://test.app",
       deletedAt: null,
     });
   });
 
   it("updates only the given fields", async () => {
     const created = await service.createApp({
-      name: "Shop",
-      websiteUrl: "https://shop.example",
+      name: "Test app",
+      websiteUrl: "https://test.app",
     });
 
-    const updated = await service.updateApp(created.id, { name: "Store" });
+    const updated = await service.updateApp(created.id, {
+      name: "Test app (updated)",
+    });
 
     expect(updated).toMatchObject({
-      name: "Store",
-      websiteUrl: "https://shop.example",
+      name: "Test app (updated)",
+      websiteUrl: "https://test.app",
     });
+
     expect(updated!.updatedAt.getTime()).toBeGreaterThanOrEqual(
       created.updatedAt.getTime(),
     );
@@ -45,7 +48,7 @@ describe("AppService", () => {
     expect(
       await service.updateApp(created.id, { name: "Back" }),
     ).toBeUndefined();
-    expect((await service.getApps()).total).toBe(0);
+    expect((await service.getApps({})).total).toBe(0);
   });
 
   it("lists newest first with search and paging", async () => {

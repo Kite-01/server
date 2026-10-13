@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ApiKeyScope } from "../../shared/constants";
-import { signing } from "../../shared/signing";
-import { createApp } from "../../test/factories";
-import { ApiKeyService } from "../ApiKey.service";
 import { apiKey, apiNonce } from "../../db/schema";
+import { ApiKeyService } from "../ApiKey.service";
+import { ApiKeyScope } from "../../shared/constants";
+import { createApp } from "../../test/factories";
+import { signing } from "../../shared/signing";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 
@@ -12,14 +12,15 @@ const service = new ApiKeyService();
 const newKey = (
   appId: string,
   values: Partial<typeof apiKey.$inferInsert> = {},
-) =>
-  service.createApiKey({
+) => {
+  return service.createApiKey({
     appId,
     label: "server",
     publicKey: signing.generateKeyPair().publicKey,
-    scopes: [ApiKeyScope.QuotesRead],
+    scopes: [ApiKeyScope.QuoteRead],
     ...values,
   });
+};
 
 describe("ApiKeyService", () => {
   let appId: string;
@@ -32,14 +33,14 @@ describe("ApiKeyService", () => {
 
   it("creates a key that only stores the public key", async () => {
     const key = await newKey(appId, {
-      scopes: [ApiKeyScope.QuotesRead, ApiKeyScope.TransfersWrite],
-      allowedOrigins: ["https://shop.example"],
+      scopes: [ApiKeyScope.QuoteRead, ApiKeyScope.TransferWrite],
+      allowedOrigins: ["https://test.app"],
     });
 
     expect(key.appId).toBe(appId);
     expect(key.scopes).toEqual([
-      ApiKeyScope.QuotesRead,
-      ApiKeyScope.TransfersWrite,
+      ApiKeyScope.QuoteRead,
+      ApiKeyScope.TransferWrite,
     ]);
     expect(key.revokedAt).toBeNull();
     expect(Object.keys(key)).not.toContain("privateKey");

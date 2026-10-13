@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   encodeAbiParameters,
   encodeEventTopics,
@@ -31,11 +30,12 @@ import {
   PreconditionError,
   QuoteExpiredError,
 } from "../../shared/errors";
-import { TransferStatus } from "../../shared/constants";
-import { kite } from "../../shared/kiteContract";
-import { common } from "../../shared/common";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chainConfig, quote, transfer } from "../../db/schema";
+import { TransferStatus } from "../../shared/constants";
 import { x402Service } from "../x402.service";
+import { common } from "../../shared/common";
+import { kite } from "../../shared/kiteContract";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 
@@ -58,7 +58,7 @@ vi.mock("@x402/evm/exact/facilitator", () => ({
   ExactEvmScheme: class {},
 }));
 
-vi.mock("../shared/providers", () => ({
+vi.mock("../../shared/providers", () => ({
   runProviderMethod: vi.fn(async () => undefined),
   isProviderConfiguredForAction: vi.fn(),
   getProvider: vi.fn(),

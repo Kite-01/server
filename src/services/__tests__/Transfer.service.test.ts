@@ -1,6 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { encodeAbiParameters, encodeEventTopics } from "viem";
-import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
 import {
   createApp,
   createConfiguredChain,
@@ -38,16 +35,19 @@ import {
   QuoteExpiredError,
   TransferStructMismatchError,
 } from "../../shared/errors";
-import { getChain } from "../../shared/chains";
+import { encodeAbiParameters, encodeEventTopics } from "viem";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransferStatus, WebhookCategory } from "../../shared/constants";
 import { runProviderMethod } from "../../shared/providers";
 import { TransferService } from "../Transfer.service";
-import { kite } from "../../shared/kiteContract";
+import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
+import { getChain } from "../../shared/chains";
 import { common } from "../../shared/common";
+import { kite } from "../../shared/kiteContract";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 
-vi.mock("../shared/providers", () => ({
+vi.mock("../../shared/providers", () => ({
   runProviderMethod: vi.fn(async () => undefined),
   isProviderConfiguredForAction: vi.fn(),
   getProvider: vi.fn(),

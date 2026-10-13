@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfiguredChain, address } from "../../test/factories";
 import { AppError, NotFoundError } from "../../shared/errors";
-import { PriceFeedService } from "../PriceFeed.service";
 import { fakeActor, resetMocks } from "../../test/mocks";
+import { PriceFeedService } from "../PriceFeed.service";
 
 const service = new PriceFeedService();
 const multicall = vi.fn();
