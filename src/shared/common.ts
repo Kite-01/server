@@ -89,7 +89,7 @@ class Common {
   };
 
   rawBodyToString = (body: unknown, raw?: string | Buffer) => {
-    if (!!raw) return Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
+    if (raw) return Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
     if (typeof body === "string") return body;
     return JSON.stringify(body);
   };

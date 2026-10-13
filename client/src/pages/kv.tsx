@@ -16,6 +16,7 @@ export const Kv = () => {
       />
 
       <SimpleTable
+        exportName="kv"
         rows={rows.data}
         loading={rows.isLoading}
         error={rows.error}

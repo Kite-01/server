@@ -1,3 +1,4 @@
+import { IconInfoCircle } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 export const PageHeader = ({
@@ -10,9 +11,13 @@ export const PageHeader = ({
   action?: ReactNode;
 }) => (
   <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-    <div>
+    <div className="flex items-center gap-2">
       <h1 className="text-2xl font-semibold">{title}</h1>
-      {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+      {description ? (
+        <button title={description}>
+          <IconInfoCircle />
+        </button>
+      ) : null}
     </div>
     {action}
   </div>

@@ -121,6 +121,7 @@ export const Customers = () => {
       />
 
       <DataTable
+        exportName="customers"
         options={(query) => getApiCustomersOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search customers"
@@ -161,6 +162,7 @@ export const Customers = () => {
           },
           {
             header: "ID",
+            exportValue: (row) => row.id,
             cell: (row) => (
               <span className="flex items-center gap-1 font-mono text-xs">
                 {shortId(row.id)}

@@ -209,35 +209,34 @@ export class Auth {
     };
   };
 
+  static parseJson = async (
+    { request }: { request: Request },
+    contentType: string,
+  ) => {
+    const body = await readBody(request, 1024 * 1024);
+    const text = body.toString("utf8");
+
+    rawBodies.set(request, text);
+
+    if (!text) return null;
+    if (!contentType.includes("json")) {
+      throw new HttpError(
+        400,
+        "BadRequest",
+        "Request bodies must be application/json",
+      );
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new HttpError(400, "BadRequest", "Request body is not valid JSON");
+    }
+  };
+
   static plugin = new Elysia({ name: "KiteAuth" })
-    .onParse({ as: "scoped" }, async ({ request }, contentType) => {
-      const body = await readBody(request, 1024 * 1024);
-      const text = body.toString("utf8");
-
-      rawBodies.set(request, text);
-
-      if (!text) return null;
-      if (!contentType.includes("json")) {
-        throw new HttpError(
-          400,
-          "BadRequest",
-          "Request bodies must be application/json",
-        );
-      }
-
-      try {
-        return JSON.parse(text);
-      } catch {
-        throw new HttpError(
-          400,
-          "BadRequest",
-          "Request body is not valid JSON",
-        );
-      }
-    })
-    .derive({ as: "scoped" }, async ({ request }) => {
-      return {
-        actor: await Auth.authenticate(request),
-      };
-    });
+    .onParse({ as: "scoped" }, Auth.parseJson)
+    .derive({ as: "scoped" }, async ({ request }) => ({
+      actor: await Auth.authenticate(request),
+    }));
 }

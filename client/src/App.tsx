@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { getApiAppsOptions } from "@/api/@tanstack/react-query.gen";
 import { Shell } from "@/components/shell";
 import { AppScope } from "@/lib/queries";
@@ -19,6 +26,10 @@ import { Quotes } from "@/pages/quotes";
 import { Transfers } from "@/pages/transfers";
 import { Webhooks } from "@/pages/webhooks";
 
+// The public checkout, split out so its wallet code isn't loaded with the
+// dashboard.
+const Pay = lazy(() => import("@/pages/pay").then((m) => ({ default: m.Pay })));
+
 const AppRoute = () => {
   const { appId } = useParams();
   const { data, error } = useQuery(
@@ -36,6 +47,18 @@ const AppRoute = () => {
 
 export const App = () => {
   const { status } = useSession();
+  const { pathname } = useLocation();
+
+  if (pathname.startsWith("/pay/")) {
+    return (
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/pay/:id" element={<Pay />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
 
   if (status === "loading") return null;
   if (status === "signed-out") return <Login />;

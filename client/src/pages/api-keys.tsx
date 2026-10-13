@@ -285,6 +285,7 @@ export const ApiKeys = () => {
       />
 
       <DataTable
+        exportName="api-keys"
         options={(query) => getApiApiKeyOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search API keys"
@@ -302,6 +303,7 @@ export const ApiKeys = () => {
           },
           {
             header: "Key ID",
+            exportValue: (row) => row.id,
             cell: (row) => (
               <span className="flex items-center gap-1 font-mono text-xs">
                 {shortId(row.id)}

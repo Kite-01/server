@@ -35,12 +35,14 @@ export const ProfileMenu = () => {
           <p className="text-sm font-semibold">Root</p>
           <p className="text-xs text-muted">{storageLabels[storage]}</p>
         </div>
+
         <DropdownMenuSeparator />
 
         <div className="flex items-center justify-between p-4 text-sm">
           <span className="text-muted">Version</span>
           <span className="font-medium">{data ? `v${data.version}` : "…"}</span>
         </div>
+
         <DropdownMenuSeparator />
 
         {!!data?.chains.length && (
@@ -58,6 +60,7 @@ export const ProfileMenu = () => {
                       {shortAddress(chain.operatorAddress)}
                     </p>
                   </div>
+
                   <div className="flex shrink-0">
                     <CopyButton value={chain.operatorAddress} />
                     <a
@@ -73,6 +76,7 @@ export const ProfileMenu = () => {
                 </div>
               ))}
             </div>
+
             <DropdownMenuSeparator />
           </>
         )}

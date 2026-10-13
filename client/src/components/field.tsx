@@ -10,8 +10,8 @@ export const Field = ({
   hint?: string;
   children: ReactNode;
 }) => (
-  <div className="space-y-1.5">
-    <Label>{label}</Label>
+  <div className="space-y-1.25">
+    <Label className="block">{label}</Label>
     {children}
     {hint && <p className="text-xs text-muted">{hint}</p>}
   </div>
@@ -26,14 +26,14 @@ export const CheckboxGroup = <T extends string>({
   value: T[];
   onChange: (value: T[]) => void;
 }) => (
-  <div className="flex flex-wrap gap-2">
+  <div className="space-y-2">
     {options.map((option) => {
       const checked = value.includes(option.value);
 
       return (
         <label
           key={option.value}
-          className="flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-xs has-[:checked]:border-ink has-[:checked]:bg-soft"
+          className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-xs has-checked:border-ink has-checked:bg-soft"
         >
           <input
             type="checkbox"

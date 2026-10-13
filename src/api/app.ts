@@ -15,6 +15,7 @@ import { callbackRoutes } from "./routes/callbacks";
 import { customerRoutes } from "./routes/customers";
 import { overviewRoutes } from "./routes/overview";
 import { transferRoutes } from "./routes/transfers";
+import { checkoutRoutes } from "./routes/checkout";
 import { webhookRoutes } from "./routes/webhooks";
 import { apiKeyRoutes } from "./routes/apiKeys";
 import { quoteRoutes } from "./routes/quotes";
@@ -30,6 +31,7 @@ const api = new Elysia({ prefix: "/api" })
   .use(apiKeyRoutes)
   .use(chainRoutes)
   .use(tokenRoutes)
+  .use(checkoutRoutes)
   .use(customerRoutes)
   .use(feeRoutes)
   .use(kvRoutes)

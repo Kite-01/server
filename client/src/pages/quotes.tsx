@@ -143,6 +143,7 @@ export const Quotes = () => {
       />
 
       <DataTable
+        exportName="quotes"
         options={(query) => getApiQuotesOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search by reference or ID"
@@ -156,6 +157,7 @@ export const Quotes = () => {
         columns={[
           {
             header: "Quote",
+            exportValue: (row) => row.id,
             cell: (row) => (
               <div>
                 <p className="flex items-center gap-1 font-mono text-xs">

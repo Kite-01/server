@@ -31,7 +31,7 @@ export const Dialog = ({
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <Primitive.Title className="text-base font-semibold">
+            <Primitive.Title className="text-xl font-semibold">
               {title}
             </Primitive.Title>
             <Primitive.Description

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { paymentLink } from "../paymentLink";
 import { relations } from "drizzle-orm";
 import { customer } from "../customer";

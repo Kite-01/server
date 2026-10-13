@@ -136,6 +136,8 @@ const Detail = ({
 }) => {
   const { quote } = transfer;
 
+  // Label/value pairs, keyed by label where they're rendered.
+  /* oxlint-disable react/jsx-key */
   const rows: [string, React.ReactNode][] = [
     ["Status", <StatusBadge status={transfer.status} />],
     [
@@ -178,6 +180,7 @@ const Detail = ({
     ["Created", formatDateTime(transfer.createdAt)],
     ["Quote expires", formatDateTime(quote.expiresAt)],
   ];
+  /* oxlint-enable react/jsx-key */
 
   return (
     <div className="space-y-5">
@@ -228,6 +231,7 @@ export const Transfers = () => {
       />
 
       <DataTable
+        exportName="transfers"
         options={(query) =>
           getApiTransfersOptions({
             query: { ...query, status: status || undefined },
@@ -262,6 +266,7 @@ export const Transfers = () => {
         columns={[
           {
             header: "Transfer",
+            exportValue: (row) => row.id,
             cell: (row) => (
               <div>
                 <p className="font-mono text-xs">#{shortId(row.id)}</p>
@@ -275,6 +280,7 @@ export const Transfers = () => {
           },
           {
             header: "Status",
+            exportValue: (row) => row.status,
             cell: (row) => <StatusBadge status={row.status} />,
           },
           {

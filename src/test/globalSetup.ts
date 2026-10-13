@@ -18,7 +18,7 @@ const freePort = () => {
   return new Promise<number>((resolve, reject) => {
     const server = createServer();
     server.on("error", reject);
-    server.listen(0, () => {
+    server.listen(0, "127.0.0.1", () => {
       const { port } = server.address() as { port: number };
       server.close(() => resolve(port));
     });

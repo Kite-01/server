@@ -284,6 +284,7 @@ const TokensTab = ({
       </Card>
 
       <SimpleTable
+        exportName="tokens"
         rows={tokens}
         loading={loading}
         rowKey={(row) => row.id}
@@ -302,6 +303,7 @@ const TokensTab = ({
           },
           {
             header: "Address",
+            exportValue: (row) => row.address,
             cell: (row) => (
               <span className="flex items-center gap-1 font-mono text-xs">
                 {shortAddress(row.address)}

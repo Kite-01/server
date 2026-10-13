@@ -51,6 +51,7 @@ export const PriceFeeds = () => {
       />
 
       <SimpleTable
+        exportName="price-feeds"
         rows={feeds.data}
         loading={feeds.isLoading}
         error={feeds.error}
@@ -87,6 +88,7 @@ export const PriceFeeds = () => {
           },
           {
             header: "Aggregator",
+            exportValue: (row) => row.address,
             cell: (row) => (
               <span className="flex items-center gap-1 font-mono text-xs">
                 {shortAddress(row.address)}

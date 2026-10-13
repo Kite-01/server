@@ -1,7 +1,9 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import {
   deleteApiPaymentLinksByIdMutation,
+  getApiPaymentLinksCurrenciesOptions,
   getApiPaymentLinksOptions,
   patchApiPaymentLinksByIdMutation,
   postApiPaymentLinksMutation,
@@ -15,7 +17,7 @@ import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import { formatDate, shortId } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 
@@ -23,6 +25,8 @@ type LineItems = PostApiPaymentLinksData["body"]["lineItems"];
 
 const trimAmount = (value: string) =>
   value.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value;
+
+const payUrl = (id: string) => `${window.location.origin}/pay/${id}`;
 
 const LinkForm = ({
   link,
@@ -40,6 +44,12 @@ const LinkForm = ({
   const [lineItemsError, setLineItemsError] = useState<string | null>(null);
 
   const headers = useAppHeaders();
+  const currencies = useQuery(getApiPaymentLinksCurrenciesOptions({ headers }));
+  // Keep a link's existing currency selectable even if its feed was removed.
+  const currencyOptions = [
+    ...new Set([...(currencies.data?.data ?? ["USD"]), values.currency]),
+  ];
+
   const create = useMutate(postApiPaymentLinksMutation({ headers }), {
     success: "Payment link created",
     onSuccess: onClose,
@@ -93,9 +103,23 @@ const LinkForm = ({
           />
         </Field>
         <Field label="Currency">
-          <Input required value={values.currency} onChange={set("currency")} />
+          <Select
+            required
+            value={values.currency}
+            onChange={set("currency")}
+            disabled={currencies.isLoading}
+          >
+            {currencyOptions.map((currency) => (
+              <option key={currency} value={currency}>
+                {currency}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
+      <p className="-mt-2 text-xs text-muted">
+        Currencies other than USD are priced through their USD price feed.
+      </p>
       <Field label="Line items" hint="Optional JSON.">
         <Textarea value={values.lineItems} onChange={set("lineItems")} />
         {lineItemsError && (
@@ -132,6 +156,7 @@ export const PaymentLinks = () => {
       />
 
       <DataTable
+        exportName="payment-links"
         options={(query) => getApiPaymentLinksOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search payment links"
@@ -145,6 +170,7 @@ export const PaymentLinks = () => {
         columns={[
           {
             header: "Title",
+            exportValue: (row) => row.title,
             cell: (row) => <span className="font-medium">{row.title}</span>,
           },
           {
@@ -153,10 +179,28 @@ export const PaymentLinks = () => {
           },
           {
             header: "ID",
+            exportValue: (row) => row.id,
             cell: (row) => (
               <span className="flex items-center gap-1 font-mono text-xs">
                 {shortId(row.id)}
                 <CopyButton value={row.id} />
+              </span>
+            ),
+          },
+          {
+            header: "Pay link",
+            exportValue: (row) => payUrl(row.id),
+            cell: (row) => (
+              <span className="flex items-center gap-1">
+                <CopyButton value={payUrl(row.id)} label="Copy" />
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Open checkout"
+                  onClick={() => window.open(payUrl(row.id), "_blank")}
+                >
+                  <ExternalLink className="size-4" />
+                </Button>
               </span>
             ),
           },

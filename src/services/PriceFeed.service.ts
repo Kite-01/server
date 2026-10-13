@@ -72,6 +72,30 @@ export class PriceFeedService {
     });
   };
 
+  getSupportedCurrencies = async () => {
+    const rows = await db
+      .selectDistinct({ currency: priceFeed.baseCurrency })
+      .from(priceFeed)
+      .where(eq(priceFeed.quoteCurrency, "USD"));
+
+    return [
+      "USD",
+      ...rows
+        .map((row) => row.currency)
+        .filter((currency) => currency !== "USD")
+        .sort(),
+    ];
+  };
+
+  isSupportedCurrency = async (currency: string) => {
+    currency = currency.toUpperCase();
+    if (currency === "USD") {
+      return true;
+    }
+
+    return !!(await this.getPriceFeedByCurrency(currency, "USD"));
+  };
+
   getPriceFeedsById = async (priceFeedId: string) => {
     return db.query.priceFeed.findMany({
       where: eq(priceFeed.id, priceFeedId),

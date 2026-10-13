@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "Inter";
-  src: url("./assets/fonts/Inter/Inter-Variable.ttf") format("truetype");
+  font-family: "DM Sans";
+  src: url("./assets/fonts/DMSans/DMSans-VariableFont_opsz,wght.ttf")
+    format("truetype");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -18,10 +19,11 @@
 }
 
 @theme {
-  --font-sans:
-    Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  --font-fallback:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Bricolage Grotesque", var(--font-sans);
+  --font-sans: "DM Sans", var(--font-fallback);
+  --font-display: "Bricolage Grotesque", var(--font-fallback);
   --color-page: #f5f5f5;
   --color-surface: #ffffff;
   --color-ink: #111111;
@@ -51,7 +53,8 @@ body {
 
 h1,
 h2,
-h3 {
+h3,
+button {
   font-family: var(--font-display);
 }
 
@@ -62,4 +65,53 @@ button,
 
 button:disabled {
   cursor: not-allowed;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes drawer-out {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+  }
+}
+
+input[type="date"] {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  display: inline-block;
+  padding: 0;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
 }

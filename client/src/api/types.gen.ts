@@ -716,6 +716,68 @@ export type X402SettleResult = {
   [key: string]: unknown;
 };
 
+export type Checkout = {
+  paymentLink: {
+    id: string;
+    title: string;
+    currency: string;
+    amount: string;
+    lineItems: Array<{
+      image?: string | null;
+      name: string;
+      price: string;
+      quantity: number;
+    }> | null;
+  };
+  app: {
+    name: string;
+    icon: string | null;
+    websiteUrl: string | null;
+    termsOfServiceUrl: string | null;
+    privacyPolicyUrl: string | null;
+  };
+  chains: Array<{
+    id: string;
+    caip2Id: string;
+    name: string;
+    chainId: number;
+    nativeCurrency: {
+      name: string;
+      symbol: string;
+      decimals: number;
+    };
+    blockExplorer: {
+      name: string;
+      url: string;
+    };
+    rpcUrls: Array<string>;
+    tokens: Array<{
+      address: string;
+      symbol: string;
+      name: string;
+      decimals: number;
+      icon: string | null;
+      x402: boolean;
+    }>;
+  }>;
+};
+
+export type CheckoutX402Payment = {
+  transfer: CreatedTransfer;
+  requirements: X402PaymentRequirements;
+};
+
+export type CheckoutTransfer = {
+  id: string;
+  status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
+  payinAddress: string;
+  x402BlockchainHash: string | null;
+  settlementBlockchainHash: string | null;
+  refundBlockchainHash: string | null;
+  expiresAt: string;
+  updatedAt: string;
+};
+
 export type GetApiAppsAllData = {
   body?: never;
   path?: never;
@@ -1118,6 +1180,128 @@ export type DeleteApiTokensByIdResponses = {
 
 export type DeleteApiTokensByIdResponse = DeleteApiTokensByIdResponses[keyof DeleteApiTokensByIdResponses];
 
+export type GetApiCheckoutByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}';
+};
+
+export type GetApiCheckoutByIdResponses = {
+  /**
+   * Response for status 200
+   */
+  200: Checkout;
+};
+
+export type GetApiCheckoutByIdResponse = GetApiCheckoutByIdResponses[keyof GetApiCheckoutByIdResponses];
+
+export type PostApiCheckoutByIdQuoteData = {
+  body: {
+    chainId: string;
+    sourceTokenAddress: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/quote';
+};
+
+export type PostApiCheckoutByIdQuoteResponses = {
+  /**
+   * Response for status 201
+   */
+  201: Quote;
+};
+
+export type PostApiCheckoutByIdQuoteResponse = PostApiCheckoutByIdQuoteResponses[keyof PostApiCheckoutByIdQuoteResponses];
+
+export type PostApiCheckoutByIdTransferData = {
+  body: {
+    quoteId: string;
+    refundAddress: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/transfer';
+};
+
+export type PostApiCheckoutByIdTransferResponses = {
+  /**
+   * Response for status 201
+   */
+  201: CreatedTransfer;
+};
+
+export type PostApiCheckoutByIdTransferResponse = PostApiCheckoutByIdTransferResponses[keyof PostApiCheckoutByIdTransferResponses];
+
+export type PostApiCheckoutByIdX402Data = {
+  body: {
+    quoteId: string;
+    refundAddress?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/x402';
+};
+
+export type PostApiCheckoutByIdX402Responses = {
+  /**
+   * Response for status 201
+   */
+  201: CheckoutX402Payment;
+};
+
+export type PostApiCheckoutByIdX402Response = PostApiCheckoutByIdX402Responses[keyof PostApiCheckoutByIdX402Responses];
+
+export type PostApiCheckoutByIdX402SettleData = {
+  body: {
+    x402Version?: number;
+    paymentPayload: unknown;
+    paymentRequirements: unknown;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/x402/settle';
+};
+
+export type PostApiCheckoutByIdX402SettleResponses = {
+  /**
+   * Response for status 200
+   */
+  200: X402SettleResult;
+};
+
+export type PostApiCheckoutByIdX402SettleResponse = PostApiCheckoutByIdX402SettleResponses[keyof PostApiCheckoutByIdX402SettleResponses];
+
+export type GetApiCheckoutByIdTransferByTransferIdData = {
+  body?: never;
+  path: {
+    id: string;
+    transferId: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/transfer/{transferId}';
+};
+
+export type GetApiCheckoutByIdTransferByTransferIdResponses = {
+  /**
+   * Response for status 200
+   */
+  200: CheckoutTransfer;
+};
+
+export type GetApiCheckoutByIdTransferByTransferIdResponse = GetApiCheckoutByIdTransferByTransferIdResponses[keyof GetApiCheckoutByIdTransferByTransferIdResponses];
+
 export type GetApiCustomersData = {
   body?: never;
   path?: never;
@@ -1429,6 +1613,24 @@ export type GetApiOverviewEventsResponses = {
 };
 
 export type GetApiOverviewEventsResponse = GetApiOverviewEventsResponses[keyof GetApiOverviewEventsResponses];
+
+export type GetApiPaymentLinksCurrenciesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/payment-links/currencies';
+};
+
+export type GetApiPaymentLinksCurrenciesResponses = {
+  /**
+   * Response for status 200
+   */
+  200: {
+    data: Array<string>;
+  };
+};
+
+export type GetApiPaymentLinksCurrenciesResponse = GetApiPaymentLinksCurrenciesResponses[keyof GetApiPaymentLinksCurrenciesResponses];
 
 export type GetApiPaymentLinksData = {
   body?: never;

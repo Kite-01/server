@@ -1,4 +1,3 @@
-import { List, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import {
   deleteApiWebhooksByIdMutation,
@@ -19,6 +18,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
+import { IconListDetails, IconTrash } from "@tabler/icons-react";
 
 type Category = Webhook["categories"][number];
 
@@ -91,34 +91,34 @@ const WebhookForm = ({
           onChange={setSelected}
         />
       </Field>
-      <div className="grid grid-cols-3 gap-3">
-        <Field label="Retries">
-          <Input
-            type="number"
-            min={0}
-            max={20}
-            value={values.maxRetries}
-            onChange={set("maxRetries")}
-          />
-        </Field>
-        <Field label="Retry delay (s)">
-          <Input
-            type="number"
-            min={1}
-            value={values.retryIntervalInSeconds}
-            onChange={set("retryIntervalInSeconds")}
-          />
-        </Field>
-        <Field label="Timeout (s)">
-          <Input
-            type="number"
-            min={1}
-            max={120}
-            value={values.timeoutInSeconds}
-            onChange={set("timeoutInSeconds")}
-          />
-        </Field>
-      </div>
+
+      <Field label="Maximum retries">
+        <Input
+          type="number"
+          min={0}
+          max={20}
+          value={values.maxRetries}
+          onChange={set("maxRetries")}
+        />
+      </Field>
+      <Field label="Retry interval (in seconds)">
+        <Input
+          type="number"
+          min={1}
+          value={values.retryIntervalInSeconds}
+          onChange={set("retryIntervalInSeconds")}
+        />
+      </Field>
+      <Field label="Timeout (in seconds)">
+        <Input
+          type="number"
+          min={1}
+          max={120}
+          value={values.timeoutInSeconds}
+          onChange={set("timeoutInSeconds")}
+        />
+      </Field>
+
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" onClick={onClose}>
           Cancel
@@ -139,6 +139,7 @@ const Deliveries = ({ webhook }: { webhook: Webhook }) => {
 
   return (
     <DataTable
+      exportName="webhook-deliveries"
       options={(query) =>
         getApiWebhooksByIdDeliveriesOptions({
           path: { id: webhook.id },
@@ -200,34 +201,36 @@ export const Webhooks = () => {
       />
 
       <DataTable
+        exportName="webhooks"
         options={(query) => getApiWebhooksOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search webhooks"
         empty="No webhooks yet"
-        toolbar={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
-            New webhook
-          </Button>
-        }
+        toolbar={<Button onClick={() => setCreating(true)}>New webhook</Button>}
         columns={[
           {
-            header: "Webhook",
+            header: "Label",
+            cell: (row) => <p className="font-medium">{row.label}</p>,
+          },
+          {
+            header: "Url",
             cell: (row) => (
-              <div className="min-w-0">
-                <p className="font-medium">{row.label}</p>
-                <p className="max-w-xs truncate text-xs text-muted">
-                  {row.url}
-                </p>
+              <div className="flex items-center gap-2">
+                <p className="max-w-xs truncate text-sm">{row.url}</p>
+                <CopyButton value={row.url} />
               </div>
             ),
           },
           {
             header: "Events",
             cell: (row) => (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-0.75 space-y-0.5">
                 {row.categories.map((category) => (
-                  <Badge key={category} variant="neutral">
+                  <Badge
+                    key={category}
+                    className="font-display font-normal"
+                    variant="pending"
+                  >
                     {category}
                   </Badge>
                 ))}
@@ -237,25 +240,34 @@ export const Webhooks = () => {
           {
             header: "Signing key",
             cell: (row) => (
-              <span className="font-mono text-xs">{row.signingKeyHint}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{row.signingKeyHint}</span>
+                <CopyButton value={row.url} />
+              </div>
             ),
           },
-          { header: "Retries", cell: (row) => row.maxRetries },
-          { header: "Created", cell: (row) => formatDateTime(row.createdAt) },
           {
-            header: "",
+            header: "Created",
+            cell: (row) => (
+              <p className="whitespace-nowrap text-sm">
+                {formatDateTime(row.createdAt)}
+              </p>
+            ),
+          },
+          {
+            header: "Action",
             className: "w-12 text-right",
             cell: (row) => (
               <RowActions
                 actions={[
                   {
                     label: "Deliveries",
-                    icon: <List className="size-4" />,
+                    icon: <IconListDetails className="size-4" />,
                     onSelect: () => setViewing(row),
                   },
                   {
                     label: "Delete",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },
@@ -298,7 +310,7 @@ export const Webhooks = () => {
       <Dialog
         open={viewing !== null}
         onOpenChange={(open) => !open && setViewing(null)}
-        title={viewing ? `Deliveries · ${viewing.label}` : "Deliveries"}
+        title={viewing ? `${viewing.label} deliveries` : "Deliveries"}
         className="max-w-2xl"
       >
         {viewing && <Deliveries webhook={viewing} />}

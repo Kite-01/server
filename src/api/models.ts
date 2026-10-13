@@ -12,9 +12,7 @@ import { Digits, EvmAddress, t, Uuid } from "./schema";
 import { Elysia } from "elysia";
 
 const named = (name: string) => {
-  return {
-    $id: `#/components/schemas/${name}`,
-  };
+  return { $id: `#/components/schemas/${name}` };
 };
 
 const ref = <T extends TSchema>(schema: T) => {
@@ -577,6 +575,69 @@ const x402SettleResult = t.Object(
   { ...named("x402SettleResult"), additionalProperties: true },
 );
 
+const Checkout = t.Object(
+  {
+    paymentLink: t.Object({
+      id: Uuid,
+      title: t.String(),
+      currency: t.String(),
+      amount: t.String(),
+      lineItems: PaymentLink.properties.lineItems,
+    }),
+    app: t.Object({
+      name: t.String(),
+      icon: Nullable(t.String()),
+      websiteUrl: Nullable(t.String()),
+      termsOfServiceUrl: Nullable(t.String()),
+      privacyPolicyUrl: Nullable(t.String()),
+    }),
+    chains: t.Array(
+      t.Object({
+        id: Uuid,
+        caip2Id: t.String(),
+        name: t.String(),
+        chainId: Int,
+        nativeCurrency: SupportedChain.properties.nativeCurrency,
+        blockExplorer: SupportedChain.properties.blockExplorer,
+        rpcUrls: t.Array(t.String()),
+        tokens: t.Array(
+          t.Object({
+            address: EvmAddress,
+            symbol: t.String(),
+            name: t.String(),
+            decimals: Int,
+            icon: Nullable(t.String()),
+            x402: t.Boolean(),
+          }),
+        ),
+      }),
+    ),
+  },
+  named("Checkout"),
+);
+
+const CheckoutX402Payment = t.Object(
+  {
+    transfer: ref(CreatedTransfer),
+    requirements: ref(x402PaymentRequirements),
+  },
+  named("CheckoutX402Payment"),
+);
+
+const CheckoutTransfer = t.Object(
+  {
+    id: Uuid,
+    status: t.Enum(TransferStatus),
+    payinAddress: EvmAddress,
+    x402BlockchainHash: Nullable(t.String()),
+    settlementBlockchainHash: Nullable(t.String()),
+    refundBlockchainHash: Nullable(t.String()),
+    expiresAt: Timestamp,
+    updatedAt: Timestamp,
+  },
+  named("CheckoutTransfer"),
+);
+
 export const models = new Elysia({ name: "Models" }).model({
   App,
   AppPage: Page("AppPage", App),
@@ -631,4 +692,7 @@ export const models = new Elysia({ name: "Models" }).model({
   x402PaymentRequirements,
   x402VerifyResult,
   x402SettleResult,
+  Checkout,
+  CheckoutX402Payment,
+  CheckoutTransfer,
 });

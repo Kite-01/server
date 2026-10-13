@@ -14,7 +14,7 @@ const variants = cva(
         danger: "bg-danger text-white hover:bg-danger/90",
       },
       size: {
-        default: "h-10 px-4",
+        default: "h-10.5 px-5",
         sm: "h-8 px-3 text-xs",
         icon: "size-10",
         iconSm: "size-8",

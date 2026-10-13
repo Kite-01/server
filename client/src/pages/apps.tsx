@@ -120,6 +120,7 @@ export const Apps = () => {
       />
 
       <DataTable
+        exportName="apps"
         options={(query) => getApiAppsAllOptions({ query })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search apps"
@@ -140,10 +141,10 @@ export const Apps = () => {
                   <img
                     src={row.icon}
                     alt=""
-                    className="size-9 rounded-full object-cover"
+                    className="size-8 rounded-full object-cover"
                   />
                 ) : (
-                  <span className="flex size-9 items-center justify-center rounded-full bg-soft text-xs font-semibold">
+                  <span className="flex size-8 items-center justify-center rounded-full bg-soft text-xs font-semibold">
                     {initials(row.name)}
                   </span>
                 )}
@@ -151,7 +152,7 @@ export const Apps = () => {
               </div>
             ),
           },
-          { header: "Website", cell: (row) => row.websiteUrl ?? "—" },
+          { header: "Website", cell: (row) => row.websiteUrl ?? "n/a" },
           { header: "Created", cell: (row) => formatDate(row.createdAt) },
           {
             header: "",

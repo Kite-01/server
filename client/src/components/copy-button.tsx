@@ -22,7 +22,7 @@ export const CopyButton = ({
         setTimeout(() => setCopied(false), 1500);
       }}
     >
-      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
       {label}
     </Button>
   );

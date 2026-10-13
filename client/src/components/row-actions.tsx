@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 export type RowAction = {
   label: string;
@@ -31,7 +32,10 @@ export const RowActions = ({ actions }: { actions: RowAction[] }) => {
         {visible.map((action) => (
           <DropdownMenuItem
             key={action.label}
-            className={action.danger ? "text-danger" : undefined}
+            className={cn(
+              "font-sans",
+              action.danger ? "text-danger" : undefined,
+            )}
             onSelect={action.onSelect}
           >
             {action.icon}

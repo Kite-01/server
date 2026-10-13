@@ -51,16 +51,12 @@ export const fakeActor = {
   getTransactionStatus: vi.fn(
     async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
   ),
-  waitForTransaction: vi.fn(
-    async (..._args: unknown[]): Promise<unknown> => ({
-      status: "pending",
-    }),
-  ),
-  waitForReceipt: vi.fn(
-    async (..._args: unknown[]): Promise<unknown> => ({
-      logs: [],
-    }),
-  ),
+  waitForTransaction: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({
+    status: "pending",
+  })),
+  waitForReceipt: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({
+    logs: [],
+  })),
   getConfirmations: vi.fn(async (..._args: unknown[]) => 1000n),
   getContractCode: vi.fn(async (..._args: unknown[]) => "0x"),
   getBlockNumber: vi.fn(async (..._args: unknown[]) => 1n),

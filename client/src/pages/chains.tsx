@@ -65,6 +65,7 @@ export const Chains = () => {
       />
 
       <SimpleTable
+        exportName="chains"
         rows={chains.data}
         loading={chains.isLoading}
         error={chains.error}
@@ -116,6 +117,7 @@ export const Chains = () => {
           },
           {
             header: "Factory",
+            exportValue: (row) => row.config?.kiteFactoryAddress,
             cell: (row) =>
               row.config ? (
                 <span className="font-mono text-xs">
@@ -127,6 +129,7 @@ export const Chains = () => {
           },
           {
             header: "Active",
+            exportValue: (row) => (row.isActive ? "Yes" : "No"),
             cell: (row) => (
               <Switch
                 checked={row.isActive}
@@ -171,7 +174,7 @@ export const Chains = () => {
             >
               {available?.map((chain) => (
                 <option key={chain.caip2Id} value={chain.caip2Id}>
-                  {chain.name} ({chain.caip2Id})
+                  {chain.name}
                 </option>
               ))}
             </Select>

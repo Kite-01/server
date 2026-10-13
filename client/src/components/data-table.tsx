@@ -1,14 +1,26 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Card } from "@/components/ui/card";
+import {
+  Checkbox,
+  ExportBar,
+  exportCsv,
+  rowClass,
+  selectColumnClass,
+  useRowSelection,
+} from "@/components/table-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, Td, Th } from "@/components/ui/table";
+import { IconBug, IconLoader2 } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
+import { Card } from "./ui/card";
 
 export type Column<Row> = {
   header: string;
   cell: (row: Row) => ReactNode;
+  // What a CSV export holds for this column; defaults to the cell's text.
+  exportValue?: (row: Row) => string | number | boolean | null | undefined;
   className?: string;
 };
 
@@ -27,6 +39,7 @@ type Props<T extends Page> = {
   empty?: string;
   pageSize?: number;
   onRowClick?: (row: Row<T>) => void;
+  exportName?: string;
 };
 
 export const DataTable = <T extends Page>({
@@ -38,6 +51,7 @@ export const DataTable = <T extends Page>({
   empty = "Nothing here yet",
   pageSize = 10,
   onRowClick,
+  exportName = "export",
 }: Props<T>) => {
   const [page, setPage] = useState(1);
   const [text, setText] = useState("");
@@ -58,6 +72,14 @@ export const DataTable = <T extends Page>({
   const resetKey = JSON.stringify(options({ ...query, page: 1 }).queryKey);
   useEffect(() => setPage(1), [resetKey]);
 
+  // A selection outlives paging and search, but not a change of app or filter.
+  const selection = useRowSelection(rowKey);
+  const clearSelection = selection.clear;
+  const scopeKey = JSON.stringify(
+    options({ page: 1, pageSize, q: undefined }).queryKey,
+  );
+  useEffect(() => clearSelection(), [scopeKey, clearSelection]);
+
   const { data, isLoading, error } = useQuery(options(query));
 
   const rows = data?.data ?? [];
@@ -66,30 +88,56 @@ export const DataTable = <T extends Page>({
 
   return (
     <Card>
-      {(searchPlaceholder || toolbar) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
-          {searchPlaceholder ? (
-            <div className="relative w-full max-w-xs">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-              <Input
-                className="rounded-full pl-9"
-                placeholder={searchPlaceholder}
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-              />
-            </div>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">{toolbar}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
+        {searchPlaceholder ? (
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <Input
+              className="rounded-full pl-10 h-11 font-light"
+              placeholder={searchPlaceholder}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+            />
+          </div>
+        ) : (
+          <span />
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportBar
+            count={selection.selected.size}
+            onClear={selection.clear}
+            onExport={() =>
+              exportCsv(exportName, columns, [...selection.selected.values()])
+            }
+          />
+
+          {toolbar}
         </div>
-      )}
+      </div>
 
       <Table>
         <thead>
           <tr>
+            <Th className={selectColumnClass}>
+              <Checkbox
+                label="Select all rows on this page"
+                checked={rows.length > 0 && rows.every(selection.isSelected)}
+                indeterminate={
+                  rows.some(selection.isSelected) &&
+                  !rows.every(selection.isSelected)
+                }
+                onChange={() => selection.toggleAll(rows)}
+              />
+            </Th>
             {columns.map((column) => (
-              <Th key={column.header} className={column.className}>
+              <Th
+                key={column.header}
+                className={cn(
+                  "font-display text-sm font-normal text-black",
+                  column.className,
+                )}
+              >
                 {column.header}
               </Th>
             ))}
@@ -99,11 +147,16 @@ export const DataTable = <T extends Page>({
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
-              className={
-                onRowClick ? "cursor-pointer hover:bg-soft/60" : undefined
-              }
+              className={rowClass(selection.isSelected(row), !!onRowClick)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
+              <Td className={selectColumnClass}>
+                <Checkbox
+                  label="Select row"
+                  checked={selection.isSelected(row)}
+                  onChange={() => selection.toggle(row)}
+                />
+              </Td>
               {columns.map((column) => (
                 <Td key={column.header} className={column.className}>
                   {column.cell(row)}
@@ -115,11 +168,25 @@ export const DataTable = <T extends Page>({
       </Table>
 
       {isLoading && (
-        <p className="p-8 text-center text-sm text-muted">Loading…</p>
+        <div className="h-30 gap-2 flex items-center justify-center">
+          <IconLoader2 className="animate-spin size-5" strokeWidth={1.5} />
+          <span className="font-display">Loading...</span>
+        </div>
       )}
+
       {error && (
-        <p className="p-8 text-center text-sm text-danger">{error.message}</p>
+        <div className="h-40 gap-3 flex flex-col items-center justify-center">
+          <div className="text-center flex items-center justify-center text-danger">
+            <span className="font-display">{error.message}</span>
+          </div>
+
+          <Button>
+            Report
+            <IconBug strokeWidth={1.5} />
+          </Button>
+        </div>
       )}
+
       {!isLoading && !error && rows.length === 0 && (
         <p className="p-8 text-center text-sm text-muted">
           {q ? "No results match your search" : empty}
@@ -132,6 +199,7 @@ export const DataTable = <T extends Page>({
             ? "0 results"
             : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`}
         </span>
+
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
@@ -142,9 +210,11 @@ export const DataTable = <T extends Page>({
           >
             <ChevronLeft className="size-4" />
           </Button>
+
           <span className="px-2">
             {page} / {pages}
           </span>
+
           <Button
             variant="outline"
             size="iconSm"

@@ -206,6 +206,7 @@ export const Fees = () => {
       />
 
       <DataTable
+        exportName="fees"
         options={(query) => getApiFeesOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search fees"
@@ -258,6 +259,7 @@ export const Fees = () => {
           },
           {
             header: "Recipient",
+            exportValue: (row) => row.feeAddress ?? "Default",
             cell: (row) =>
               row.feeAddress ? (
                 <span className="font-mono text-xs">

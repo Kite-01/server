@@ -1,5 +1,6 @@
 import { EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { PaymentLinkService } from "../../services/PaymentLink.service";
+import { PriceFeedService } from "../../services/PriceFeed.service";
 import { QuoteService } from "../../services/Quote.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
@@ -10,7 +11,19 @@ import { Auth } from "../middlewares/auth";
 import { t } from "../schema";
 
 const paymentLinkService = new PaymentLinkService();
+const priceFeedService = new PriceFeedService();
 const quoteService = new QuoteService();
+
+const assertSupportedCurrency = async (currency?: string) => {
+  if (currency === undefined) return;
+  if (!(await priceFeedService.isSupportedCurrency(currency))) {
+    throw new HttpError(
+      422,
+      "ValidationError",
+      `${currency.toUpperCase()} is not a supported currency`,
+    );
+  }
+};
 
 const Amount = t.String({
   pattern: "^(?:0|[1-9][0-9]{0,19})(?:\\.[0-9]{1,18})?$",
@@ -46,9 +59,31 @@ const Fields = {
 export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
   .use(Auth.plugin)
   .use(models)
+  .get(
+    "/payment-links/currencies",
+    async () => ({
+      data: await priceFeedService.getSupportedCurrencies(),
+    }),
+    {
+      response: {
+        200: t.Object({
+          data: t.Array(t.String()),
+        }),
+      },
+      beforeHandle: Auth.access({
+        scope: ApiKeyScope.PaymentLinkRead,
+        public: true,
+      }),
+      detail: {
+        tags: ["Payment links"],
+        summary: "Currencies a payment link can be priced in",
+      },
+    },
+  )
   .post(
     "/payment-links",
     async ({ actor, body, set }) => {
+      await assertSupportedCurrency(body.currency);
       const created = await paymentLinkService.createPaymentLink({
         ...body,
         currency: body.currency.toUpperCase(),
@@ -122,6 +157,7 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     "/payment-links/:id",
     async ({ actor, params, body }) => {
       const appId = await Scope.appFor(actor, "paymentLink", params.id);
+      await assertSupportedCurrency(body.currency);
       const link = await paymentLinkService.updatePaymentLink(
         appId,
         params.id,

@@ -4,41 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { useSession, type KeyStorage } from "@/lib/session";
+import { toast } from "sonner";
+import { IconChevronRight, IconLoader2 } from "@tabler/icons-react";
 
-const options: { value: KeyStorage; title: string; hint: string }[] = [
-  {
-    value: "memory",
-    title: "Memory only",
-    hint: "Most secure. The key is forgotten when this tab reloads or closes.",
-  },
-  {
-    value: "session",
-    title: "This browser session",
-    hint: "Kept in session storage until the tab is closed.",
-  },
-  {
-    value: "local",
-    title: "This device",
-    hint: "Most convenient. Kept in local storage until you sign out.",
-  },
+const options: { value: KeyStorage; title: string }[] = [
+  { value: "memory", title: "Memory (most secure)" },
+  { value: "session", title: "This browser session" },
+  { value: "local", title: "This device (most persistent)" },
 ];
 
 export const Login = () => {
   const { signIn } = useSession();
   const [rootKey, setRootKey] = useState("");
-  const [storage, setStorage] = useState<KeyStorage>("memory");
-  const [error, setError] = useState<string | null>(null);
+  const [storage, setStorage] = useState<KeyStorage>("session");
+  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setPending(true);
-    setError(null);
 
     try {
       await signIn(rootKey, storage);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not sign in");
+      toast.error(e instanceof Error ? e.message : "Could not sign in");
     } finally {
       setPending(false);
     }
@@ -47,12 +36,8 @@ export const Login = () => {
   return (
     <div className="flex min-h-full items-center justify-center p-4">
       <Card className="w-full max-w-md p-8">
-        <Logo className="mb-6" />
-        <h1 className="text-xl font-semibold">Sign in with the root key</h1>
-        <p className="mt-1 text-sm text-muted">
-          Enter the server's KITE_ROOT_KEY. It is sent with every request as
-          x-kite-root-key, so only use this dashboard over HTTPS.
-        </p>
+        <Logo className="mb-6" hideLabel imgClassName="size-15" />
+        <h1 className="text-2xl font-semibold">Sign in</h1>
 
         <form className="mt-6 space-y-5" onSubmit={submit}>
           <div className="space-y-1.5">
@@ -67,42 +52,60 @@ export const Login = () => {
             />
           </div>
 
-          <fieldset className="space-y-2">
-            <legend className="mb-1 text-xs font-medium text-muted">
-              Keep the key
-            </legend>
-            {options.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3 has-[:checked]:border-ink"
-              >
-                <input
-                  type="radio"
-                  name="storage"
-                  className="mt-1 accent-ink"
-                  checked={storage === option.value}
-                  onChange={() => setStorage(option.value)}
-                />
-                <span>
-                  <span className="block text-sm font-medium">
-                    {option.title}
-                  </span>
-                  <span className="block text-xs text-muted">
-                    {option.hint}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <div className="rounded-xl border border-line">
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls="remember-options"
+              onClick={() => setOpen((value) => !value)}
+              className="flex w-full cursor-pointer items-center gap-3 p-3 text-left"
+            >
+              <IconChevronRight
+                className={`size-4 shrink-0 text-muted transition-transform duration-200 ${
+                  open ? "rotate-90" : ""
+                }`}
+              />
 
-          {error && <p className="text-sm text-danger">{error}</p>}
+              <span className="text-sm font-medium">Remember me</span>
+            </button>
+
+            {open && (
+              <fieldset
+                id="remember-options"
+                className="space-y-2 border-t border-line p-3"
+              >
+                <legend className="sr-only">Remember me</legend>
+
+                {options.map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex cursor-pointer items-center gap-3 p-1.5"
+                  >
+                    <input
+                      type="radio"
+                      name="storage"
+                      className="accent-ink"
+                      checked={storage === option.value}
+                      onChange={() => setStorage(option.value)}
+                    />
+
+                    <span className="block text-sm">{option.title}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+          </div>
 
           <Button
             type="submit"
             className="w-full"
             disabled={pending || !rootKey.trim()}
           >
-            {pending ? "Signing in…" : "Sign in"}
+            {pending ? (
+              <IconLoader2 className="animate-spin size-4" />
+            ) : (
+              "Sign in"
+            )}
           </Button>
         </form>
       </Card>
