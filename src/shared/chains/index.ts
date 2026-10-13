@@ -35,6 +35,9 @@ export const getViemChain = (caip2Id: Caip2Id) => {
         http: chain.publicRpcUrls,
       },
     },
+    ...(chain.contracts.multicall3
+      ? { contracts: { multicall3: chain.contracts.multicall3 } }
+      : {}),
   });
 };
 
