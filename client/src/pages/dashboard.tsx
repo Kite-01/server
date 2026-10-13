@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -14,6 +15,12 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
+import {
+  getApiOverviewEventsOptions,
+  getApiOverviewStatsOptions,
+  getApiTransfersOptions,
+} from "@/api/@tanstack/react-query.gen";
+import type { Stats } from "@/api/types.gen";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,42 +41,8 @@ import {
   initials,
   shortId,
 } from "@/lib/format";
-import { useAppScope, useGet, type Page } from "@/lib/queries";
+import { useAppHeaders, useAppScope } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-
-type Stats = {
-  customers: { total: number; change: number | null };
-  amountProcessed: { amount: string; count: number; change: number | null };
-  series: { bucket: string; amount: string; count: number }[];
-  topTokens: {
-    id: string;
-    symbol: string;
-    name: string;
-    icon: string | null;
-    volume: number;
-    value: string;
-  }[];
-};
-
-type Transfer = {
-  id: string;
-  status: string;
-  createdAt: string;
-  app: { id: string; name: string };
-  quote: {
-    targetUsdAmount: string;
-    sourceToken: { symbol: string };
-    customer: { name: string | null; externalId: string } | null;
-  };
-};
-
-type AppEvent = {
-  id: string;
-  category: string;
-  previousCategoryStatus: string | null;
-  currentCategoryStatus: string;
-  createdAt: string;
-};
 
 type Preset = "today" | "3d" | "7d" | "1m" | "custom";
 
@@ -313,6 +286,7 @@ const Growth = ({ series }: { series: Stats["series"] }) => {
 
 export const Dashboard = () => {
   const { appId } = useAppScope();
+  const headers = useAppHeaders();
   const [preset, setPreset] = useState<Preset>("7d");
   const [rank, setRank] = useState<"value" | "volume">("value");
   const [search, setSearch] = useState("");
@@ -328,12 +302,23 @@ export const Dashboard = () => {
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const stats = useGet<Stats>("/api/admin/stats", { ...range, timeZone, rank });
-  const transfers = useGet<Page<Transfer>>("/api/transfers", {
-    pageSize: 5,
-    q: search.trim() || undefined,
-  });
-  const events = useGet<Page<AppEvent>>("/api/admin/events", { pageSize: 8 });
+  const stats = useQuery(
+    getApiOverviewStatsOptions({
+      query: { ...range, timeZone, rank },
+      headers,
+    }),
+  );
+
+  const transfers = useQuery(
+    getApiTransfersOptions({
+      query: { pageSize: 5, q: search.trim() || undefined },
+      headers,
+    }),
+  );
+
+  const events = useQuery(
+    getApiOverviewEventsOptions({ query: { pageSize: 8 }, headers }),
+  );
 
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">

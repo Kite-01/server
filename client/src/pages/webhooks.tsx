@@ -1,5 +1,12 @@
 import { List, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import {
+  deleteApiWebhooksByIdMutation,
+  getApiWebhooksByIdDeliveriesOptions,
+  getApiWebhooksOptions,
+  postApiWebhooksMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { Webhook } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
@@ -11,36 +18,16 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
-import { useMutate } from "@/lib/queries";
+import { useAppHeaders, useMutate } from "@/lib/queries";
 
-type Webhook = {
-  id: string;
-  url: string;
-  label: string;
-  categories: string[];
-  signingKeyHint: string;
-  maxRetries: number;
-  retryIntervalInSeconds: number;
-  timeoutInSeconds: number;
-  createdAt: string;
-};
+type Category = Webhook["categories"][number];
 
-type Delivery = {
-  id: string;
-  attempt: number;
-  httpResponseCode: number | null;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
-  nextRetryAt: string | null;
-};
-
-const categories = ["Transfer", "Deposit", "Recovery", "ExcessRefund"].map(
-  (value) => ({
-    value,
-    label: value,
-  }),
-);
+const categories = (
+  ["Transfer", "Deposit", "Recovery", "ExcessRefund"] satisfies Category[]
+).map((value) => ({
+  value,
+  label: value,
+}));
 
 const WebhookForm = ({
   onCreated,
@@ -56,12 +43,10 @@ const WebhookForm = ({
     retryIntervalInSeconds: "10",
     timeoutInSeconds: "30",
   });
-  const [selected, setSelected] = useState<string[]>(["Transfer"]);
+  const [selected, setSelected] = useState<Category[]>(["Transfer"]);
 
-  const create = useMutate<
-    Record<string, unknown>,
-    { label: string; signingKey: string }
-  >("POST", "/api/webhooks");
+  const headers = useAppHeaders();
+  const create = useMutate(postApiWebhooksMutation({ headers }));
 
   const set =
     (key: keyof typeof values) => (event: { target: { value: string } }) =>
@@ -72,12 +57,14 @@ const WebhookForm = ({
 
     create.mutate(
       {
-        label: values.label.trim(),
-        url: values.url.trim(),
-        categories: selected,
-        maxRetries: Number(values.maxRetries),
-        retryIntervalInSeconds: Number(values.retryIntervalInSeconds),
-        timeoutInSeconds: Number(values.timeoutInSeconds),
+        body: {
+          label: values.label.trim(),
+          url: values.url.trim(),
+          categories: selected,
+          maxRetries: Number(values.maxRetries),
+          retryIntervalInSeconds: Number(values.retryIntervalInSeconds),
+          timeoutInSeconds: Number(values.timeoutInSeconds),
+        },
       },
       { onSuccess: onCreated },
     );
@@ -147,36 +134,48 @@ const WebhookForm = ({
   );
 };
 
-const Deliveries = ({ webhook }: { webhook: Webhook }) => (
-  <DataTable<Delivery>
-    path={`/api/webhooks/${webhook.id}/deliveries`}
-    rowKey={(row) => row.id}
-    empty="No deliveries yet"
-    pageSize={8}
-    columns={[
-      { header: "Attempt", cell: (row) => `#${row.attempt}` },
-      {
-        header: "Result",
-        cell: (row) =>
-          row.httpResponseCode ? (
-            <Badge variant={row.httpResponseCode < 300 ? "success" : "danger"}>
-              HTTP {row.httpResponseCode}
-            </Badge>
-          ) : row.error ? (
-            <Badge variant="danger">{row.error}</Badge>
-          ) : (
-            <Badge variant="pending">In flight</Badge>
-          ),
-      },
-      { header: "Started", cell: (row) => formatDateTime(row.startedAt) },
-      {
-        header: "Next retry",
-        cell: (row) =>
-          row.nextRetryAt ? formatDateTime(row.nextRetryAt) : "—",
-      },
-    ]}
-  />
-);
+const Deliveries = ({ webhook }: { webhook: Webhook }) => {
+  const headers = useAppHeaders();
+
+  return (
+    <DataTable
+      options={(query) =>
+        getApiWebhooksByIdDeliveriesOptions({
+          path: { id: webhook.id },
+          query,
+          headers,
+        })
+      }
+      rowKey={(row) => row.id}
+      empty="No deliveries yet"
+      pageSize={8}
+      columns={[
+        { header: "Attempt", cell: (row) => `#${row.attempt}` },
+        {
+          header: "Result",
+          cell: (row) =>
+            row.httpResponseCode ? (
+              <Badge
+                variant={row.httpResponseCode < 300 ? "success" : "danger"}
+              >
+                HTTP {row.httpResponseCode}
+              </Badge>
+            ) : row.error ? (
+              <Badge variant="danger">{row.error}</Badge>
+            ) : (
+              <Badge variant="pending">In flight</Badge>
+            ),
+        },
+        { header: "Started", cell: (row) => formatDateTime(row.startedAt) },
+        {
+          header: "Next retry",
+          cell: (row) =>
+            row.nextRetryAt ? formatDateTime(row.nextRetryAt) : "—",
+        },
+      ]}
+    />
+  );
+};
 
 export const Webhooks = () => {
   const [creating, setCreating] = useState(false);
@@ -186,8 +185,9 @@ export const Webhooks = () => {
   } | null>(null);
   const [viewing, setViewing] = useState<Webhook | null>(null);
   const [deleting, setDeleting] = useState<Webhook | null>(null);
+  const headers = useAppHeaders();
 
-  const remove = useMutate<string>("DELETE", (id) => `/api/webhooks/${id}`, {
+  const remove = useMutate(deleteApiWebhooksByIdMutation({ headers }), {
     success: "Webhook deleted",
     onSuccess: () => setDeleting(null),
   });
@@ -199,8 +199,8 @@ export const Webhooks = () => {
         description="Endpoints that receive signed events when payments change."
       />
 
-      <DataTable<Webhook>
-        path="/api/webhooks"
+      <DataTable
+        options={(query) => getApiWebhooksOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search webhooks"
         empty="No webhooks yet"
@@ -311,7 +311,9 @@ export const Webhooks = () => {
         description={`${deleting?.label} stops receiving events.`}
         confirmLabel="Delete webhook"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );

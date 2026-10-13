@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { getApiAppsOptions } from "@/api/@tanstack/react-query.gen";
 import { Shell } from "@/components/shell";
-import { AppScope, useGet } from "@/lib/queries";
+import { AppScope } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 import { ApiKeys } from "@/pages/api-keys";
 import { Apps } from "@/pages/apps";
@@ -19,8 +21,8 @@ import { Webhooks } from "@/pages/webhooks";
 
 const AppRoute = () => {
   const { appId } = useParams();
-  const { data, error } = useGet<{ id: string; name: string }>(
-    `/api/admin/apps/${appId}`,
+  const { data, error } = useQuery(
+    getApiAppsOptions({ headers: { "x-kite-app-id": appId! } }),
   );
 
   if (error) return <Navigate to="/apps" replace />;

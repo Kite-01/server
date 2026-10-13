@@ -3,6 +3,7 @@ import { ApiKeyService } from "../../services/ApiKey.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
 import { signing } from "../../shared/signing";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
@@ -11,6 +12,7 @@ const apiKeyService = new ApiKeyService();
 
 export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
   .use(Auth.plugin)
+  .use(models)
   .post(
     "/api-key",
     async ({ actor, body, set }) => {
@@ -57,6 +59,7 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
     },
     {
       beforeHandle: Auth.access({ scope: ApiKeyScope.ApiKeyWrite }),
+      parse: "json",
       body: t.Object({
         label: t.String({
           minLength: 1,
@@ -80,6 +83,9 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
           }),
         ),
       }),
+      response: {
+        201: "ApiKey",
+      },
       detail: {
         tags: ["API key"],
         summary: "Register an API key's public key",
@@ -99,6 +105,9 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
         q: t.Optional(t.String({ maxLength: 100 })),
         ...PageQuery,
       }),
+      response: {
+        200: "ApiKeyPage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.ApiKeyRead }),
       detail: {
         tags: ["API key"],
@@ -117,6 +126,9 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "ApiKey",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.ApiKeyRead }),
       detail: {
         tags: ["API key"],
@@ -135,12 +147,16 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
     },
     {
       params: UuidIdParams,
+      parse: "json",
       body: t.Object({
         label: t.String({
           minLength: 1,
           maxLength: 120,
         }),
       }),
+      response: {
+        200: "ApiKey",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.ApiKeyWrite }),
       detail: {
         tags: ["API key"],
@@ -159,6 +175,9 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "ApiKey",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.ApiKeyWrite }),
       detail: {
         tags: ["API key"],
@@ -177,6 +196,9 @@ export const apiKeyRoutes = new Elysia({ name: "ApiKeysRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "ApiKey",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.ApiKeyWrite }),
       detail: {
         tags: ["API key"],

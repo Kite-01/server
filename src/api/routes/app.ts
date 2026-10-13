@@ -2,6 +2,7 @@ import { PageQuery, t } from "../schema";
 import { ApiKeyScope } from "../../shared/constants";
 import { AppService } from "../../services/App.service";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
 
@@ -34,11 +35,15 @@ const Fields = {
 
 export const appRoutes = new Elysia({ name: "AppsRoute" })
   .use(Auth.plugin)
+  .use(models)
   .get("/apps/all", ({ query }) => appService.getApps(query), {
     query: t.Object({
       q: t.Optional(t.String({ maxLength: 100 })),
       ...PageQuery,
     }),
+    response: {
+      200: "AppPage",
+    },
     beforeHandle: Auth.access({ root: true }),
     detail: {
       tags: ["Apps"],
@@ -53,10 +58,14 @@ export const appRoutes = new Elysia({ name: "AppsRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Composite([
         t.Pick(t.Object(Fields), ["name"]),
         t.Partial(t.Omit(t.Object(Fields), ["name"])),
       ]),
+      response: {
+        201: "App",
+      },
       beforeHandle: Auth.access({ root: true }),
       detail: {
         tags: ["Apps"],
@@ -74,6 +83,9 @@ export const appRoutes = new Elysia({ name: "AppsRoute" })
       return app;
     },
     {
+      response: {
+        200: "App",
+      },
       beforeHandle: Auth.access({ public: true }),
       detail: {
         tags: ["Apps"],
@@ -91,7 +103,11 @@ export const appRoutes = new Elysia({ name: "AppsRoute" })
       return app;
     },
     {
+      parse: "json",
       body: t.Partial(t.Object(Fields)),
+      response: {
+        200: "App",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.AppWrite }),
       detail: {
         tags: ["Apps"],
@@ -109,6 +125,9 @@ export const appRoutes = new Elysia({ name: "AppsRoute" })
       return app;
     },
     {
+      response: {
+        200: "App",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.AppDelete }),
       detail: {
         tags: ["Apps"],

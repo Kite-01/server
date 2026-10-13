@@ -2,6 +2,7 @@ import { UuidIdParams, PageQuery } from "../schema";
 import { CustomerService } from "../../services/Customer.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
@@ -11,6 +12,7 @@ const customerService = new CustomerService();
 
 export const customerRoutes = new Elysia({ name: "CustomersRoute" })
   .use(Auth.plugin)
+  .use(models)
   .post(
     "/customers",
     ({ actor, body }) => {
@@ -20,6 +22,7 @@ export const customerRoutes = new Elysia({ name: "CustomersRoute" })
       });
     },
     {
+      parse: "json",
       body: t.Object({
         externalId: t.String({
           minLength: 1,
@@ -37,6 +40,9 @@ export const customerRoutes = new Elysia({ name: "CustomersRoute" })
           t.Union([t.Record(t.String(), t.Unknown()), t.Null()]),
         ),
       }),
+      response: {
+        200: "Customer",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.CustomerWrite }),
       detail: {
         tags: ["Customers"],
@@ -66,6 +72,9 @@ export const customerRoutes = new Elysia({ name: "CustomersRoute" })
         ),
         ...PageQuery,
       }),
+      response: {
+        200: "CustomerPage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.CustomerRead }),
       detail: {
         tags: ["Customers"],
@@ -84,6 +93,9 @@ export const customerRoutes = new Elysia({ name: "CustomersRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "Customer",
+      },
       beforeHandle: Auth.access({
         scope: ApiKeyScope.CustomerRead,
         public: true,
@@ -105,6 +117,9 @@ export const customerRoutes = new Elysia({ name: "CustomersRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "Customer",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.CustomerDelete }),
       detail: {
         tags: ["Customers"],

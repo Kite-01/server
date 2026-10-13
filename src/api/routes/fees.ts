@@ -2,6 +2,7 @@ import { Digits, EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { ApiKeyScope, FeeType } from "../../shared/constants";
 import { FeeService } from "../../services/Fee.service";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
 import { t } from "../schema";
@@ -86,6 +87,7 @@ const toBigInts = (input: FeeInput) => {
 
 export const feeRoutes = new Elysia({ name: "FeesRoute" })
   .use(Auth.plugin)
+  .use(models)
   .get(
     "/fees",
     ({ actor, query }) => {
@@ -100,6 +102,9 @@ export const feeRoutes = new Elysia({ name: "FeesRoute" })
         q: t.Optional(t.String({ maxLength: 100 })),
         ...PageQuery,
       }),
+      response: {
+        200: "FeePage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.FeeRead }),
       detail: {
         tags: ["Fees"],
@@ -122,10 +127,14 @@ export const feeRoutes = new Elysia({ name: "FeesRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Object({
         chainId: Uuid,
         ...FeeFields,
       }),
+      response: {
+        201: "Fee",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.FeeWrite }),
       detail: {
         tags: ["Fees"],
@@ -142,6 +151,9 @@ export const feeRoutes = new Elysia({ name: "FeesRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "FeeWithChain",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.FeeRead }),
       detail: {
         tags: ["Fees"],
@@ -162,7 +174,11 @@ export const feeRoutes = new Elysia({ name: "FeesRoute" })
     },
     {
       params: UuidIdParams,
+      parse: "json",
       body: t.Partial(t.Object(FeeFields)),
+      response: {
+        200: "Fee",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.FeeWrite }),
       detail: {
         tags: ["Fees"],
@@ -179,6 +195,9 @@ export const feeRoutes = new Elysia({ name: "FeesRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "Fee",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.FeeDelete }),
       detail: {
         tags: ["Fees"],

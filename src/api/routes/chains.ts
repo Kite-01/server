@@ -4,6 +4,7 @@ import { HttpError } from "../../shared/errors";
 import { Provider } from "../../shared/constants";
 import { getChain } from "../../shared/chains";
 import { Chains } from "../../shared/chains/registry";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
 
@@ -15,6 +16,7 @@ const Providers = t.Array(t.Enum(Provider), {
 
 export const chainRoutes = new Elysia({ name: "ChainsRoute" })
   .use(Auth.plugin)
+  .use(models)
   .get(
     "/chains",
     async () => {
@@ -37,6 +39,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       };
     },
     {
+      response: {
+        200: "ConfiguredChainList",
+      },
       beforeHandle: Auth.access({ public: true }),
       detail: {
         tags: ["Chains"],
@@ -45,6 +50,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
     },
   )
   .get("/chains/full", () => chainService.getChains(), {
+    response: {
+      200: "ChainWithConfigList",
+    },
     beforeHandle: Auth.access({ root: true }),
     detail: {
       tags: ["Chains"],
@@ -64,6 +72,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       }));
     },
     {
+      response: {
+        200: "SupportedChainList",
+      },
       beforeHandle: Auth.access({ root: true }),
       detail: {
         tags: ["Chains"],
@@ -82,9 +93,13 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Object({
         caip2Id: t.String({ pattern: "^eip155:[0-9]+$" }),
       }),
+      response: {
+        201: "Chain",
+      },
       beforeHandle: Auth.access({ root: true }),
       detail: {
         tags: ["Chains"],
@@ -105,7 +120,11 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
     },
     {
       params: UuidIdParams,
+      parse: "json",
       body: t.Object({ isActive: t.Boolean() }),
+      response: {
+        200: "Chain",
+      },
       beforeHandle: Auth.access({ root: true }),
       detail: {
         tags: ["Chains"],
@@ -126,10 +145,13 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
             : BigInt(body.maxGasPrice),
       });
 
-      return chainService.getChainById(params.id);
+      const chain = await chainService.getChainById(params.id);
+      if (!chain) throw new HttpError(404, "NotFound", "Chain not found");
+      return chain;
     },
     {
       params: UuidIdParams,
+      parse: "json",
       body: t.Object({
         rpcUrls: t.Optional(
           t.Union([
@@ -155,6 +177,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
         gasSponsorProviders: Providers,
         maxGasPrice: t.Optional(t.Union([Digits, t.Null()])),
       }),
+      response: {
+        200: "ChainWithConfig",
+      },
       beforeHandle: Auth.access({ root: true }),
       detail: {
         tags: ["Chains"],
@@ -171,6 +196,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "Chain",
+      },
       beforeHandle: Auth.access({ root: true }),
       detail: {
         tags: ["Chains"],

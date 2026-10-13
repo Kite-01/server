@@ -1,5 +1,11 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import {
+  deleteApiCustomersByIdMutation,
+  getApiCustomersOptions,
+  postApiCustomersMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { Customer } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
@@ -10,15 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { formatDate, initials, shortId } from "@/lib/format";
-import { useMutate } from "@/lib/queries";
-
-type Customer = {
-  id: string;
-  externalId: string;
-  name: string | null;
-  traits: Record<string, unknown> | null;
-  createdAt: string;
-};
+import { useAppHeaders, useMutate } from "@/lib/queries";
 
 const CustomerForm = ({
   customer,
@@ -34,7 +32,8 @@ const CustomerForm = ({
   );
   const [traitsError, setTraitsError] = useState<string | null>(null);
 
-  const save = useMutate<Record<string, unknown>>("POST", "/api/customers", {
+  const headers = useAppHeaders();
+  const save = useMutate(postApiCustomersMutation({ headers }), {
     success: customer ? "Customer updated" : "Customer created",
     onSuccess: onClose,
   });
@@ -42,7 +41,7 @@ const CustomerForm = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
 
-    let parsed: unknown = null;
+    let parsed: Customer["traits"] = null;
     if (traits.trim()) {
       try {
         parsed = JSON.parse(traits);
@@ -60,9 +59,11 @@ const CustomerForm = ({
 
     setTraitsError(null);
     save.mutate({
-      externalId: externalId.trim(),
-      name: name.trim() || null,
-      traits: parsed,
+      body: {
+        externalId: externalId.trim(),
+        name: name.trim() || null,
+        traits: parsed,
+      },
     });
   };
 
@@ -105,8 +106,9 @@ const CustomerForm = ({
 export const Customers = () => {
   const [editing, setEditing] = useState<Customer | "new" | null>(null);
   const [deleting, setDeleting] = useState<Customer | null>(null);
+  const headers = useAppHeaders();
 
-  const remove = useMutate<string>("DELETE", (id) => `/api/customers/${id}`, {
+  const remove = useMutate(deleteApiCustomersByIdMutation({ headers }), {
     success: "Customer deleted",
     onSuccess: () => setDeleting(null),
   });
@@ -118,8 +120,8 @@ export const Customers = () => {
         description="People and businesses paying through this app."
       />
 
-      <DataTable<Customer>
-        path="/api/customers"
+      <DataTable
+        options={(query) => getApiCustomersOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search customers"
         empty="No customers yet"
@@ -211,7 +213,9 @@ export const Customers = () => {
         description={`${deleting?.name ?? deleting?.externalId} will be removed. Customers with quotes cannot be deleted.`}
         confirmLabel="Delete customer"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );

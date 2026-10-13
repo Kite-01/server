@@ -1,5 +1,13 @@
 import { Download, Pencil, Plus, ShieldOff, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import {
+  deleteApiApiKeyByIdMutation,
+  getApiApiKeyOptions,
+  patchApiApiKeyByIdMutation,
+  postApiApiKeyByIdRevokeMutation,
+  postApiApiKeyMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { ApiKey } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
@@ -11,29 +19,74 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { formatDateTime, shortId } from "@/lib/format";
-import { useMutate } from "@/lib/queries";
+import { useAppHeaders, useMutate } from "@/lib/queries";
 import { generateKeyPair } from "@/lib/signing";
 
-type ApiKey = {
-  id: string;
-  label: string;
-  publicKey: string;
-  scopes: string[];
-  allowedOrigins: string[] | null;
-  lastUsedAt: string | null;
-  revokedAt: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-};
+type Scope = ApiKey["scopes"][number];
 
-const resources = [
-  { key: "api_keys", label: "API keys" },
-  { key: "customers", label: "Customers" },
-  { key: "fees", label: "Fees" },
-  { key: "payment_links", label: "Payment links" },
-  { key: "quotes", label: "Quotes" },
-  { key: "transfers", label: "Transfers" },
-  { key: "webhooks", label: "Webhooks" },
+const scopeGroups: { label: string; scopes: [string, Scope][] }[] = [
+  {
+    label: "API keys",
+    scopes: [
+      ["read", "Apikey:Read"],
+      ["write", "Apikey:Write"],
+      ["delete", "Apikey:Delete"],
+    ],
+  },
+  {
+    label: "App",
+    scopes: [
+      ["write", "App:Write"],
+      ["delete", "App:Delete"],
+    ],
+  },
+  {
+    label: "Customers",
+    scopes: [
+      ["read", "Customer:Read"],
+      ["write", "Customer:Write"],
+      ["delete", "Customer:Delete"],
+    ],
+  },
+  {
+    label: "Fees",
+    scopes: [
+      ["read", "Fee:Read"],
+      ["write", "Fee:Write"],
+      ["delete", "Fee:Delete"],
+    ],
+  },
+  {
+    label: "Payment links",
+    scopes: [
+      ["read", "PaymentLink:Read"],
+      ["write", "PaymentLink:Write"],
+      ["delete", "PaymentLink:Delete"],
+    ],
+  },
+  {
+    label: "Quotes",
+    scopes: [
+      ["read", "quotes:read"],
+      ["write", "quotes:write"],
+    ],
+  },
+  {
+    label: "Transfers",
+    scopes: [
+      ["read", "Transfer:Read"],
+      ["write", "Transfer:Write"],
+    ],
+  },
+  {
+    label: "Webhooks",
+    scopes: [
+      ["read", "Webhook:Read"],
+      ["write", "Webhook:Write"],
+      ["delete", "Webhook:Delete"],
+    ],
+  },
+  { label: "x402 payments", scopes: [["", "x402"]] },
 ];
 
 const status = (key: ApiKey) =>
@@ -55,17 +108,15 @@ const NewKeyForm = ({
   onClose: () => void;
 }) => {
   const [label, setLabel] = useState("");
-  const [scopes, setScopes] = useState<string[]>([]);
+  const [scopes, setScopes] = useState<Scope[]>([]);
   const [origins, setOrigins] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const create = useMutate<Record<string, unknown>, { id: string }>(
-    "POST",
-    "/api/api-keys",
-  );
+  const headers = useAppHeaders();
+  const create = useMutate(postApiApiKeyMutation({ headers }));
 
-  const toggle = (scope: string) =>
+  const toggle = (scope: Scope) =>
     setScopes((current) =>
       current.includes(scope)
         ? current.filter((s) => s !== scope)
@@ -86,11 +137,15 @@ const NewKeyForm = ({
     const list = origins.split(/[\s,]+/).filter(Boolean);
     create.mutate(
       {
-        label: label.trim(),
-        publicKey: pair.publicKey,
-        scopes,
-        ...(list.length ? { allowedOrigins: list } : {}),
-        ...(expiresAt ? { expiresAt: new Date(expiresAt).toISOString() } : {}),
+        body: {
+          label: label.trim(),
+          publicKey: pair.publicKey,
+          scopes,
+          ...(list.length ? { allowedOrigins: list } : {}),
+          ...(expiresAt
+            ? { expiresAt: new Date(expiresAt).toISOString() }
+            : {}),
+        },
       },
       {
         onSuccess: (created) =>
@@ -116,47 +171,26 @@ const NewKeyForm = ({
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted">Scopes</p>
         <div className="space-y-2 rounded-xl border border-line p-3">
-          {resources.map((resource) => (
+          {scopeGroups.map((group) => (
             <div
-              key={resource.key}
+              key={group.label}
               className="flex items-center justify-between gap-3 text-sm"
             >
-              <span>{resource.label}</span>
+              <span>{group.label}</span>
               <span className="flex gap-3 text-xs">
-                {["read", "write"].map((action) => {
-                  const scope = `${resource.key}:${action}`;
-                  return (
-                    <label key={scope} className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        className="accent-ink"
-                        checked={scopes.includes(scope)}
-                        onChange={() => toggle(scope)}
-                      />
-                      {action}
-                    </label>
-                  );
-                })}
+                {group.scopes.map(([action, scope]) => (
+                  <label key={scope} className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      className="accent-ink"
+                      checked={scopes.includes(scope)}
+                      onChange={() => toggle(scope)}
+                    />
+                    {action}
+                  </label>
+                ))}
               </span>
             </div>
-          ))}
-          {["app:write", "x402"].map((scope) => (
-            <label
-              key={scope}
-              className="flex items-center justify-between text-sm"
-            >
-              <span>
-                {scope === "app:write"
-                  ? "Update or delete the app"
-                  : "x402 payments"}
-              </span>
-              <input
-                type="checkbox"
-                className="accent-ink"
-                checked={scopes.includes(scope)}
-                onChange={() => toggle(scope)}
-              />
-            </label>
           ))}
         </div>
       </div>
@@ -207,22 +241,19 @@ export const ApiKeys = () => {
   const [revoking, setRevoking] = useState<ApiKey | null>(null);
   const [deleting, setDeleting] = useState<ApiKey | null>(null);
 
-  const rename = useMutate<{ id: string; label: string }>(
-    "PATCH",
-    (body) => `/api/api-keys/${body.id}`,
-    { success: "Label updated", onSuccess: () => setRenaming(null) },
-  );
+  const headers = useAppHeaders();
 
-  const revoke = useMutate<string>(
-    "POST",
-    (id) => `/api/api-keys/${id}/revoke`,
-    {
-      success: "Key revoked",
-      onSuccess: () => setRevoking(null),
-    },
-  );
+  const rename = useMutate(patchApiApiKeyByIdMutation({ headers }), {
+    success: "Label updated",
+    onSuccess: () => setRenaming(null),
+  });
 
-  const remove = useMutate<string>("DELETE", (id) => `/api/api-keys/${id}`, {
+  const revoke = useMutate(postApiApiKeyByIdRevokeMutation({ headers }), {
+    success: "Key revoked",
+    onSuccess: () => setRevoking(null),
+  });
+
+  const remove = useMutate(deleteApiApiKeyByIdMutation({ headers }), {
     success: "Key deleted",
     onSuccess: () => setDeleting(null),
   });
@@ -253,8 +284,8 @@ export const ApiKeys = () => {
         description="Keys are generated in your browser. The server only ever stores the public key."
       />
 
-      <DataTable<ApiKey>
-        path="/api/api-keys"
+      <DataTable
+        options={(query) => getApiApiKeyOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search API keys"
         empty="No API keys yet"
@@ -399,7 +430,10 @@ export const ApiKeys = () => {
           onSubmit={(event) => {
             event.preventDefault();
             if (renaming)
-              rename.mutate({ id: renaming.id, label: label.trim() });
+              rename.mutate({
+                path: { id: renaming.id },
+                body: { label: label.trim() },
+              });
           }}
         >
           <Field label="Label">
@@ -427,7 +461,9 @@ export const ApiKeys = () => {
         description={`${revoking?.label} stops working immediately. This cannot be undone.`}
         confirmLabel="Revoke key"
         pending={revoke.isPending}
-        onConfirm={() => revoking && revoke.mutate(revoking.id)}
+        onConfirm={() =>
+          revoking && revoke.mutate({ path: { id: revoking.id } })
+        }
       />
 
       <ConfirmDialog
@@ -437,7 +473,9 @@ export const ApiKeys = () => {
         description={`${deleting?.label} is removed for good.`}
         confirmLabel="Delete key"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );

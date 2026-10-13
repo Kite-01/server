@@ -1,5 +1,10 @@
 import { ExternalLink, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import {
+  getApiTransfersOptions,
+  postApiTransfersMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { TransferListItem } from "@/api/types.gen";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
@@ -15,34 +20,12 @@ import {
   shortAddress,
   shortId,
 } from "@/lib/format";
-import { useMutate } from "@/lib/queries";
+import { useAppHeaders, useMutate } from "@/lib/queries";
 import { useSupportedChains } from "./chains";
 
-type Transfer = {
-  id: string;
-  status: string;
-  payinAddress: string;
-  refundAddress: string;
-  settlementRecipient: string;
-  settlementBlockchainHash: string | null;
-  refundBlockchainHash: string | null;
-  x402BlockchainHash: string | null;
-  createdAt: string;
-  timeline: { id: string; description: string; createdAt: string }[];
-  quote: {
-    id: string;
-    reference: string | null;
-    sourceAmount: string;
-    targetUsdAmount: string;
-    expiresAt: string;
-    sourceToken: { symbol: string; decimals: number };
-    targetToken: { symbol: string };
-    chain: { caip2Id: string };
-    customer: { name: string | null; externalId: string } | null;
-  };
-};
+type Status = TransferListItem["status"];
 
-const statuses = [
+const statuses: Status[] = [
   "AwaitingDeposit",
   "DepositReceived",
   "Processing",
@@ -65,17 +48,19 @@ export const NewTransferDialog = ({
   const [quote, setQuote] = useState("");
   const [refundAddress, setRefundAddress] = useState("");
 
-  const create = useMutate<{ quoteId: string; refundAddress: string }>(
-    "POST",
-    "/api/transfers",
-    { success: "Transfer opened", onSuccess: onCreated },
-  );
+  const headers = useAppHeaders();
+  const create = useMutate(postApiTransfersMutation({ headers }), {
+    success: "Transfer opened",
+    onSuccess: onCreated,
+  });
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     create.mutate({
-      quoteId: (quoteId ?? quote).trim(),
-      refundAddress: refundAddress.trim(),
+      body: {
+        quoteId: (quoteId ?? quote).trim(),
+        refundAddress: refundAddress.trim(),
+      },
     });
   };
 
@@ -146,7 +131,7 @@ const Detail = ({
   transfer,
   explorer,
 }: {
-  transfer: Transfer;
+  transfer: TransferListItem;
   explorer?: string;
 }) => {
   const { quote } = transfer;
@@ -226,8 +211,9 @@ const Detail = ({
 };
 
 export const Transfers = () => {
-  const [status, setStatus] = useState("");
-  const [selected, setSelected] = useState<Transfer | null>(null);
+  const headers = useAppHeaders();
+  const [status, setStatus] = useState<Status | "">("");
+  const [selected, setSelected] = useState<TransferListItem | null>(null);
   const [opening, setOpening] = useState(false);
   const supported = useSupportedChains();
   const explorer = supported.data?.find(
@@ -241,19 +227,23 @@ export const Transfers = () => {
         description="Payments made against quotes."
       />
 
-      <DataTable<Transfer>
-        path="/api/transfers"
-        query={{ status }}
+      <DataTable
+        options={(query) =>
+          getApiTransfersOptions({
+            query: { ...query, status: status || undefined },
+            headers,
+          })
+        }
         rowKey={(row) => row.id}
         searchPlaceholder="Search by ID, address, reference or customer"
         empty="No transfers yet"
-        onRowClick={setSelected}
+        onRowClick={(row) => setSelected(row)}
         toolbar={
           <>
             <Select
               className="w-48 rounded-full"
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => setStatus(event.target.value as Status | "")}
               aria-label="Status"
             >
               <option value="">All statuses</option>

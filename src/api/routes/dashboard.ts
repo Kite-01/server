@@ -42,6 +42,7 @@ const respond = (
     ".jpg": "image/jpeg",
     ".webp": "image/webp",
     ".ico": "image/x-icon",
+    ".ttf": "font/ttf",
     ".woff": "font/woff",
     ".woff2": "font/woff2",
     ".txt": "text/plain; charset=utf-8",

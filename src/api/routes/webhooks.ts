@@ -2,6 +2,7 @@ import { ApiKeyScope, WebhookCategory } from "../../shared/constants";
 import { UuidIdParams, PageQuery } from "../schema";
 import { WebhookService } from "../../services/Webhook.service";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
@@ -16,6 +17,7 @@ const withoutSigningKey = <T extends { signingKey: string }>({
 
 export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
   .use(Auth.plugin)
+  .use(models)
   .post(
     "/webhooks",
     async ({ actor, body, set }) => {
@@ -28,6 +30,7 @@ export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Object({
         url: t.String({
           format: "uri",
@@ -61,6 +64,9 @@ export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
           }),
         ),
       }),
+      response: {
+        201: "CreatedWebhook",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.WebhookWrite }),
       detail: {
         tags: ["Webhooks"],
@@ -86,6 +92,9 @@ export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
         q: t.Optional(t.String({ maxLength: 100 })),
         ...PageQuery,
       }),
+      response: {
+        200: "WebhookPage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.WebhookRead }),
       detail: {
         tags: ["Webhooks"],
@@ -111,6 +120,9 @@ export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
     {
       params: UuidIdParams,
       query: t.Object(PageQuery),
+      response: {
+        200: "WebhookDeliveryPage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.WebhookRead }),
       detail: {
         tags: ["Webhooks"],
@@ -129,6 +141,9 @@ export const webhookRoutes = new Elysia({ name: "WebhooksRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "Webhook",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.WebhookDelete }),
       detail: {
         tags: ["Webhooks"],

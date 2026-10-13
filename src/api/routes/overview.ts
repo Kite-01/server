@@ -3,17 +3,26 @@ import { SystemService } from "../../services/System.service";
 import { EventService } from "../../services/Event.service";
 import { StatsService } from "../../services/Stats.service";
 import { PageQuery } from "../schema";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
 import { t } from "../schema";
+
+const systemService = new SystemService();
+const statsService = new StatsService();
+const eventService = new EventService();
 
 export const overviewRoutes = new Elysia({
   name: "OverviewRoute",
   prefix: "/overview",
 })
   .use(Auth.plugin)
+  .use(models)
   .onBeforeHandle(Auth.access({ root: true }))
-  .get("/info", () => new SystemService().getInfo(), {
+  .get("/info", () => systemService.getInfo(), {
+    response: {
+      200: "SystemInfo",
+    },
     detail: {
       tags: ["Overview"],
       summary: "Service version & operator address",
@@ -22,7 +31,7 @@ export const overviewRoutes = new Elysia({
   .get(
     "/stats",
     ({ actor, query }) => {
-      return new StatsService().getStats({
+      return statsService.getStats({
         appId: actor.appId,
         from: new Date(query.from),
         to: new Date(query.to),
@@ -45,6 +54,9 @@ export const overviewRoutes = new Elysia({
         ),
         rank: t.Optional(t.Union([t.Literal("volume"), t.Literal("value")])),
       }),
+      response: {
+        200: "Stats",
+      },
       detail: {
         tags: ["Overview"],
         summary: "Basic dashboard statistics",
@@ -54,7 +66,7 @@ export const overviewRoutes = new Elysia({
   .get(
     "/events",
     ({ actor, query }) => {
-      return new EventService().getEvents({
+      return eventService.getEvents({
         ...query,
         appId: actor.appId,
       });
@@ -64,6 +76,9 @@ export const overviewRoutes = new Elysia({
         category: t.Optional(t.Enum(WebhookCategory)),
         ...PageQuery,
       }),
+      response: {
+        200: "EventPage",
+      },
       detail: {
         tags: ["Overview"],
         summary: "Recent events",

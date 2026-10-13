@@ -73,7 +73,7 @@ export const createApp = () => {
 
       const http =
         handleError(cause instanceof HttpError ? cause : error) ??
-        (code === "VALIDATION"
+        (code === "VALIDATION" && error.type !== "response"
           ? new HttpError(422, "ValidationError", error.message)
           : code === "NOT_FOUND"
             ? new HttpError(404, "NotFound", "Route not found")

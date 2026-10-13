@@ -1,6 +1,20 @@
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  deleteApiChainsByIdMutation,
+  deleteApiTokensByIdMutation,
+  getApiChainsFullOptions,
+  getApiTokensOptions,
+  putApiChainsByIdConfigMutation,
+} from "@/api/@tanstack/react-query.gen";
+import { getApiTokensByChainIdByAddress } from "@/api/sdk.gen";
+import type {
+  ChainConfig,
+  ChainWithConfig,
+  TokenWithChain,
+} from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { CheckboxGroup, Field } from "@/components/field";
@@ -11,28 +25,26 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { shortAddress } from "@/lib/format";
-import { useGet, useMutate, type Page } from "@/lib/queries";
+import { useMutate } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-import { chainName, useSupportedChains, type ChainRow } from "./chains";
+import { chainName, useSupportedChains } from "./chains";
 
-type Token = {
-  id: string;
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  supportsEIP3009: boolean;
-};
+type Provider = ChainConfig["gasSponsorProviders"][number];
 
-const notifierProviders = [{ value: "QuickNode", label: "QuickNode" }];
-const gasSponsorProviders = [{ value: "Alchemy", label: "Alchemy" }];
+const notifierProviders: { value: Provider; label: string }[] = [
+  { value: "QuickNode", label: "QuickNode" },
+];
+
+const gasSponsorProviders: { value: Provider; label: string }[] = [
+  { value: "Alchemy", label: "Alchemy" },
+];
 
 const ConfigurationForm = ({
   chain,
   tokens,
 }: {
-  chain: ChainRow;
-  tokens: Token[];
+  chain: ChainWithConfig;
+  tokens: TokenWithChain[];
 }) => {
   const config = chain.config;
   const [values, setValues] = useState({
@@ -43,8 +55,10 @@ const ConfigurationForm = ({
     usdPeggedTokenId: config?.usdPeggedTokenId ?? "",
     settlementAddress: config?.settlementAddress ?? "",
     maxGasPrice: config?.maxGasPrice ?? "",
-    onchainNotifierProviders: config?.onchainNotifierProviders ?? ["QuickNode"],
-    gasSponsorProviders: config?.gasSponsorProviders ?? ["Alchemy"],
+    onchainNotifierProviders:
+      config?.onchainNotifierProviders ?? (["QuickNode"] as Provider[]),
+    gasSponsorProviders:
+      config?.gasSponsorProviders ?? (["Alchemy"] as Provider[]),
   });
 
   useEffect(() => {
@@ -57,11 +71,9 @@ const ConfigurationForm = ({
     }
   }, [tokens, values.settlementTokenId]);
 
-  const save = useMutate<Record<string, unknown>>(
-    "PUT",
-    `/api/admin/chains/${chain.id}/config`,
-    { success: "Configuration saved" },
-  );
+  const save = useMutate(putApiChainsByIdConfigMutation(), {
+    success: "Configuration saved",
+  });
 
   const set =
     (key: keyof typeof values) => (event: { target: { value: string } }) =>
@@ -75,15 +87,18 @@ const ConfigurationForm = ({
       .filter(Boolean);
 
     save.mutate({
-      rpcUrls: urls.length ? urls : null,
-      slippageBps: Number(values.slippageBps),
-      kiteFactoryAddress: values.kiteFactoryAddress.trim(),
-      settlementTokenId: values.settlementTokenId,
-      usdPeggedTokenId: values.usdPeggedTokenId,
-      settlementAddress: values.settlementAddress.trim() || null,
-      maxGasPrice: values.maxGasPrice.trim() || null,
-      onchainNotifierProviders: values.onchainNotifierProviders,
-      gasSponsorProviders: values.gasSponsorProviders,
+      path: { id: chain.id },
+      body: {
+        rpcUrls: urls.length ? urls : null,
+        slippageBps: Number(values.slippageBps),
+        kiteFactoryAddress: values.kiteFactoryAddress.trim(),
+        settlementTokenId: values.settlementTokenId,
+        usdPeggedTokenId: values.usdPeggedTokenId,
+        settlementAddress: values.settlementAddress.trim() || null,
+        maxGasPrice: values.maxGasPrice.trim() || null,
+        onchainNotifierProviders: values.onchainNotifierProviders,
+        gasSponsorProviders: values.gasSponsorProviders,
+      },
     });
   };
 
@@ -214,26 +229,29 @@ const TokensTab = ({
   loading,
 }: {
   chainId: string;
-  tokens: Token[];
+  tokens: TokenWithChain[];
   loading: boolean;
 }) => {
   const [address, setAddress] = useState("");
-  const [deleting, setDeleting] = useState<Token | null>(null);
+  const [deleting, setDeleting] = useState<TokenWithChain | null>(null);
 
-  const add = useMutate<{ chainId: string; address: string }>(
-    "POST",
-    "/api/admin/tokens",
+  const add = useMutate(
+    {
+      mutationFn: async (address: string) => {
+        const { data } = await getApiTokensByChainIdByAddress({
+          path: { chainId, address },
+        });
+
+        return data;
+      },
+    },
     { success: "Token added", onSuccess: () => setAddress("") },
   );
 
-  const remove = useMutate<string>(
-    "DELETE",
-    (id) => `/api/admin/tokens/${id}`,
-    {
-      success: "Token removed",
-      onSuccess: () => setDeleting(null),
-    },
-  );
+  const remove = useMutate(deleteApiTokensByIdMutation(), {
+    success: "Token removed",
+    onSuccess: () => setDeleting(null),
+  });
 
   return (
     <div className="space-y-4">
@@ -242,7 +260,7 @@ const TokensTab = ({
           className="flex flex-wrap items-end gap-3"
           onSubmit={(event) => {
             event.preventDefault();
-            add.mutate({ chainId, address: address.trim() });
+            add.mutate(address.trim());
           }}
         >
           <div className="min-w-64 flex-1">
@@ -265,7 +283,7 @@ const TokensTab = ({
         </form>
       </Card>
 
-      <SimpleTable<Token>
+      <SimpleTable
         rows={tokens}
         loading={loading}
         rowKey={(row) => row.id}
@@ -322,7 +340,9 @@ const TokensTab = ({
         description={`${deleting?.symbol} can no longer be selected. Tokens used by a configuration or a payment cannot be removed.`}
         confirmLabel="Remove token"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </div>
   );
@@ -334,21 +354,16 @@ export const ChainDetail = () => {
   const [tab, setTab] = useState<"configuration" | "tokens">("configuration");
   const [confirming, setConfirming] = useState(false);
 
-  const chains = useGet<ChainRow[]>("/api/admin/chains");
+  const chains = useQuery(getApiChainsFullOptions());
   const supported = useSupportedChains();
-  const tokens = useGet<Page<Token>>("/api/admin/tokens", {
-    chainId,
-    pageSize: 100,
-  });
-
-  const remove = useMutate<string>(
-    "DELETE",
-    (id) => `/api/admin/chains/${id}`,
-    {
-      success: "Chain removed",
-      onSuccess: () => navigate("/chains"),
-    },
+  const tokens = useQuery(
+    getApiTokensOptions({ query: { chainId, pageSize: 100 } }),
   );
+
+  const remove = useMutate(deleteApiChainsByIdMutation(), {
+    success: "Chain removed",
+    onSuccess: () => navigate("/chains"),
+  });
 
   const chain = chains.data?.find((row) => row.id === chainId);
   if (chains.isLoading) return null;
@@ -416,7 +431,7 @@ export const ChainDetail = () => {
         description="New payments on this chain stop immediately. Existing transfers are kept."
         confirmLabel="Remove chain"
         pending={remove.isPending}
-        onConfirm={() => remove.mutate(chain.id)}
+        onConfirm={() => remove.mutate({ path: { id: chain.id } })}
       />
     </>
   );

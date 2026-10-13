@@ -1,6 +1,7 @@
 import { UuidIdParams, Uuid } from "../schema";
 import { x402Service } from "../../services/x402.service";
 import { ApiKeyScope } from "../../shared/constants";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
 import { t } from "../schema";
@@ -15,8 +16,12 @@ const PaymentBody = t.Object({
 
 export const x402Routes = new Elysia({ name: "x402Route", prefix: "/x402" })
   .use(Auth.plugin)
+  .use(models)
   .get("/supported", () => x402.getSupported(), {
     beforeHandle: Auth.access({ public: true }),
+    response: {
+      200: "x402Supported",
+    },
     detail: {
       tags: ["x402"],
       summary: "Payment kinds this facilitator supports",
@@ -34,10 +39,14 @@ export const x402Routes = new Elysia({ name: "x402Route", prefix: "/x402" })
       return created;
     },
     {
+      beforeHandle: Auth.access({ scope: ApiKeyScope.x402 }),
+      parse: "json",
       body: t.Object({
         quoteId: Uuid,
       }),
-      beforeHandle: Auth.access({ scope: ApiKeyScope.x402 }),
+      response: {
+        201: "CreatedTransfer",
+      },
       detail: {
         tags: ["x402"],
         summary: "Open a transfer to be paid with x402",
@@ -52,6 +61,9 @@ export const x402Routes = new Elysia({ name: "x402Route", prefix: "/x402" })
     {
       params: UuidIdParams,
       beforeHandle: Auth.access({ scope: ApiKeyScope.x402 }),
+      response: {
+        200: "x402PaymentRequirements",
+      },
       detail: {
         tags: ["x402"],
         summary: "Payment requirements for a transfer",
@@ -68,7 +80,11 @@ export const x402Routes = new Elysia({ name: "x402Route", prefix: "/x402" })
       );
     },
     {
+      parse: "json",
       body: PaymentBody,
+      response: {
+        200: "x402VerifyResult",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.x402 }),
       detail: {
         tags: ["x402"],
@@ -86,7 +102,11 @@ export const x402Routes = new Elysia({ name: "x402Route", prefix: "/x402" })
       );
     },
     {
+      parse: "json",
       body: PaymentBody,
+      response: {
+        200: "x402SettleResult",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.x402 }),
       detail: {
         tags: ["x402"],

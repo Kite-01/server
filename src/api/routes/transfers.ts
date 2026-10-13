@@ -3,6 +3,7 @@ import { ApiKeyScope, TransferStatus } from "../../shared/constants";
 import { TransferService } from "../../services/Transfer.service";
 import { QuoteService } from "../../services/Quote.service";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
@@ -13,6 +14,7 @@ const quoteService = new QuoteService();
 
 export const transferRoutes = new Elysia({ name: "TransfersRoute" })
   .use(Auth.plugin)
+  .use(models)
   .post(
     "/transfers",
     async ({ actor, body, set }) => {
@@ -39,10 +41,14 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Object({
         quoteId: Uuid,
         refundAddress: EvmAddress,
       }),
+      response: {
+        201: "CreatedTransfer",
+      },
       beforeHandle: Auth.access({
         scope: ApiKeyScope.TransferWrite,
         public: true,
@@ -67,6 +73,9 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
         q: t.Optional(t.String({ maxLength: 100 })),
         ...PageQuery,
       }),
+      response: {
+        200: "TransferPage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.TransferRead }),
       detail: {
         tags: ["Transfers"],
@@ -85,6 +94,9 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "TransferDetails",
+      },
       beforeHandle: Auth.access({
         scope: ApiKeyScope.TransferRead,
         public: true,

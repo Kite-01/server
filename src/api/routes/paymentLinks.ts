@@ -3,6 +3,7 @@ import { PaymentLinkService } from "../../services/PaymentLink.service";
 import { QuoteService } from "../../services/Quote.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
@@ -44,6 +45,7 @@ const Fields = {
 
 export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
   .use(Auth.plugin)
+  .use(models)
   .post(
     "/payment-links",
     async ({ actor, body, set }) => {
@@ -57,7 +59,11 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Object(Fields),
+      response: {
+        201: "PaymentLink",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.PaymentLinkWrite }),
       detail: {
         tags: ["Payment links"],
@@ -78,6 +84,9 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
         q: t.Optional(t.String({ maxLength: 100 })),
         ...PageQuery,
       }),
+      response: {
+        200: "PaymentLinkPage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.PaymentLinkRead }),
       detail: {
         tags: ["Payment links"],
@@ -96,6 +105,9 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "PaymentLink",
+      },
       beforeHandle: Auth.access({
         scope: ApiKeyScope.PaymentLinkRead,
         public: true,
@@ -121,7 +133,11 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     },
     {
       params: UuidIdParams,
+      parse: "json",
       body: t.Partial(t.Object(Fields)),
+      response: {
+        200: "PaymentLink",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.PaymentLinkWrite }),
       detail: {
         tags: ["Payment links"],
@@ -140,6 +156,9 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "PaymentLink",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.PaymentLinkDelete }),
       detail: {
         tags: ["Payment links"],
@@ -162,6 +181,7 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     },
     {
       params: UuidIdParams,
+      parse: "json",
       body: t.Object({
         chainId: Uuid,
         sourceTokenAddress: EvmAddress,
@@ -174,6 +194,9 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
         ),
         meta: t.Optional(t.Record(t.String(), t.Unknown())),
       }),
+      response: {
+        201: "Quote",
+      },
       beforeHandle: Auth.access({
         scope: ApiKeyScope.QuoteWrite,
         public: true,

@@ -1,10 +1,10 @@
+import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, Td, Th } from "@/components/ui/table";
-import { useGet, type Page } from "@/lib/queries";
 
 export type Column<Row> = {
   header: string;
@@ -12,21 +12,25 @@ export type Column<Row> = {
   className?: string;
 };
 
-type Props<Row> = {
-  path: string;
-  query?: Record<string, string | number | boolean | null | undefined>;
-  columns: Column<Row>[];
-  rowKey: (row: Row) => string;
+type Page = { data: unknown[]; total: number };
+
+type Row<T extends Page> = T["data"][number];
+
+type PageQuery = { q?: string; page: number; pageSize: number };
+
+type Props<T extends Page> = {
+  options: (query: PageQuery) => UseQueryOptions<T, Error, T, any>;
+  columns: Column<Row<T>>[];
+  rowKey: (row: Row<T>) => string;
   searchPlaceholder?: string;
   toolbar?: ReactNode;
   empty?: string;
   pageSize?: number;
-  onRowClick?: (row: Row) => void;
+  onRowClick?: (row: Row<T>) => void;
 };
 
-export const DataTable = <Row,>({
-  path,
-  query,
+export const DataTable = <T extends Page>({
+  options,
   columns,
   rowKey,
   searchPlaceholder,
@@ -34,29 +38,27 @@ export const DataTable = <Row,>({
   empty = "Nothing here yet",
   pageSize = 10,
   onRowClick,
-}: Props<Row>) => {
+}: Props<T>) => {
   const [page, setPage] = useState(1);
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setQ(text.trim());
-      setPage(1);
-    }, 300);
-
+    const timer = setTimeout(() => setQ(text.trim()), 300);
     return () => clearTimeout(timer);
   }, [text]);
 
-  const filterKey = JSON.stringify(query ?? {});
-  useEffect(() => setPage(1), [filterKey, path]);
-
-  const { data, isLoading, error } = useGet<Page<Row>>(path, {
-    ...query,
-    q: searchPlaceholder ? q : undefined,
+  const query = {
+    q: searchPlaceholder && q ? q : undefined,
     page,
     pageSize,
-  });
+  };
+
+  // Back to the first page whenever the search, filters or app scope change.
+  const resetKey = JSON.stringify(options({ ...query, page: 1 }).queryKey);
+  useEffect(() => setPage(1), [resetKey]);
+
+  const { data, isLoading, error } = useQuery(options(query));
 
   const rows = data?.data ?? [];
   const total = data?.total ?? 0;

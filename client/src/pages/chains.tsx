@@ -1,6 +1,15 @@
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Settings, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  deleteApiChainsByIdMutation,
+  getApiChainsFullOptions,
+  getApiChainsSupportedOptions,
+  patchApiChainsByIdMutation,
+  postApiChainsMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { ChainWithConfig, SupportedChain } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Field } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
@@ -12,73 +21,36 @@ import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { shortAddress } from "@/lib/format";
-import { useGet, useMutate } from "@/lib/queries";
-
-export type ChainRow = {
-  id: string;
-  caip2Id: string;
-  isActive: boolean;
-  config: {
-    slippageBps: number;
-    kiteFactoryAddress: string;
-    rpcUrls: string[] | null;
-    settlementAddress: string | null;
-    settlementTokenId: string;
-    usdPeggedTokenId: string;
-    onchainNotifierProviders: string[];
-    gasSponsorProviders: string[];
-    maxGasPrice: string | null;
-    settlementToken: { symbol: string };
-    usdPeggedToken: { symbol: string };
-  } | null;
-};
-
-export type SupportedChain = {
-  caip2Id: string;
-  name: string;
-  chainId: number;
-  blockExplorer: { name: string; url: string };
-};
+import { useMutate } from "@/lib/queries";
 
 export const useSupportedChains = () =>
-  useGet<SupportedChain[]>("/api/admin/chains/supported", undefined, {});
+  useQuery(getApiChainsSupportedOptions());
 
 export const chainName = (caip2Id: string, supported?: SupportedChain[]) =>
   supported?.find((chain) => chain.caip2Id === caip2Id)?.name ?? caip2Id;
 
 export const Chains = () => {
   const navigate = useNavigate();
-  const chains = useGet<ChainRow[]>("/api/admin/chains");
+  const chains = useQuery(getApiChainsFullOptions());
   const supported = useSupportedChains();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState("");
-  const [deleting, setDeleting] = useState<ChainRow | null>(null);
+  const [deleting, setDeleting] = useState<ChainWithConfig | null>(null);
 
-  const create = useMutate<{ caip2Id: string }, ChainRow>(
-    "POST",
-    "/api/admin/chains",
-    {
-      success: "Chain added",
-      onSuccess: (chain) => {
-        setAdding(false);
-        navigate(`/chains/${chain.id}`);
-      },
+  const create = useMutate(postApiChainsMutation(), {
+    success: "Chain added",
+    onSuccess: (chain) => {
+      setAdding(false);
+      navigate(`/chains/${chain.id}`);
     },
-  );
+  });
 
-  const toggle = useMutate<{ id: string; isActive: boolean }>(
-    "PATCH",
-    (body) => `/api/admin/chains/${body.id}`,
-  );
+  const toggle = useMutate(patchApiChainsByIdMutation());
 
-  const remove = useMutate<string>(
-    "DELETE",
-    (id) => `/api/admin/chains/${id}`,
-    {
-      success: "Chain removed",
-      onSuccess: () => setDeleting(null),
-    },
-  );
+  const remove = useMutate(deleteApiChainsByIdMutation(), {
+    success: "Chain removed",
+    onSuccess: () => setDeleting(null),
+  });
 
   const taken = new Set(chains.data?.map((chain) => chain.caip2Id));
   const available = supported.data?.filter(
@@ -92,7 +64,7 @@ export const Chains = () => {
         description="Networks payments can settle on. Add a chain, then configure it."
       />
 
-      <SimpleTable<ChainRow>
+      <SimpleTable
         rows={chains.data}
         loading={chains.isLoading}
         error={chains.error}
@@ -160,7 +132,7 @@ export const Chains = () => {
                 checked={row.isActive}
                 disabled={toggle.isPending}
                 onCheckedChange={(isActive) =>
-                  toggle.mutate({ id: row.id, isActive })
+                  toggle.mutate({ path: { id: row.id }, body: { isActive } })
                 }
                 aria-label="Active"
               />
@@ -215,7 +187,7 @@ export const Chains = () => {
             </Button>
             <Button
               disabled={!selected || create.isPending}
-              onClick={() => create.mutate({ caip2Id: selected })}
+              onClick={() => create.mutate({ body: { caip2Id: selected } })}
             >
               Add chain
             </Button>
@@ -230,7 +202,9 @@ export const Chains = () => {
         description="New payments on this chain stop immediately. Existing transfers are kept."
         confirmLabel="Remove chain"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );

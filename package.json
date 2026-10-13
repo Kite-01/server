@@ -6,8 +6,8 @@
   "scripts": {
     "test": "bunx --bun vitest run",
     "check": "tsc --noEmit",
-    "client:dev": "bun --cwd client run dev",
-    "client:build": "bun --cwd client install --frozen-lockfile && bun --cwd client run build",
+    "client:dev": "bun run --cwd client dev",
+    "client:build": "bun install --cwd client --frozen-lockfile && bun run --cwd client build",
     "build": "bun run check && bun run client:build",
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",

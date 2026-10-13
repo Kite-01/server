@@ -1,3 +1,4 @@
+import { heyApiPlugin } from "@hey-api/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
@@ -8,10 +9,38 @@ export default defineConfig(({ mode }) => {
   const api =
     process.env.KITE_API_URL ??
     env.KITE_API_URL ??
-    `http://localhost:${env.PORT ?? 3000}`;
+    `http://localhost:${env.KITE_PORT ?? 3000}`;
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      heyApiPlugin({
+        config: {
+          input: {
+            path: `${api}/openapi/json`,
+            watch: true,
+          },
+          output: resolve(import.meta.dirname, "src/api"),
+          plugins: [
+            "@hey-api/typescript",
+            "@hey-api/sdk",
+            {
+              name: "@hey-api/client-fetch",
+              baseUrl: false,
+              throwOnError: true,
+            },
+            "@tanstack/react-query",
+          ],
+          logs: {
+            file: false,
+          },
+        },
+        vite: {
+          apply: "serve",
+        },
+      }),
+      react(),
+      tailwindcss(),
+    ],
     resolve: {
       alias: { "@": resolve(import.meta.dirname, "src") },
     },

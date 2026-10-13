@@ -1,6 +1,13 @@
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getApiChainsOptions,
+  getApiQuotesOptions,
+  postApiQuotesMutation,
+} from "@/api/@tanstack/react-query.gen";
+import { getApiTokensByChainIdByAddress } from "@/api/sdk.gen";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
@@ -10,7 +17,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
-import { request } from "@/lib/api";
 import {
   formatDateTime,
   formatTokenAmount,
@@ -18,38 +24,20 @@ import {
   parseUnits,
   shortId,
 } from "@/lib/format";
-import { useAppScope, useGet } from "@/lib/queries";
-import { useMutate } from "@/lib/queries";
+import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
 import { toast } from "sonner";
 import { NewTransferDialog } from "./transfers";
 
-type Quote = {
-  id: string;
-  reference: string | null;
-  sourceAmount: string;
-  sourceUsdAmount: string;
-  targetAmount: string;
-  targetUsdAmount: string;
-  expiresAt: string;
-  createdAt: string;
-  sourceToken: { symbol: string; decimals: number };
-  targetToken: { symbol: string };
-  chain: { caip2Id: string };
-  customer: { name: string | null; externalId: string } | null;
-};
-
-type PublicChain = { id: string; caip2Id: string; name: string };
-
 const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
-  const { appId } = useAppScope();
-  const chains = useGet<{ data: PublicChain[] }>("/api/chains");
+  const headers = useAppHeaders();
+  const chains = useQuery(getApiChainsOptions({ headers }));
   const [chainId, setChainId] = useState("");
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
   const [pending, setPending] = useState(false);
 
-  const create = useMutate<Record<string, unknown>>("POST", "/api/quotes", {
+  const create = useMutate(postApiQuotesMutation({ headers }), {
     success: "Quote created",
     onSuccess: onClose,
   });
@@ -61,17 +49,18 @@ const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
 
     setPending(true);
     try {
-      const token = await request<{ decimals: number; address: string }>(
-        "GET",
-        `/api/tokens/${chain}/${address.trim()}`,
-        { appId },
-      );
+      const { data: token } = await getApiTokensByChainIdByAddress({
+        path: { chainId: chain, address: address.trim() },
+        headers,
+      });
 
       create.mutate({
-        chainId: chain,
-        sourceTokenAddress: token.address,
-        amount: parseUnits(amount, token.decimals),
-        ...(reference.trim() ? { reference: reference.trim() } : {}),
+        body: {
+          chainId: chain,
+          sourceTokenAddress: token.address,
+          amount: parseUnits(amount, token.decimals),
+          ...(reference.trim() ? { reference: reference.trim() } : {}),
+        },
       });
     } catch (error) {
       toast.error(
@@ -142,6 +131,7 @@ const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
 export const Quotes = () => {
   const navigate = useNavigate();
   const { appId } = useAppScope();
+  const headers = useAppHeaders();
   const [creating, setCreating] = useState(false);
   const [transferFor, setTransferFor] = useState<string | null>(null);
 
@@ -152,8 +142,8 @@ export const Quotes = () => {
         description="Priced payment offers. A quote is valid for five minutes and can open one transfer."
       />
 
-      <DataTable<Quote>
-        path="/api/quotes"
+      <DataTable
+        options={(query) => getApiQuotesOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search by reference or ID"
         empty="No quotes yet"

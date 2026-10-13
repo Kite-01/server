@@ -1,6 +1,13 @@
 import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  deleteApiAppsMutation,
+  getApiAppsAllOptions,
+  patchApiAppsMutation,
+  postApiAppsMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { App } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
@@ -12,17 +19,7 @@ import { Input } from "@/components/ui/input";
 import { formatDate, initials } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 
-type AppRow = {
-  id: string;
-  name: string;
-  icon: string | null;
-  websiteUrl: string | null;
-  termsOfServiceUrl: string | null;
-  privacyPolicyUrl: string | null;
-  createdAt: string;
-};
-
-const AppForm = ({ app, onClose }: { app?: AppRow; onClose: () => void }) => {
+const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
   const [values, setValues] = useState({
     name: app?.name ?? "",
     icon: app?.icon ?? "",
@@ -31,23 +28,30 @@ const AppForm = ({ app, onClose }: { app?: AppRow; onClose: () => void }) => {
     privacyPolicyUrl: app?.privacyPolicyUrl ?? "",
   });
 
-  const save = useMutate<Record<string, string | null>, AppRow>(
-    app ? "PATCH" : "POST",
-    app ? `/api/admin/apps/${app.id}` : "/api/admin/apps",
-    { success: app ? "App updated" : "App created", onSuccess: onClose },
-  );
+  const create = useMutate(postApiAppsMutation(), {
+    success: "App created",
+    onSuccess: onClose,
+  });
+
+  const update = useMutate(patchApiAppsMutation(), {
+    success: "App updated",
+    onSuccess: onClose,
+  });
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const nullable = (value: string) => value.trim() || null;
 
-    save.mutate({
+    const body = {
       name: values.name.trim(),
       icon: nullable(values.icon),
       websiteUrl: nullable(values.websiteUrl),
       termsOfServiceUrl: nullable(values.termsOfServiceUrl),
       privacyPolicyUrl: nullable(values.privacyPolicyUrl),
-    });
+    };
+
+    if (app) update.mutate({ body, headers: { "x-kite-app-id": app.id } });
+    else create.mutate({ body });
   };
 
   const set =
@@ -87,7 +91,10 @@ const AppForm = ({ app, onClose }: { app?: AppRow; onClose: () => void }) => {
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={save.isPending || !values.name.trim()}>
+        <Button
+          type="submit"
+          disabled={create.isPending || update.isPending || !values.name.trim()}
+        >
           {app ? "Save" : "Create app"}
         </Button>
       </div>
@@ -97,10 +104,10 @@ const AppForm = ({ app, onClose }: { app?: AppRow; onClose: () => void }) => {
 
 export const Apps = () => {
   const navigate = useNavigate();
-  const [editing, setEditing] = useState<AppRow | "new" | null>(null);
-  const [deleting, setDeleting] = useState<AppRow | null>(null);
+  const [editing, setEditing] = useState<App | "new" | null>(null);
+  const [deleting, setDeleting] = useState<App | null>(null);
 
-  const remove = useMutate<string>("DELETE", (id) => `/api/admin/apps/${id}`, {
+  const remove = useMutate(deleteApiAppsMutation(), {
     success: "App deleted",
     onSuccess: () => setDeleting(null),
   });
@@ -112,8 +119,8 @@ export const Apps = () => {
         description="Every app integrating with this server. Open one to manage it as root."
       />
 
-      <DataTable<AppRow>
-        path="/api/admin/apps"
+      <DataTable
+        options={(query) => getApiAppsAllOptions({ query })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search apps"
         empty="No apps yet. Create the first one."
@@ -197,7 +204,10 @@ export const Apps = () => {
         description={`${deleting?.name} will stop working. Its API keys are rejected from now on.`}
         confirmLabel="Delete app"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting &&
+          remove.mutate({ headers: { "x-kite-app-id": deleting.id } })
+        }
       />
     </>
   );

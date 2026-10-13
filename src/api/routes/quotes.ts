@@ -2,6 +2,7 @@ import { Digits, EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { QuoteService } from "../../services/Quote.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
+import { models } from "../models";
 import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
@@ -11,6 +12,7 @@ const quoteService = new QuoteService();
 
 export const quoteRoutes = new Elysia({ name: "QuotesRoute" })
   .use(Auth.plugin)
+  .use(models)
   .post(
     "/quotes",
     async ({ actor, body, set }) => {
@@ -23,6 +25,7 @@ export const quoteRoutes = new Elysia({ name: "QuotesRoute" })
       return created;
     },
     {
+      parse: "json",
       body: t.Object({
         chainId: Uuid,
         sourceTokenAddress: EvmAddress,
@@ -36,6 +39,9 @@ export const quoteRoutes = new Elysia({ name: "QuotesRoute" })
         ),
         meta: t.Optional(t.Record(t.String(), t.Unknown())),
       }),
+      response: {
+        201: "Quote",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.QuoteWrite }),
       detail: {
         tags: ["Quotes"],
@@ -58,6 +64,9 @@ export const quoteRoutes = new Elysia({ name: "QuotesRoute" })
         q: t.Optional(t.String({ maxLength: 100 })),
         ...PageQuery,
       }),
+      response: {
+        200: "QuotePage",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.QuoteRead }),
       detail: {
         tags: ["Quotes"],
@@ -76,6 +85,9 @@ export const quoteRoutes = new Elysia({ name: "QuotesRoute" })
     },
     {
       params: UuidIdParams,
+      response: {
+        200: "QuoteDetails",
+      },
       beforeHandle: Auth.access({ scope: ApiKeyScope.QuoteRead, public: true }),
       detail: {
         tags: ["Quotes"],

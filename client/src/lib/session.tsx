@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { request, setRootKey, setUnauthorizedHandler } from "./api";
+import { getApiOverviewInfo } from "@/api/sdk.gen";
+import { setRootKey, setUnauthorizedHandler } from "./api";
 
 export type KeyStorage = "memory" | "session" | "local";
 
@@ -45,7 +46,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     setRootKey(rootKey.trim());
 
     try {
-      await request("GET", "/api/admin/system");
+      await getApiOverviewInfo();
     } catch (error) {
       setRootKey(null);
       throw error;

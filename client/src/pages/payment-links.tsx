@@ -1,27 +1,25 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import {
+  deleteApiPaymentLinksByIdMutation,
+  getApiPaymentLinksOptions,
+  patchApiPaymentLinksByIdMutation,
+  postApiPaymentLinksMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { PaymentLink, PostApiPaymentLinksData } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { formatDate, shortId } from "@/lib/format";
-import { useMutate } from "@/lib/queries";
+import { useAppHeaders, useMutate } from "@/lib/queries";
 
-type PaymentLink = {
-  id: string;
-  title: string;
-  currency: string;
-  mode: "Api" | "Ui";
-  amount: string;
-  lineItems: unknown;
-  createdAt: string;
-};
+type LineItems = PostApiPaymentLinksData["body"]["lineItems"];
 
 const trimAmount = (value: string) =>
   value.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value;
@@ -36,20 +34,21 @@ const LinkForm = ({
   const [values, setValues] = useState({
     title: link?.title ?? "",
     currency: link?.currency ?? "USD",
-    mode: link?.mode ?? "Ui",
     amount: link ? trimAmount(link.amount) : "",
     lineItems: link?.lineItems ? JSON.stringify(link.lineItems, null, 2) : "",
   });
   const [lineItemsError, setLineItemsError] = useState<string | null>(null);
 
-  const save = useMutate<Record<string, unknown>>(
-    link ? "PATCH" : "POST",
-    link ? `/api/payment-links/${link.id}` : "/api/payment-links",
-    {
-      success: link ? "Payment link updated" : "Payment link created",
-      onSuccess: onClose,
-    },
-  );
+  const headers = useAppHeaders();
+  const create = useMutate(postApiPaymentLinksMutation({ headers }), {
+    success: "Payment link created",
+    onSuccess: onClose,
+  });
+
+  const update = useMutate(patchApiPaymentLinksByIdMutation({ headers }), {
+    success: "Payment link updated",
+    onSuccess: onClose,
+  });
 
   const set =
     (key: keyof typeof values) => (event: { target: { value: string } }) =>
@@ -58,7 +57,7 @@ const LinkForm = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
 
-    let lineItems: unknown = null;
+    let lineItems: LineItems;
     if (values.lineItems.trim()) {
       try {
         lineItems = JSON.parse(values.lineItems);
@@ -68,13 +67,15 @@ const LinkForm = ({
     }
 
     setLineItemsError(null);
-    save.mutate({
+    const body = {
       title: values.title.trim(),
       currency: values.currency.trim(),
-      mode: values.mode,
       amount: values.amount.trim(),
       lineItems,
-    });
+    };
+
+    if (link) update.mutate({ path: { id: link.id }, body });
+    else create.mutate({ body });
   };
 
   return (
@@ -95,15 +96,6 @@ const LinkForm = ({
           <Input required value={values.currency} onChange={set("currency")} />
         </Field>
       </div>
-      <Field
-        label="Mode"
-        hint="Ui links are paid from a hosted page. Api links are paid through your own integration."
-      >
-        <Select value={values.mode} onChange={set("mode")}>
-          <option value="Ui">Ui</option>
-          <option value="Api">Api</option>
-        </Select>
-      </Field>
       <Field label="Line items" hint="Optional JSON.">
         <Textarea value={values.lineItems} onChange={set("lineItems")} />
         {lineItemsError && (
@@ -114,7 +106,7 @@ const LinkForm = ({
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={save.isPending}>
+        <Button type="submit" disabled={create.isPending || update.isPending}>
           {link ? "Save" : "Create link"}
         </Button>
       </div>
@@ -125,15 +117,12 @@ const LinkForm = ({
 export const PaymentLinks = () => {
   const [editing, setEditing] = useState<PaymentLink | "new" | null>(null);
   const [deleting, setDeleting] = useState<PaymentLink | null>(null);
+  const headers = useAppHeaders();
 
-  const remove = useMutate<string>(
-    "DELETE",
-    (id) => `/api/payment-links/${id}`,
-    {
-      success: "Payment link deleted",
-      onSuccess: () => setDeleting(null),
-    },
-  );
+  const remove = useMutate(deleteApiPaymentLinksByIdMutation({ headers }), {
+    success: "Payment link deleted",
+    onSuccess: () => setDeleting(null),
+  });
 
   return (
     <>
@@ -142,8 +131,8 @@ export const PaymentLinks = () => {
         description="Reusable payment requests."
       />
 
-      <DataTable<PaymentLink>
-        path="/api/payment-links"
+      <DataTable
+        options={(query) => getApiPaymentLinksOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search payment links"
         empty="No payment links yet"
@@ -161,14 +150,6 @@ export const PaymentLinks = () => {
           {
             header: "Amount",
             cell: (row) => `${trimAmount(row.amount)} ${row.currency}`,
-          },
-          {
-            header: "Mode",
-            cell: (row) => (
-              <Badge variant={row.mode === "Ui" ? "pending" : "neutral"}>
-                {row.mode}
-              </Badge>
-            ),
           },
           {
             header: "ID",
@@ -224,7 +205,9 @@ export const PaymentLinks = () => {
         description={`${deleting?.title} can no longer be paid. Quotes already created from it are kept.`}
         confirmLabel="Delete payment link"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );

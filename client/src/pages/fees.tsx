@@ -1,5 +1,18 @@
+import { useQuery } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import {
+  deleteApiFeesByIdMutation,
+  getApiChainsFullOptions,
+  getApiFeesOptions,
+  patchApiFeesByIdMutation,
+  postApiFeesMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type {
+  ChainWithConfig,
+  FeeWithChain,
+  PostApiFeesData,
+} from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
@@ -10,32 +23,21 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { shortAddress } from "@/lib/format";
-import { useAppScope, useGet, useMutate } from "@/lib/queries";
-import { chainName, useSupportedChains, type ChainRow } from "./chains";
+import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
+import { chainName, useSupportedChains } from "./chains";
 
-type Fee = {
-  id: string;
-  appId: string | null;
-  chainId: string;
-  label: string;
-  type: "Fixed" | "Variable";
-  value: string;
-  minAmountToCharge: string | null;
-  maxAmountToCharge: string | null;
-  condition: Record<string, unknown>;
-  feeAddress: string | null;
-  chain: { caip2Id: string };
-};
+type Condition = PostApiFeesData["body"]["condition"];
 
 const FeeForm = ({
   fee,
   chains,
   onClose,
 }: {
-  fee?: Fee;
-  chains: ChainRow[];
+  fee?: FeeWithChain;
+  chains: ChainWithConfig[];
   onClose: () => void;
 }) => {
+  const headers = useAppHeaders();
   const supported = useSupportedChains();
   const [values, setValues] = useState({
     chainId: fee?.chainId ?? chains[0]?.id ?? "",
@@ -49,11 +51,15 @@ const FeeForm = ({
   });
   const [conditionError, setConditionError] = useState<string | null>(null);
 
-  const save = useMutate<Record<string, unknown>>(
-    fee ? "PATCH" : "POST",
-    fee ? `/api/fees/${fee.id}` : "/api/fees",
-    { success: fee ? "Fee updated" : "Fee created", onSuccess: onClose },
-  );
+  const create = useMutate(postApiFeesMutation({ headers }), {
+    success: "Fee created",
+    onSuccess: onClose,
+  });
+
+  const update = useMutate(patchApiFeesByIdMutation({ headers }), {
+    success: "Fee updated",
+    onSuccess: onClose,
+  });
 
   const set =
     (key: keyof typeof values) => (event: { target: { value: string } }) =>
@@ -62,7 +68,7 @@ const FeeForm = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
 
-    let condition: unknown;
+    let condition: Condition;
     try {
       condition = JSON.parse(values.condition || "{}");
     } catch {
@@ -70,8 +76,7 @@ const FeeForm = ({
     }
     setConditionError(null);
 
-    save.mutate({
-      ...(fee ? {} : { chainId: values.chainId }),
+    const body = {
       label: values.label.trim(),
       type: values.type,
       value: values.value.trim(),
@@ -79,7 +84,10 @@ const FeeForm = ({
       maxAmountToCharge: values.maxAmountToCharge.trim() || null,
       feeAddress: values.feeAddress.trim() || null,
       condition,
-    });
+    };
+
+    if (fee) update.mutate({ path: { id: fee.id }, body });
+    else create.mutate({ body: { ...body, chainId: values.chainId } });
   };
 
   return (
@@ -165,7 +173,7 @@ const FeeForm = ({
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={save.isPending}>
+        <Button type="submit" disabled={create.isPending || update.isPending}>
           {fee ? "Save" : "Create fee"}
         </Button>
       </div>
@@ -175,12 +183,13 @@ const FeeForm = ({
 
 export const Fees = () => {
   const { appId } = useAppScope();
-  const chains = useGet<ChainRow[]>("/api/admin/chains");
+  const headers = useAppHeaders();
+  const chains = useQuery(getApiChainsFullOptions());
   const supported = useSupportedChains();
-  const [editing, setEditing] = useState<Fee | "new" | null>(null);
-  const [deleting, setDeleting] = useState<Fee | null>(null);
+  const [editing, setEditing] = useState<FeeWithChain | "new" | null>(null);
+  const [deleting, setDeleting] = useState<FeeWithChain | null>(null);
 
-  const remove = useMutate<string>("DELETE", (id) => `/api/fees/${id}`, {
+  const remove = useMutate(deleteApiFeesByIdMutation({ headers }), {
     success: "Fee deleted",
     onSuccess: () => setDeleting(null),
   });
@@ -196,8 +205,8 @@ export const Fees = () => {
         }
       />
 
-      <DataTable<Fee>
-        path="/api/fees"
+      <DataTable
+        options={(query) => getApiFeesOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search fees"
         empty="No fees yet"
@@ -314,7 +323,9 @@ export const Fees = () => {
         description={`${deleting?.label} will no longer be charged on new quotes.`}
         confirmLabel="Delete fee"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );

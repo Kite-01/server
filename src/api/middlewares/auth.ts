@@ -216,7 +216,7 @@ export class Auth {
 
       rawBodies.set(request, text);
 
-      if (!text) return undefined;
+      if (!text) return null;
       if (!contentType.includes("json")) {
         throw new HttpError(
           400,

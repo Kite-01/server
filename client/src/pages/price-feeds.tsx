@@ -1,5 +1,13 @@
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import {
+  deleteApiPriceFeedsByIdMutation,
+  getApiChainsFullOptions,
+  getApiPriceFeedsOptions,
+  postApiPriceFeedsMutation,
+} from "@/api/@tanstack/react-query.gen";
+import type { PriceFeedWithChain } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { Field } from "@/components/field";
@@ -10,47 +18,30 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
 import { shortAddress } from "@/lib/format";
-import { useGet, useMutate } from "@/lib/queries";
-import { chainName, useSupportedChains, type ChainRow } from "./chains";
-
-type PriceFeed = {
-  id: string;
-  baseCurrency: string;
-  quoteCurrency: string;
-  address: string;
-  decimals: number;
-  chain: { caip2Id: string };
-};
+import { useMutate } from "@/lib/queries";
+import { chainName, useSupportedChains } from "./chains";
 
 export const PriceFeeds = () => {
-  const feeds = useGet<PriceFeed[]>("/api/admin/price-feeds");
-  const chains = useGet<ChainRow[]>("/api/admin/chains");
+  const feeds = useQuery(getApiPriceFeedsOptions());
+  const chains = useQuery(getApiChainsFullOptions());
   const supported = useSupportedChains();
   const [adding, setAdding] = useState(false);
   const [chainId, setChainId] = useState("");
   const [address, setAddress] = useState("");
-  const [deleting, setDeleting] = useState<PriceFeed | null>(null);
+  const [deleting, setDeleting] = useState<PriceFeedWithChain | null>(null);
 
-  const add = useMutate<{ chainId: string; address: string }>(
-    "POST",
-    "/api/admin/price-feeds",
-    {
-      success: "Price feed added",
-      onSuccess: () => {
-        setAdding(false);
-        setAddress("");
-      },
+  const add = useMutate(postApiPriceFeedsMutation(), {
+    success: "Price feed added",
+    onSuccess: () => {
+      setAdding(false);
+      setAddress("");
     },
-  );
+  });
 
-  const remove = useMutate<string>(
-    "DELETE",
-    (id) => `/api/admin/price-feeds/${id}`,
-    {
-      success: "Price feed removed",
-      onSuccess: () => setDeleting(null),
-    },
-  );
+  const remove = useMutate(deleteApiPriceFeedsByIdMutation(), {
+    success: "Price feed removed",
+    onSuccess: () => setDeleting(null),
+  });
 
   return (
     <>
@@ -59,7 +50,7 @@ export const PriceFeeds = () => {
         description="Chainlink aggregators used to price payment links in other currencies."
       />
 
-      <SimpleTable<PriceFeed>
+      <SimpleTable
         rows={feeds.data}
         loading={feeds.isLoading}
         error={feeds.error}
@@ -128,7 +119,7 @@ export const PriceFeeds = () => {
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            add.mutate({ chainId, address: address.trim() });
+            add.mutate({ body: { chainId, address: address.trim() } });
           }}
         >
           <Field label="Chain">
@@ -173,7 +164,9 @@ export const PriceFeeds = () => {
         description={`Payment links priced in ${deleting?.baseCurrency} stop working.`}
         confirmLabel="Remove price feed"
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        onConfirm={() =>
+          deleting && remove.mutate({ path: { id: deleting.id } })
+        }
       />
     </>
   );
