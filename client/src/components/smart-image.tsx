@@ -13,7 +13,7 @@ export default function SmartImage({
   url,
   className,
   loader,
-  src = url,
+  src = url ?? undefined,
   ...props
 }: SmartImageProps) {
   const imgRef = useRef<HTMLImageElement>(null);
