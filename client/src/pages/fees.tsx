@@ -30,9 +30,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
-import { shortAddress } from "@/lib/format";
+import { formatDate, shortAddress } from "@/lib/format";
 import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
 import { chainName, useSupportedChains } from "./chains";
+import { CopyButton } from "@/components/copy-button";
 
 const FeeForm = ({
   fee,
@@ -246,39 +247,25 @@ export const Fees = () => {
         }
         columns={[
           {
-            header: "Fee",
+            header: "Label",
+            cell: (row) => <p className="font-medium">{row.label}</p>,
+          },
+          {
+            header: "Chain",
             cell: (row) => (
-              <div>
-                <p className="font-medium">{row.label}</p>
-                <p className="text-xs text-muted">
-                  {chainName(row.chain.caip2Id, supported.data)}
-                </p>
-              </div>
+              <p>{chainName(row.chain.caip2Id, supported.data)}</p>
             ),
           },
           {
             header: "Charge",
             cell: (row) =>
-              row.type === "Variable"
-                ? `${Number(row.value) / 100}%`
-                : `${row.value} base units`,
-          },
-          {
-            header: "Limits",
-            cell: (row) =>
-              row.minAmountToCharge || row.maxAmountToCharge
-                ? `${row.minAmountToCharge ?? "0"} – ${row.maxAmountToCharge ?? "∞"}`
-                : "—",
-          },
-          {
-            header: "Applies to",
-            cell: (row) =>
-              Object.keys(row.condition).length === 0 ? (
-                <span className="text-muted">Every payment</span>
+              row.type === "Variable" ? (
+                `${Number(row.value) / 100}%`
               ) : (
-                <code className="text-xs">
-                  {Object.keys(row.condition).join(", ")}
-                </code>
+                <p>
+                  {row.value}
+                  USDC
+                </p>
               ),
           },
           {
@@ -286,9 +273,10 @@ export const Fees = () => {
             exportValue: (row) => row.feeAddress ?? "Default",
             cell: (row) =>
               row.feeAddress ? (
-                <span className="font-mono text-xs">
-                  {shortAddress(row.feeAddress)}
-                </span>
+                <div className="flex items-center">
+                  <span>{shortAddress(row.feeAddress)}</span>
+                  <CopyButton value={row.feeAddress} />
+                </div>
               ) : (
                 <span className="text-muted">Default</span>
               ),
@@ -297,11 +285,12 @@ export const Fees = () => {
             header: "Scope",
             cell: (row) =>
               row.appId ? (
-                <Badge variant="neutral">App</Badge>
+                <Badge variant="success">App</Badge>
               ) : (
                 <Badge variant="pending">System</Badge>
               ),
           },
+          { header: "Created", cell: (row) => formatDate(row.createdAt) },
           {
             header: "",
             className: "w-12 text-right",

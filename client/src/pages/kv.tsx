@@ -137,10 +137,7 @@ export const Kv = () => {
   return (
     <div className="space-y-10">
       <section>
-        <PageHeader
-          title="KV"
-          description="Keys your providers need. Chains can only use a gas sponsor or deposit notifier once its keys are set. Secrets are encrypted at rest."
-        />
+        <PageHeader title="KV" />
 
         {providers.isLoading ? (
           <div

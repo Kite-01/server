@@ -22,8 +22,10 @@ import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { formatDate, initials } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
+import SmartImage from "@/components/smart-image";
+import None from "@/components/none";
 
 const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
   const [values, setValues] = useState({
@@ -120,10 +122,7 @@ export const Apps = () => {
 
   return (
     <>
-      <PageHeader
-        title="Apps"
-        description="Every app integrating with this server. Open one to manage it as root."
-      />
+      <PageHeader title="Apps" />
 
       <DataTable
         exportName="apps"
@@ -147,23 +146,13 @@ export const Apps = () => {
           {
             header: "App",
             cell: (row) => (
-              <div className="flex items-center gap-3">
-                {row.icon ? (
-                  <img
-                    src={row.icon}
-                    alt=""
-                    className="size-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex size-8 items-center justify-center rounded-full bg-soft text-xs font-semibold">
-                    {initials(row.name)}
-                  </span>
-                )}
+              <div className="flex items-center gap-3 w-max">
+                <SmartImage url={row.icon} />
                 <span className="font-medium">{row.name}</span>
               </div>
             ),
           },
-          { header: "Website", cell: (row) => row.websiteUrl ?? "n/a" },
+          { header: "Website", cell: (row) => row.websiteUrl ?? <None /> },
           { header: "Created", cell: (row) => formatDate(row.createdAt) },
           {
             header: "",

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   IconArrowDownRight,
+  IconArrowRight,
   IconArrowUpRight,
   IconArrowsExchange,
   IconCalendar,
@@ -8,7 +9,7 @@ import {
   IconCoins,
 } from "@tabler/icons-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -255,7 +256,7 @@ const Section = ({
   children: ReactNode;
 }) => (
   <Card className="min-w-0 overflow-hidden">
-    <div className="flex h-12 items-center justify-between gap-3 border-b border-line px-4">
+    <div className="flex h-14 items-center justify-between gap-3 px-4.5">
       <h2 className="text-sm font-medium">{title}</h2>
       {action}
     </div>
@@ -352,6 +353,7 @@ const Growth = ({ series }: { series: Stats["series"] }) => {
 export const Dashboard = () => {
   const { appId } = useAppScope();
   const headers = useAppHeaders();
+  const navigate = useNavigate();
   const [preset, setPreset] = useState<Preset>("7d");
   const [rank, setRank] = useState<"value" | "volume">("value");
   const [custom, setCustom] = useState(() => {
@@ -442,13 +444,17 @@ export const Dashboard = () => {
         <Section
           title="Top tokens"
           action={
-            <div className="flex rounded-lg bg-soft p-0.5">
+            <div className="flex rounded-full bg-soft p-0.5">
               {(["value", "volume"] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setRank(item)}
-                  className={cn(segment(rank === item), "capitalize")}
+                  className={cn(
+                    segment(rank === item),
+                    "capitalize",
+                    rank === item && "bg-white",
+                  )}
                 >
                   {item}
                 </button>
@@ -469,7 +475,7 @@ export const Dashboard = () => {
               {data?.topTokens.map((token) => (
                 <div
                   key={token.id}
-                  className="flex items-center gap-3 px-4 py-3"
+                  className="flex items-center gap-3 px-4.5 py-3"
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-soft text-[10px] font-semibold">
                     {token.icon ? (
@@ -499,12 +505,13 @@ export const Dashboard = () => {
           title="Recent transfers"
           action={
             appId ? (
-              <Link
-                to={`/apps/${appId}/transfers`}
-                className="text-xs text-muted hover:text-ink"
+              <Button
+                variant={"outline"}
+                size={"iconSm"}
+                onClick={() => navigate(`/apps/${appId}/transfers`)}
               >
-                View all
-              </Link>
+                <IconArrowRight className="size-4" />
+              </Button>
             ) : null
           }
         >
@@ -521,12 +528,12 @@ export const Dashboard = () => {
               }
               action={
                 appId ? (
-                  <Link
-                    to={`/apps/${appId}/payment-links`}
-                    className="text-sm font-medium text-brand hover:underline"
+                  <Button
+                    className="h-9.5 px-5"
+                    onClick={() => navigate(`/apps/${appId}/payment-links`)}
                   >
-                    Create a payment link
-                  </Link>
+                    Create payment link
+                  </Button>
                 ) : null
               }
             />
@@ -540,7 +547,7 @@ export const Dashboard = () => {
                 return (
                   <div
                     key={transfer.id}
-                    className="flex flex-wrap items-center gap-3 px-4 py-3"
+                    className="flex flex-wrap items-center gap-3 px-4.5 py-3"
                   >
                     <div className="min-w-0 flex-1 basis-40">
                       <p className="truncate text-sm font-medium">{who}</p>

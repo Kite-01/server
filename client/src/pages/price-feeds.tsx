@@ -17,7 +17,7 @@ import { SimpleTable } from "@/components/simple-table";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
-import { shortAddress } from "@/lib/format";
+import { formatDate, shortAddress } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import { chainName, useSupportedChains } from "./chains";
 
@@ -45,10 +45,7 @@ export const PriceFeeds = () => {
 
   return (
     <>
-      <PageHeader
-        title="Price feeds"
-        description="Chainlink aggregators used to price payment links in other currencies."
-      />
+      <PageHeader title="Price feeds" />
 
       <SimpleTable
         exportName="price-feeds"
@@ -83,25 +80,22 @@ export const PriceFeeds = () => {
             header: "Pair",
             cell: (row) => (
               <span className="font-medium">
-                {row.baseCurrency} / {row.quoteCurrency}
+                {row.baseCurrency}/{row.quoteCurrency}
               </span>
             ),
           },
-          {
-            header: "Chain",
-            cell: (row) => chainName(row.chain.caip2Id, supported.data),
-          },
+          { header: "Rate", cell: (row) => 0.0005 },
           {
             header: "Aggregator",
-            exportValue: (row) => row.address,
+            exportValue: (row) => row.decimals,
             cell: (row) => (
-              <span className="flex items-center gap-1 font-mono text-xs">
+              <span className="flex items-center">
                 {shortAddress(row.address)}
                 <CopyButton value={row.address} />
               </span>
             ),
           },
-          { header: "Decimals", cell: (row) => row.decimals },
+          { header: "Added on", cell: (row) => formatDate(row.createdAt) },
           {
             header: "",
             className: "w-12 text-right",
@@ -147,10 +141,8 @@ export const PriceFeeds = () => {
           >
             <Input
               required
-              className="font-mono"
               value={address}
               onChange={(event) => setAddress(event.target.value)}
-              placeholder="0x…"
             />
           </Field>
           <div className="flex justify-end gap-2">

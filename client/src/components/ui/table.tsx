@@ -16,7 +16,7 @@ export const Th = ({
 }: ThHTMLAttributes<HTMLTableCellElement>) => (
   <th
     className={cn(
-      "whitespace-nowrap border-b border-line bg-soft/50 px-4 py-2.5 text-xs font-medium text-muted",
+      "whitespace-nowrap border-b border-line bg-soft/50 px-4 py-2.5 text-xs font-medium text-muted font-display",
       className,
     )}
     {...props}

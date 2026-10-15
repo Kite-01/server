@@ -83,21 +83,20 @@ const AppContext = () => {
   if (!appId) return null;
 
   return (
-    <div className="rounded-lg border border-line bg-soft/50 p-3">
-      <p className="text-xs text-muted">Managing app</p>
+    <div className="rounded-lg border border-pending/50 bg-pending/20 p-3 flex items-center gap-2">
+      <Button
+        type="button"
+        size={"iconSm"}
+        className="size-6.5"
+        onClick={() => navigate("/apps")}
+      >
+        <IconArrowLeft className="size-3.5" />
+      </Button>
       {name ? (
-        <p className="truncate text-sm font-medium">{name}</p>
+        <p className="font-display text-base font-medium">{name}</p>
       ) : (
         <Skeleton className="my-1 h-3 w-24 bg-line" />
       )}
-      <button
-        type="button"
-        onClick={() => navigate("/apps")}
-        className="mt-2 flex items-center gap-1 text-xs text-muted hover:text-ink"
-      >
-        <IconArrowLeft className="size-3.5" />
-        All apps
-      </button>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   IconExternalLink,
   IconLogout,
+  IconSettings2,
   IconShieldCheck,
 } from "@tabler/icons-react";
 import { getApiOverviewInfoOptions } from "@/api/@tanstack/react-query.gen";
@@ -17,6 +18,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { Badge } from "./ui/badge";
 
 const storageLabels = {
   memory: "Key kept in memory",
@@ -32,27 +34,28 @@ export const ProfileMenu = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" aria-label="Account">
-          <IconShieldCheck className="size-4.5" stroke={1.6} />
+          <IconSettings2 className="size-4.5" stroke={1.6} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="p-4">
+        {/* <div className="p-4">
           <p className="text-sm font-semibold">Root</p>
           <p className="text-xs text-muted">{storageLabels[storage]}</p>
         </div>
 
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator /> */}
 
         <div className="flex items-center justify-between p-4 text-sm">
-          <span className="text-muted">Version</span>
+          {/* <span className="text-muted">Version</span> */}
           {data ? (
-            <span className="font-medium">v{data.version}</span>
+            // <span className="font-medium">v{data.version}</span>
+            <Badge variant={"count"}>v{data.version}</Badge>
           ) : (
             <Skeleton className="h-3 w-12" />
           )}
         </div>
 
-        <DropdownMenuSeparator />
+        {/* <DropdownMenuSeparator /> */}
 
         {!!data?.chains.length && (
           <>

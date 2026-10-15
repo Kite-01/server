@@ -108,10 +108,7 @@ export const Customers = () => {
 
   return (
     <>
-      <PageHeader
-        title="Customers"
-        description="People and businesses paying through this app."
-      />
+      <PageHeader title="Customers" />
 
       <DataTable
         exportName="customers"
@@ -135,35 +132,33 @@ export const Customers = () => {
             header: "Customer",
             cell: (row) => (
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+                <span className="flex size-9 items-center justify-center rounded-full bg-pending/10 text-xs font-semibold text-pending">
                   {initials(row.name ?? row.externalId)}
                 </span>
                 <div>
-                  <p className="font-medium">{row.name ?? row.externalId}</p>
-                  {row.name && (
-                    <p className="text-xs text-muted">{row.externalId}</p>
-                  )}
+                  <p className="font-medium font-display">
+                    {row.name ?? row.externalId}
+                  </p>
                 </div>
               </div>
             ),
           },
           {
-            header: "Traits",
-            cell: (row) =>
-              row.traits && Object.keys(row.traits).length > 0 ? (
-                <code className="text-xs">
-                  {JSON.stringify(row.traits).slice(0, 60)}
-                </code>
-              ) : (
-                <span className="text-muted">—</span>
-              ),
+            header: "External ID",
+            exportValue: (row) => row.externalId,
+            cell: (row) => (
+              <span className="flex items-center gap-1 text-xs">
+                {row.externalId}
+                <CopyButton value={row.externalId} />
+              </span>
+            ),
           },
           {
             header: "ID",
             exportValue: (row) => row.id,
             cell: (row) => (
-              <span className="flex items-center gap-1 font-mono text-xs">
-                {shortId(row.id)}
+              <span className="flex items-center gap-1 text-xs">
+                {shortId(row.id)}...
                 <CopyButton value={row.id} />
               </span>
             ),
