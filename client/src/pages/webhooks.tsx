@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, shortId } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 import {
   IconListDetails,
@@ -24,6 +24,7 @@ import {
   IconTrash,
   IconWebhook,
 } from "@tabler/icons-react";
+import None from "@/components/none";
 
 type Category = Webhook["categories"][number];
 
@@ -144,7 +145,7 @@ const Deliveries = ({ webhook }: { webhook: Webhook }) => {
 
   return (
     <DataTable
-      exportName="webhook-deliveries"
+      allowExport={false}
       options={(query) =>
         getApiWebhooksByIdDeliveriesOptions({
           path: { id: webhook.id },
@@ -160,9 +161,10 @@ const Deliveries = ({ webhook }: { webhook: Webhook }) => {
       }}
       pageSize={8}
       columns={[
-        { header: "Attempt", cell: (row) => `#${row.attempt}` },
+        { header: "ID", cell: (row) => `${shortId(row.id)}..` },
+        { header: "Event ID", cell: (row) => `${shortId(row.eventId)}..` },
         {
-          header: "Result",
+          header: "Http response code",
           cell: (row) =>
             row.httpResponseCode ? (
               <Badge
@@ -176,11 +178,12 @@ const Deliveries = ({ webhook }: { webhook: Webhook }) => {
               <Badge variant="pending">In flight</Badge>
             ),
         },
-        { header: "Started", cell: (row) => formatDateTime(row.startedAt) },
+        { header: "Attempt", cell: (row) => row.attempt },
+        { header: "Sent", cell: (row) => formatDateTime(row.startedAt) },
         {
           header: "Next retry",
           cell: (row) =>
-            row.nextRetryAt ? formatDateTime(row.nextRetryAt) : "—",
+            row.nextRetryAt ? formatDateTime(row.nextRetryAt) : <None />,
         },
       ]}
     />

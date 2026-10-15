@@ -121,9 +121,11 @@ type Props<T extends Page> = {
   pageSize?: number;
   onRowClick?: (row: Row<T>) => void;
   exportName?: string;
+  allowExport?: boolean;
 };
 
 export const DataTable = <T extends Page>({
+  allowExport = true,
   options,
   columns,
   rowKey,
@@ -167,43 +169,47 @@ export const DataTable = <T extends Page>({
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
 
+  const showHeader = searchPlaceholder || allowExport || toolbar;
+
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3">
-        {searchPlaceholder ? (
-          <TableSearch
-            placeholder={searchPlaceholder}
-            value={text}
-            onChange={setText}
-          />
-        ) : (
-          <span />
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {rows.length > 0 && (
-            <ExportBar
-              count={selection.selected.size}
-              onClear={selection.clear}
-              onExport={() =>
-                exportCsv(
-                  exportName,
-                  columns,
-                  selection.selected.size
-                    ? [...selection.selected.values()]
-                    : rows,
-                )
-              }
+      {showHeader ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3">
+          {searchPlaceholder ? (
+            <TableSearch
+              placeholder={searchPlaceholder}
+              value={text}
+              onChange={setText}
             />
+          ) : (
+            <span />
           )}
 
-          {toolbar}
+          <div className="flex flex-wrap items-center gap-2">
+            {rows.length > 0 && allowExport && (
+              <ExportBar
+                count={selection.selected.size}
+                onClear={selection.clear}
+                onExport={() =>
+                  exportCsv(
+                    exportName,
+                    columns,
+                    selection.selected.size
+                      ? [...selection.selected.values()]
+                      : rows,
+                  )
+                }
+              />
+            )}
+
+            {toolbar}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {rows.length > 0 ? (
         <>
-          <Table className="border-t border-line">
+          <Table className={showHeader ? "border-t-0 border-line" : ""}>
             <thead>
               <tr>
                 <Th className={selectColumnClass}>

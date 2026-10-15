@@ -26,6 +26,7 @@ import {
 } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 import { useSupportedChains } from "./chains";
+import None from "@/components/none";
 
 type Status = TransferListItem["status"];
 
@@ -110,16 +111,16 @@ export const NewTransferDialog = ({
 };
 
 const Hash = ({ value, explorer }: { value: string; explorer?: string }) => (
-  <span className="flex items-center gap-1 font-mono text-xs">
+  <span className="flex items-center gap-1 font-mono">
     {shortAddress(value)}
-    <CopyButton value={value} />
+    <CopyButton className="size-max text-muted" value={value} />
     {explorer && (
       <a
         href={`${explorer}/tx/${value}`}
         target="_blank"
         rel="noreferrer"
         aria-label="Open in explorer"
-        className="inline-flex size-8 items-center justify-center rounded-full hover:bg-soft"
+        className="text-muted"
       >
         <IconExternalLink className="size-4" />
       </a>
@@ -145,9 +146,12 @@ const Detail = ({
       `${formatTokenAmount(quote.sourceAmount, quote.sourceToken.decimals)} ${quote.sourceToken.symbol}`,
     ],
     ["Value", formatUsd(quote.targetUsdAmount)],
-    ["Customer", quote.customer?.name ?? quote.customer?.externalId ?? "—"],
-    ["Reference", quote.reference ?? "—"],
-    ["Pay-in address", <Hash value={transfer.payinAddress} />],
+    [
+      "Customer",
+      quote.customer?.name ?? quote.customer?.externalId ?? <None />,
+    ],
+    ["Reference", quote.reference ?? <None />],
+    ["Payin address", <Hash value={transfer.payinAddress} />],
     ["Refund address", <Hash value={transfer.refundAddress} />],
     ["Settles to", <Hash value={transfer.settlementRecipient} />],
     ...(transfer.settlementBlockchainHash
@@ -183,8 +187,8 @@ const Detail = ({
   /* oxlint-enable react/jsx-key */
 
   return (
-    <div className="space-y-5">
-      <dl className="space-y-2.5 text-sm">
+    <div className="space-y-7">
+      <dl className="space-y-3.5 text-sm">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-4">
             <dt className="text-muted">{label}</dt>
@@ -194,13 +198,13 @@ const Detail = ({
       </dl>
 
       <div>
-        <p className="mb-2 text-xs font-medium text-muted">Timeline</p>
-        <ol className="space-y-3 border-l border-line pl-4">
+        <p className="mb-3 text-base font-medium font-display">Timeline</p>
+        <ol className="space-y-4.5 border-l border-line pl-4 ml-1">
           {[...transfer.timeline]
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
             .map((entry) => (
-              <li key={entry.id} className="relative text-sm">
-                <span className="absolute -left-[21px] top-1.5 size-2 rounded-full bg-ink" />
+              <li key={entry.id} className="relative text-sm space-y-1">
+                <span className="absolute -left-5.25 top-1.5 size-2 rounded-full bg-ink" />
                 <p>{entry.description}</p>
                 <p className="text-xs text-muted">
                   {formatDateTime(entry.createdAt)}
@@ -266,18 +270,9 @@ export const Transfers = () => {
         }
         columns={[
           {
-            header: "Transfer",
+            header: "ID",
             exportValue: (row) => row.id,
-            cell: (row) => (
-              <div>
-                <p className="font-mono text-xs">#{shortId(row.id)}</p>
-                <p className="text-xs text-muted">
-                  {row.quote.customer?.name ??
-                    row.quote.customer?.externalId ??
-                    "No customer"}
-                </p>
-              </div>
-            ),
+            cell: (row) => <p>#{shortId(row.id)}...</p>,
           },
           {
             header: "Status",

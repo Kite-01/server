@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 export const CopyButton = ({
   value,
   label,
+  className,
   variant = "ghost",
 }: {
   value: string;
   label?: string;
+  className?: string;
   variant?: "default" | "danger" | "secondary" | "outline" | "ghost";
 }) => {
   const [copied, setCopied] = useState(false);
@@ -18,6 +20,7 @@ export const CopyButton = ({
       variant={variant}
       size={label ? "sm" : "iconSm"}
       aria-label={label ?? "Copy"}
+      className={className}
       onClick={async () => {
         await navigator.clipboard.writeText(value);
         setCopied(true);
