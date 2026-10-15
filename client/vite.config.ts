@@ -5,10 +5,11 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
-  const specPath = process.env.KITE_OPENAPI_SPEC_PATH;
-
   const env = loadEnv(mode, resolve(import.meta.dirname, ".."), "");
   const api = `http://localhost:${env.KITE_PORT ?? 3000}`;
+  // Set when the API runs Vite inside itself (`bun run dev`): the spec comes
+  // from a file it writes, and requests reach the API without a proxy.
+  const specPath = process.env.KITE_OPENAPI_SPEC_PATH;
 
   return {
     plugins: [
@@ -45,7 +46,11 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: specPath
         ? undefined
-        : { "/api": api, "/callback": api, "/openapi": api },
+        : {
+            "/api": api,
+            "/callback": api,
+            "/openapi": api,
+          },
     },
   };
 });

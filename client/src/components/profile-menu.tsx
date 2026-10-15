@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, LogOut, ShieldCheck } from "lucide-react";
+import {
+  IconExternalLink,
+  IconLogout,
+  IconShieldCheck,
+} from "@tabler/icons-react";
 import { getApiOverviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -26,8 +30,8 @@ export const ProfileMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" aria-label="Account">
-          <ShieldCheck className="size-5" />
+        <Button variant="outline" size="icon" aria-label="Account">
+          <IconShieldCheck className="size-4.5" stroke={1.6} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 p-0">
@@ -70,7 +74,7 @@ export const ProfileMenu = () => {
                       aria-label="Open in explorer"
                       className="inline-flex size-8 items-center justify-center rounded-full hover:bg-soft"
                     >
-                      <ExternalLink className="size-4" />
+                      <IconExternalLink className="size-4" />
                     </a>
                   </div>
                 </div>
@@ -82,7 +86,7 @@ export const ProfileMenu = () => {
         )}
 
         <DropdownMenuItem className="m-1" onSelect={signOut}>
-          <LogOut className="size-4" />
+          <IconLogout className="size-4" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

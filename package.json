@@ -8,16 +8,13 @@
     "check": "tsc --noEmit",
     "lint": "oxlint && prettier --check .",
     "format": "prettier --write .",
-    "client:dev": "bun run --cwd client dev",
-    "client:build": "bun install --cwd client --frozen-lockfile && bun run --cwd client build",
-    "build": "bun run check && bun run client:build",
+    "build": "bun run check && bun install --cwd client --frozen-lockfile && bun run --cwd client build",
     "dev": "KITE_ENABLE_DASHBOARD=true bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "db:generate": "bunx --bun drizzle-kit generate",
     "db:studio": "bunx --bun drizzle-kit studio",
     "db:migrate": "bunx --bun drizzle-kit migrate",
-    "migrate": "bun src/db/migrate.ts",
-    "dev:api": "bun --watch src/index.ts"
+    "migrate": "bun src/db/migrate.ts"
   },
   "repository": {
     "type": "git",

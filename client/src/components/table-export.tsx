@@ -163,8 +163,9 @@ export const ExportBar = ({
     )}
 
     <Button
-      variant="outline"
-
+      variant="ghost"
+      size="sm"
+      className="text-muted hover:text-ink"
       disabled={count === 0}
       title={count === 0 ? "Select rows to export" : undefined}
       onClick={onExport}
@@ -177,4 +178,8 @@ export const ExportBar = ({
 export const selectColumnClass = "w-10 pr-0";
 
 export const rowClass = (selected: boolean, clickable: boolean) =>
-  cn(clickable && "cursor-pointer hover:bg-soft/60", selected && "bg-soft/60");
+  cn(
+    "transition-colors",
+    clickable && "cursor-pointer hover:bg-soft/60",
+    selected && "bg-brand-soft/60",
+  );

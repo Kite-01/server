@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
 import { IconChevronDown } from "@tabler/icons-react";
 
 const field =
-  "w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted focus-visible:border-ink focus-visible:outline-none disabled:bg-soft disabled:text-muted";
+  "w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink transition-colors placeholder:text-muted hover:border-ink/20 focus-visible:border-ink focus-visible:outline-none disabled:bg-soft disabled:text-muted";
 
 export const Input = ({
   className,
   ...props
 }: InputHTMLAttributes<HTMLInputElement>) => (
-  <input className={cn(field, "h-10", className)} {...props} />
+  <input className={cn(field, "h-9", className)} {...props} />
 );
 
 export const Textarea = ({
@@ -29,19 +29,16 @@ export const Textarea = ({
 
 export const Select = ({
   className,
+  wrapperClassName,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) => (
-  <div className="relative w-full">
+}: SelectHTMLAttributes<HTMLSelectElement> & { wrapperClassName?: string }) => (
+  <div className={cn("relative w-full", wrapperClassName)}>
     <select
-      className={cn(
-        field,
-        "h-10.5 appearance-none bg-no-repeat pr-8",
-        className,
-      )}
+      className={cn(field, "h-9 appearance-none bg-no-repeat pr-8", className)}
       {...props}
     />
 
-    <IconChevronDown className="pointer-events-none absolute right-5 top-1/2 size-4 -translate-y-1/2 opacity-60" />
+    <IconChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
   </div>
 );
 

@@ -14,7 +14,7 @@ import {
   IconWebhook,
   IconMenu,
   IconX,
-  IconInfoCircle,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
@@ -53,7 +53,7 @@ const appItems = (base: string): Item[] => [
 ];
 
 const Nav = ({ items }: { items: Item[] }) => (
-  <nav className="flex flex-col gap-1">
+  <nav className="flex flex-col gap-0.5">
     {items.map((item) => (
       <NavLink
         key={item.to}
@@ -61,18 +61,48 @@ const Nav = ({ items }: { items: Item[] }) => (
         end={item.end}
         className={({ isActive }) =>
           cn(
-            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+            "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors",
             isActive
-              ? "bg-soft text-ink"
-              : "text-muted hover:bg-soft hover:text-ink",
+              ? "bg-soft font-medium text-ink"
+              : "text-muted hover:bg-soft/70 hover:text-ink",
           )
         }
       >
-        <item.icon className="size-4.5" />
+        <item.icon className="size-4.5" stroke={1.6} />
         {item.label}
       </NavLink>
     ))}
   </nav>
+);
+
+// Which app the pages act on, and the way back to the server's pages.
+const AppContext = () => {
+  const { appId, name } = useAppScope();
+  const navigate = useNavigate();
+  if (!appId) return null;
+
+  return (
+    <div className="rounded-lg border border-line bg-soft/50 p-3">
+      <p className="text-xs text-muted">Managing app</p>
+      <p className="truncate text-sm font-medium">{name ?? "…"}</p>
+      <button
+        type="button"
+        onClick={() => navigate("/apps")}
+        className="mt-2 flex items-center gap-1 text-xs text-muted hover:text-ink"
+      >
+        <IconArrowLeft className="size-3.5" />
+        All apps
+      </button>
+    </div>
+  );
+};
+
+const Sidebar = ({ items }: { items: Item[] }) => (
+  <>
+    <Logo imgClassName="size-7" className="px-1 text-xl" />
+    <AppContext />
+    <Nav items={items} />
+  </>
 );
 
 const MobileNav = ({ items }: { items: Item[] }) => {
@@ -104,9 +134,8 @@ const MobileNav = ({ items }: { items: Item[] }) => {
 
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=closed]:animate-[fade-out_150ms] data-[state=open]:animate-[fade-in_150ms] md:hidden" />
-        <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto border-r border-line bg-surface p-5 shadow-xl focus:outline-none data-[state=closed]:animate-[drawer-out_200ms_ease-in] data-[state=open]:animate-[drawer-in_200ms_ease-out] md:hidden">
-          <div className="flex items-center justify-between">
-            <Logo imgClassName="size-9" className="text-2xl" />
+        <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 shadow-xl focus:outline-none data-[state=closed]:animate-[drawer-out_200ms_ease-in] data-[state=open]:animate-[drawer-in_200ms_ease-out] md:hidden">
+          <div className="absolute right-3 top-3">
             <Dialog.Close asChild>
               <Button
                 variant="ghost"
@@ -123,7 +152,7 @@ const MobileNav = ({ items }: { items: Item[] }) => {
             Pages of the dashboard
           </Dialog.Description>
 
-          <Nav items={items} />
+          <Sidebar items={items} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -131,51 +160,29 @@ const MobileNav = ({ items }: { items: Item[] }) => {
 };
 
 export const Shell = () => {
-  const { appId, name } = useAppScope();
-  const navigate = useNavigate();
+  const { appId } = useAppScope();
   const items = appId ? appItems(`/apps/${appId}`) : rootItems;
 
   return (
-    <div className="mx-auto flex min-h-full max-w-400 flex-col bg-surface/10">
-      {appId && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2.5 text-sm font-medium text-white">
-          <span className="flex items-center gap-2">
-            <IconInfoCircle className="size-4 shrink-0" />
-            You are viewing {name ?? "this app"}, changes you make here apply to
-            this app.
-          </span>
+    <div className="flex min-h-full">
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 md:flex">
+        <Sidebar items={items} />
+      </aside>
 
-          <Button
-            size="sm"
-            className="h-9 px-4.5"
-            onClick={() => navigate("/")}
-          >
-            Back to main
-          </Button>
-        </div>
-      )}
-
-      <div className="flex flex-1">
-        <aside className="bg-surface hidden w-60 shrink-0 flex-col gap-6 border-r border-line p-5 md:flex">
-          <Logo imgClassName="size-9" className="text-2xl" />
-          <Nav items={items} />
-        </aside>
-
-        <main className="min-w-0 flex-1">
-          <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 md:justify-end">
-            <div className="flex items-center gap-1 md:hidden">
-              <MobileNav items={items} />
-              <Logo imgClassName="size-8" hideLabel />
-            </div>
-
-            <ProfileMenu />
-          </header>
-
-          <div className="px-4 pb-10 sm:px-6">
-            <Outlet />
+      <main className="min-w-0 flex-1">
+        <header className="flex h-14 items-center justify-between gap-4 px-4 sm:px-8 md:justify-end">
+          <div className="flex items-center gap-1 md:hidden">
+            <MobileNav items={items} />
+            <Logo imgClassName="size-7" hideLabel />
           </div>
-        </main>
-      </div>
+
+          <ProfileMenu />
+        </header>
+
+        <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-8">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 };

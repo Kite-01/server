@@ -35,9 +35,9 @@ export const Login = () => {
 
   return (
     <div className="flex min-h-full items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8">
-        <Logo className="mb-6" hideLabel imgClassName="size-15" />
-        <h1 className="text-2xl font-semibold">Sign in</h1>
+      <Card className="w-full max-w-sm p-8">
+        <Logo className="mb-6" hideLabel imgClassName="size-10" />
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
 
         <form className="mt-6 space-y-5" onSubmit={submit}>
           <div className="space-y-1.5">

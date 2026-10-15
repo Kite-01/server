@@ -1,4 +1,4 @@
-import { Check, Copy } from "lucide-react";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -22,7 +22,11 @@ export const CopyButton = ({
         setTimeout(() => setCopied(false), 1500);
       }}
     >
-      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      {copied ? (
+        <IconCheck className="size-3.5" />
+      ) : (
+        <IconCopy className="size-3.5" />
+      )}
       {label}
     </Button>
   );

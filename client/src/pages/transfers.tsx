@@ -1,4 +1,8 @@
-import { ExternalLink, Plus } from "lucide-react";
+import {
+  IconArrowsExchange,
+  IconExternalLink,
+  IconPlus,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import {
   getApiTransfersOptions,
@@ -121,7 +125,7 @@ const Hash = ({ value, explorer }: { value: string; explorer?: string }) => (
         aria-label="Open in explorer"
         className="inline-flex size-8 items-center justify-center rounded-full hover:bg-soft"
       >
-        <ExternalLink className="size-4" />
+        <IconExternalLink className="size-4" />
       </a>
     )}
   </span>
@@ -240,12 +244,16 @@ export const Transfers = () => {
         }
         rowKey={(row) => row.id}
         searchPlaceholder="Search by ID, address, reference or customer"
-        empty="No transfers yet"
+        empty={{
+          icon: IconArrowsExchange,
+          title: "No transfers yet",
+          description: "A transfer opens when a customer pays a quote.",
+        }}
         onRowClick={(row) => setSelected(row)}
         toolbar={
           <>
             <Select
-              className="w-48 rounded-full"
+              wrapperClassName="w-40"
               value={status}
               onChange={(event) => setStatus(event.target.value as Status | "")}
               aria-label="Status"
@@ -258,7 +266,7 @@ export const Transfers = () => {
               ))}
             </Select>
             <Button onClick={() => setOpening(true)}>
-              <Plus className="size-4" />
+              <IconPlus className="size-4" />
               Open transfer
             </Button>
           </>

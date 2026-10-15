@@ -151,7 +151,7 @@ bun run db:generate
 bun run dev
 ```
 
-One process on `KITE_PORT` serves the API and the dashboard with hot reload: the dashboard's Vite dev server runs inside the API through the [`elysia-vite-server`](https://github.com/kravetsone/elysia-vite-server) plugin, and the client's SDK is regenerated from the API's OpenAPI spec whenever the server restarts. Use `bun run dev:api` to run the API alone.
+One process on `KITE_PORT` serves the API and the dashboard with hot reload: the dashboard's Vite dev server runs inside the API through the [`elysia-vite-server`](https://github.com/kravetsone/elysia-vite-server) plugin, and the client's SDK is regenerated from the API's OpenAPI spec whenever the server restarts.
 
 ### 4) Build the app
 

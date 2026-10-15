@@ -1,25 +1,28 @@
 import {
-  CheckCircle2,
-  CircleDashed,
-  Clock,
-  RotateCcw,
-  XCircle,
-} from "lucide-react";
+  IconArrowBackUp,
+  IconCircleCheck,
+  IconCircleDashed,
+  IconCircleX,
+  IconClock,
+} from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 
 const statuses: Record<
   string,
-  { variant: "success" | "pending" | "warning" | "danger"; icon: typeof Clock }
+  {
+    variant: "success" | "pending" | "warning" | "danger";
+    icon: typeof IconClock;
+  }
 > = {
-  Settled: { variant: "success", icon: CheckCircle2 },
-  Created: { variant: "pending", icon: CircleDashed },
-  AwaitingDeposit: { variant: "pending", icon: Clock },
-  DepositReceived: { variant: "pending", icon: Clock },
-  Processing: { variant: "pending", icon: Clock },
-  x402Settled: { variant: "pending", icon: Clock },
-  Refunded: { variant: "warning", icon: RotateCcw },
-  Failed: { variant: "danger", icon: XCircle },
-  Cancelled: { variant: "danger", icon: XCircle },
+  Settled: { variant: "success", icon: IconCircleCheck },
+  Created: { variant: "pending", icon: IconCircleDashed },
+  AwaitingDeposit: { variant: "pending", icon: IconClock },
+  DepositReceived: { variant: "pending", icon: IconClock },
+  Processing: { variant: "pending", icon: IconClock },
+  x402Settled: { variant: "pending", icon: IconClock },
+  Refunded: { variant: "warning", icon: IconArrowBackUp },
+  Failed: { variant: "danger", icon: IconCircleX },
+  Cancelled: { variant: "danger", icon: IconCircleX },
 };
 
 const label = (status: string) => status.replace(/([a-z])([A-Z])/g, "$1 $2");
@@ -27,7 +30,7 @@ const label = (status: string) => status.replace(/([a-z])([A-Z])/g, "$1 $2");
 export const StatusBadge = ({ status }: { status: string }) => {
   const { variant, icon: Icon } = statuses[status] ?? {
     variant: "pending" as const,
-    icon: Clock,
+    icon: IconClock,
   };
 
   return (

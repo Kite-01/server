@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
-  CalendarDays,
-  Search,
-} from "lucide-react";
-import { useMemo, useState } from "react";
+  IconArrowDownRight,
+  IconArrowUpRight,
+  IconArrowsExchange,
+  IconCalendar,
+  IconChartLine,
+  IconCoins,
+} from "@tabler/icons-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   Area,
@@ -16,13 +18,13 @@ import {
   XAxis,
 } from "recharts";
 import {
-  getApiOverviewEventsOptions,
   getApiOverviewStatsOptions,
   getApiTransfersOptions,
 } from "@/api/@tanstack/react-query.gen";
 import type { Stats } from "@/api/types.gen";
+import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,7 +38,6 @@ import {
   formatCompactUsd,
   formatCount,
   formatDate,
-  formatDateTime,
   formatUsd,
   initials,
   shortId,
@@ -96,15 +97,26 @@ const Delta = ({ value }: { value: number | null }) => {
   if (value === null || !label) return null;
 
   const up = value >= 0;
-  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  const Icon = up ? IconArrowUpRight : IconArrowDownRight;
 
   return (
-    <Badge variant={up ? "success" : "danger"}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 text-xs font-medium",
+        up ? "text-success" : "text-danger",
+      )}
+    >
       <Icon className="size-3.5" />
       {label}
-    </Badge>
+    </span>
   );
 };
+
+const segment = (active: boolean) =>
+  cn(
+    "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
+    active ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+  );
 
 const RangePicker = ({
   preset,
@@ -121,21 +133,13 @@ const RangePicker = ({
   const [draft, setDraft] = useState(custom);
 
   return (
-    <div className="flex items-center gap-1 rounded-full border border-line p-1">
+    <div className="flex items-center gap-0.5 rounded-lg bg-soft p-0.5">
       {presets.map((item) =>
         item.value === "custom" ? (
           <Popover key={item.value} open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium",
-                  preset === "custom"
-                    ? "bg-ink text-white"
-                    : "text-muted hover:text-ink",
-                )}
-              >
-                <CalendarDays className="size-3.5" />
+              <button type="button" className={segment(preset === "custom")}>
+                <IconCalendar className="size-3.5" />
                 {preset === "custom"
                   ? `${custom.from} → ${custom.to}`
                   : item.label}
@@ -183,12 +187,7 @@ const RangePicker = ({
             key={item.value}
             type="button"
             onClick={() => onPreset(item.value)}
-            className={cn(
-              "h-8 rounded-full px-3 text-xs font-medium",
-              preset === item.value
-                ? "bg-ink text-white"
-                : "text-muted hover:text-ink",
-            )}
+            className={segment(preset === item.value)}
           >
             {item.label}
           </button>
@@ -197,6 +196,47 @@ const RangePicker = ({
     </div>
   );
 };
+
+const Metric = ({
+  label,
+  value,
+  delta,
+  hint,
+}: {
+  label: string;
+  value: ReactNode;
+  delta?: number | null;
+  hint?: ReactNode;
+}) => (
+  <div className="space-y-1 p-5">
+    <p className="text-xs text-muted">{label}</p>
+    <div className="flex items-baseline gap-2">
+      <span className="font-display text-2xl font-semibold tabular-nums tracking-tight">
+        {value}
+      </span>
+      {delta !== undefined && <Delta value={delta} />}
+    </div>
+    {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+  </div>
+);
+
+const Section = ({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) => (
+  <Card className="min-w-0 overflow-hidden">
+    <div className="flex h-12 items-center justify-between gap-3 border-b border-line px-4">
+      <h2 className="text-sm font-medium">{title}</h2>
+      {action}
+    </div>
+    {children}
+  </Card>
+);
 
 const Brand = "#2f9bde";
 const Line = "#ececec";
@@ -285,11 +325,10 @@ const Growth = ({ series }: { series: Stats["series"] }) => {
 };
 
 export const Dashboard = () => {
-  const { appId } = useAppScope();
+  const { appId, name } = useAppScope();
   const headers = useAppHeaders();
   const [preset, setPreset] = useState<Preset>("7d");
   const [rank, setRank] = useState<"value" | "volume">("value");
-  const [search, setSearch] = useState("");
   const [custom, setCustom] = useState(() => {
     const today = new Date();
     return { from: toInputDate(addDays(today, -6)), to: toInputDate(today) };
@@ -310,115 +349,102 @@ export const Dashboard = () => {
   );
 
   const transfers = useQuery(
-    getApiTransfersOptions({
-      query: { pageSize: 5, q: search.trim() || undefined },
-      headers,
-    }),
+    getApiTransfersOptions({ query: { pageSize: 6 }, headers }),
   );
 
-  const events = useQuery(
-    getApiOverviewEventsOptions({ query: { pageSize: 8 }, headers }),
-  );
+  const data = stats.data;
+  const hasVolume = !!data?.series.some((point) => Number(point.amount) > 0);
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0 space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <Input
-              className="rounded-full pl-9"
-              placeholder="Search transfers"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={appId ? (name ?? "Overview") : "Overview"}
+        description={
+          appId
+            ? "How this app's payments are doing."
+            : "Payments across every app on this server."
+        }
+        action={
           <RangePicker
             preset={preset}
             onPreset={setPreset}
             custom={custom}
             onCustom={setCustom}
           />
-        </div>
+        }
+      />
 
-        <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <div className="space-y-8">
-            <div>
-              <p className="text-sm text-muted">Total customers</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-3xl font-semibold">
-                  {stats.data ? formatCount(stats.data.customers.total) : "—"}
-                </span>
-                <Delta value={stats.data?.customers.change ?? null} />
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted">Amount processed</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-3xl font-semibold">
-                  {stats.data
-                    ? formatCompactUsd(stats.data.amountProcessed.amount)
-                    : "—"}
-                </span>
-                <Delta value={stats.data?.amountProcessed.change ?? null} />
-              </div>
-              {stats.data && (
-                <p className="mt-1 text-xs text-muted">
-                  {stats.data.amountProcessed.count} settled{" "}
-                  {stats.data.amountProcessed.count === 1
-                    ? "transfer"
-                    : "transfers"}
-                </p>
-              )}
-            </div>
+      <Card className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <Metric
+          label="Amount processed"
+          value={data ? formatCompactUsd(data.amountProcessed.amount) : "—"}
+          delta={data?.amountProcessed.change ?? null}
+        />
+        <Metric
+          label="Settled transfers"
+          value={data ? formatCount(data.amountProcessed.count) : "—"}
+        />
+        <Metric
+          label="Customers"
+          value={data ? formatCount(data.customers.total) : "—"}
+          delta={data?.customers.change ?? null}
+        />
+      </Card>
+
+      <Section title="Volume">
+        {stats.error ? (
+          <EmptyState
+            icon={IconChartLine}
+            title="Couldn't load volume"
+            description={stats.error.message}
+          />
+        ) : data && !hasVolume ? (
+          <EmptyState
+            icon={IconChartLine}
+            title="No volume in this range"
+            description="Settled transfers will chart here. Try a wider range."
+          />
+        ) : (
+          <div className="p-4">
+            <Growth series={data?.series ?? []} />
           </div>
+        )}
+      </Section>
 
-          <Card className="p-4">
-            {stats.error ? (
-              <p className="p-8 text-center text-sm text-danger">
-                {stats.error.message}
-              </p>
-            ) : (
-              <Growth series={stats.data?.series ?? []} />
-            )}
-          </Card>
-        </div>
-
-        <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm text-muted">Top tokens</h2>
-              <div className="flex rounded-full border border-line p-0.5">
-                {(["value", "volume"] as const).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setRank(item)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium capitalize",
-                      rank === item ? "bg-ink text-white" : "text-muted",
-                    )}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <Section
+          title="Top tokens"
+          action={
+            <div className="flex rounded-lg bg-soft p-0.5">
+              {(["value", "volume"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setRank(item)}
+                  className={cn(segment(rank === item), "capitalize")}
+                >
+                  {item}
+                </button>
+              ))}
             </div>
-            <Card className="divide-y divide-line">
-              {stats.data?.topTokens.length === 0 && (
-                <p className="p-6 text-center text-sm text-muted">
-                  No settled transfers in this range
-                </p>
-              )}
-              {stats.data?.topTokens.map((token) => (
-                <div key={token.id} className="flex items-center gap-3 p-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-soft text-xs font-semibold">
+          }
+        >
+          {data?.topTokens.length === 0 ? (
+            <EmptyState
+              icon={IconCoins}
+              title="No tokens yet"
+              description="Tokens customers pay with show up once transfers settle."
+            />
+          ) : (
+            <div className="divide-y divide-line">
+              {data?.topTokens.map((token) => (
+                <div
+                  key={token.id}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-soft text-[10px] font-semibold">
                     {token.icon ? (
-                      <img
-                        src={token.icon}
-                        alt=""
-                        className="size-9 rounded-full"
-                      />
+                      <img src={token.icon} alt="" className="size-8" />
                     ) : (
                       initials(token.symbol)
                     )}
@@ -429,50 +455,65 @@ export const Dashboard = () => {
                     </p>
                     <p className="truncate text-xs text-muted">{token.name}</p>
                   </div>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm tabular-nums">
                     {rank === "value"
                       ? formatCompactUsd(token.value)
                       : `${token.volume} ${token.volume === 1 ? "transfer" : "transfers"}`}
                   </p>
                 </div>
               ))}
-            </Card>
-          </div>
-
-          <div className="min-w-0">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm text-muted">Recent transfers</h2>
-              {appId && (
-                <Link
-                  to={`/apps/${appId}/transfers`}
-                  className="inline-flex h-8 items-center rounded-full border border-line px-3 text-xs font-medium hover:bg-soft"
-                >
-                  Go to transfers
-                </Link>
-              )}
             </div>
-            <Card className="divide-y divide-line">
-              {transfers.data?.data.length === 0 && (
-                <p className="p-6 text-center text-sm text-muted">
-                  No transfers yet
-                </p>
-              )}
+          )}
+        </Section>
+
+        <Section
+          title="Recent transfers"
+          action={
+            appId ? (
+              <Link
+                to={`/apps/${appId}/transfers`}
+                className="text-xs text-muted hover:text-ink"
+              >
+                View all
+              </Link>
+            ) : null
+          }
+        >
+          {transfers.data?.data.length === 0 ? (
+            <EmptyState
+              icon={IconArrowsExchange}
+              title="No transfers yet"
+              description={
+                appId
+                  ? "Share a payment link or create a quote to take a first payment."
+                  : "Transfers from every app appear here as customers pay."
+              }
+              action={
+                appId ? (
+                  <Link
+                    to={`/apps/${appId}/payment-links`}
+                    className="text-sm font-medium text-brand hover:underline"
+                  >
+                    Create a payment link
+                  </Link>
+                ) : null
+              }
+            />
+          ) : (
+            <div className="divide-y divide-line">
               {transfers.data?.data.map((transfer) => {
                 const customer = transfer.quote.customer;
-                const name =
+                const who =
                   customer?.name ?? customer?.externalId ?? "No customer";
 
                 return (
                   <div
                     key={transfer.id}
-                    className="flex flex-wrap items-center gap-3 p-4"
+                    className="flex flex-wrap items-center gap-3 px-4 py-3"
                   >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
-                      {initials(name)}
-                    </span>
                     <div className="min-w-0 flex-1 basis-40">
-                      <p className="truncate text-sm font-medium">{name}</p>
-                      <p className="truncate text-xs text-muted">
+                      <p className="truncate text-sm font-medium">{who}</p>
+                      <p className="truncate font-mono text-xs text-muted">
                         {appId
                           ? `#${shortId(transfer.id)}`
                           : `${transfer.app.name} · #${shortId(transfer.id)}`}
@@ -480,7 +521,7 @@ export const Dashboard = () => {
                     </div>
                     <StatusBadge status={transfer.status} />
                     <div className="ml-auto min-w-20 text-right">
-                      <p className="text-sm font-medium">
+                      <p className="text-sm tabular-nums">
                         {formatUsd(transfer.quote.targetUsdAmount)}
                       </p>
                       <p className="text-xs text-muted">
@@ -491,37 +532,10 @@ export const Dashboard = () => {
                   </div>
                 );
               })}
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      <aside>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm text-muted">Activities</h2>
-          <Badge variant="count">{events.data?.total ?? 0}</Badge>
-        </div>
-        <Card className="divide-y divide-line">
-          {events.data?.data.length === 0 && (
-            <p className="p-6 text-center text-sm text-muted">
-              No activity yet
-            </p>
-          )}
-          {events.data?.data.map((event) => (
-            <div key={event.id} className="p-4">
-              <p className="text-sm font-medium">{event.category}</p>
-              <p className="text-xs text-muted">
-                {event.previousCategoryStatus
-                  ? `${event.previousCategoryStatus} → ${event.currentCategoryStatus}`
-                  : event.currentCategoryStatus}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {formatDateTime(event.createdAt)}
-              </p>
             </div>
-          ))}
-        </Card>
-      </aside>
+          )}
+        </Section>
+      </div>
     </div>
   );
 };

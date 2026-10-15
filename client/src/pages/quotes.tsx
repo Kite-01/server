@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftRight, Plus } from "lucide-react";
+import {
+  IconArrowsLeftRight,
+  IconPlus,
+  IconReceipt2,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -147,10 +151,15 @@ export const Quotes = () => {
         options={(query) => getApiQuotesOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search by reference or ID"
-        empty="No quotes yet"
+        empty={{
+          icon: IconReceipt2,
+          title: "No quotes yet",
+          description:
+            "A quote prices a payment in a token for five minutes. Payment links create them as customers check out.",
+        }}
         toolbar={
           <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             New quote
           </Button>
         }
@@ -199,7 +208,7 @@ export const Quotes = () => {
                 actions={[
                   {
                     label: "Open transfer",
-                    icon: <ArrowLeftRight className="size-4" />,
+                    icon: <IconArrowsLeftRight className="size-4" />,
                     hidden: new Date(row.expiresAt) < new Date(),
                     onSelect: () => setTransferFor(row.id),
                   },
