@@ -1,9 +1,9 @@
 export interface UniswapQuoter {
-  quoteExactInputSingle(
+  quoteExactInput(
     input: UniswapQuoterExactInputArgs,
-  ): Promise<bigint | null>;
+  ): Promise<UniswapQuote | null>;
 
-  quoteExactOutputSingle(
+  quoteExactOutput(
     input: UniswapQuoterExactOutputArgs,
-  ): Promise<bigint | null>;
+  ): Promise<UniswapQuote | null>;
 }

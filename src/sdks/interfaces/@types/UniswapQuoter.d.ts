@@ -3,7 +3,6 @@ type UniswapQuoterExactInputArgs = {
   tokenIn: string;
   tokenOut: string;
   amountIn: bigint;
-  feeTier: number;
 };
 
 type UniswapQuoterExactOutputArgs = {
@@ -11,5 +10,9 @@ type UniswapQuoterExactOutputArgs = {
   tokenIn: string;
   tokenOut: string;
   amountOut: bigint;
+};
+
+type UniswapQuote = {
   feeTier: number;
+  amount: bigint;
 };

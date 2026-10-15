@@ -8,8 +8,8 @@ import { node } from "@elysiajs/node";
 import { env } from "../shared/env";
 
 // routes
+import { dashboardDevRoutes, dashsboardRoutes } from "./routes/dashboard";
 import { paymentLinkRoutes } from "./routes/paymentLinks";
-import { dashboardRoutes } from "./routes/dashboard";
 import { priceFeedRoutes } from "./routes/priceFeeds";
 import { callbackRoutes } from "./routes/callbacks";
 import { customerRoutes } from "./routes/customers";
@@ -43,7 +43,7 @@ const api = new Elysia({ prefix: "/api" })
   .use(webhookRoutes)
   .use(x402Routes);
 
-export const createApp = () => {
+export const createApp = (options = { dashboard: true }) => {
   const app = new Elysia({ adapter: node(), normalize: false })
     .onRequest(({ request, set }) => {
       const url = new URL(request.url);
@@ -159,8 +159,18 @@ export const createApp = () => {
 
   app.use(callbackRoutes).use(api);
 
-  if (env.KITE_ENABLE_DASHBOARD) {
-    app.use(dashboardRoutes);
+  if (env.KITE_ENABLE_DASHBOARD && options.dashboard) {
+    if (env.NODE_ENV === "development") {
+      app.use(
+        dashboardDevRoutes(async () =>
+          createApp({ dashboard: false }).handle(
+            new Request("http://localhost/openapi/json"),
+          ),
+        ),
+      );
+    } else {
+      app.use(dashboardRoutes);
+    }
   }
 
   return app;

@@ -1,5 +1,11 @@
+import {
+  getProviderStatuses,
+  KeyVarDependents,
+  SettableKeyVars,
+} from "../shared/providers/registry";
 import { KeyType, KeyVars } from "../shared/constants";
 import { eq, inArray } from "drizzle-orm";
+import { AppError } from "../shared/errors";
 import { crypt } from "../shared/crypt";
 import { kv } from "../db/schema";
 import { db } from "../db";
@@ -66,6 +72,32 @@ export class KvService {
       : await db.query.kv.findMany();
 
     return rows.map(this.decode);
+  };
+
+  setProviderKey = async (key: KeyVars, input: string | null) => {
+    const value = input?.trim() || null;
+    const type = SettableKeyVars[key];
+    if (!type) throw new AppError(`${key} is managed by the server`);
+
+    const previous = await this.getKv(key);
+
+    await this.upsertKv({
+      key,
+      type,
+      value,
+    });
+
+    const dependents = KeyVarDependents[key] ?? [];
+    if (dependents.length && (previous?.value ?? null) !== value) {
+      await db.delete(kv).where(inArray(kv.key, dependents));
+    }
+
+    return (await this.getKv(key))!;
+  };
+
+  getProviderStatuses = async () => {
+    const variables = await this.getSdkOptionVariables();
+    return getProviderStatuses(variables);
   };
 
   getSdkOptionVariables = async () => {

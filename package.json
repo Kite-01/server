@@ -11,12 +11,13 @@
     "client:dev": "bun run --cwd client dev",
     "client:build": "bun install --cwd client --frozen-lockfile && bun run --cwd client build",
     "build": "bun run check && bun run client:build",
-    "dev": "bun --watch src/index.ts",
+    "dev": "KITE_ENABLE_DASHBOARD=true bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "db:generate": "bunx --bun drizzle-kit generate",
     "db:studio": "bunx --bun drizzle-kit studio",
     "db:migrate": "bunx --bun drizzle-kit migrate",
-    "migrate": "bun src/db/migrate.ts"
+    "migrate": "bun src/db/migrate.ts",
+    "dev:api": "bun --watch src/index.ts"
   },
   "repository": {
     "type": "git",
@@ -35,6 +36,7 @@
     "@types/lodash": "4.17.25",
     "@types/node": "26.6.2",
     "drizzle-kit": "0.31.11",
+    "elysia-vite-server": "0.0.1",
     "embedded-postgres": "18.4.0-beta.17",
     "oxlint": "1.88.0",
     "prettier": "3.9.10",

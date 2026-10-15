@@ -23,22 +23,6 @@ export const schedulerMock = {
   send: vi.fn(async () => undefined),
 };
 
-const quoterAbi = parseAbi([
-  "function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)",
-  "function quoteExactOutputSingle((address tokenIn, address tokenOut, uint256 amount, uint24 fee, uint160 sqrtPriceLimitX96) params) external returns (uint256 amountIn, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)",
-]);
-
-export const encodeQuoterResult = (
-  functionName: "quoteExactInputSingle" | "quoteExactOutputSingle",
-  amount: bigint,
-) => {
-  return encodeFunctionResult({
-    abi: quoterAbi,
-    functionName,
-    result: [amount, 0n, 0, 0n],
-  });
-};
-
 export const fakeActor = {
   getAddress: vi.fn(() => operatorAddress as string),
   publicClient: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
@@ -76,45 +60,82 @@ export const resetMocks = () => {
   fakeActor.getConfirmations.mockResolvedValue(1000n);
 };
 
-type QuoterArgs = {
-  tokenIn: string;
-  tokenOut: string;
+export const uniswapFactory = getAddress(`0x${"f".repeat(38)}01`);
+
+type StubPool = {
+  tokens: [string, string];
   fee: number;
-  amount: bigint;
+  tick: number;
+  liquidity?: bigint;
+  history?: number;
 };
 
-type QuoterFn = (args: QuoterArgs) => bigint | null;
+export const stubPools = (pools: StubPool[]) => {
+  const byAddress = new Map(
+    pools.map((pool, index) => [
+      getAddress(`0x${(0xe000 + index).toString(16).padStart(40, "0")}`),
+      pool,
+    ]),
+  );
 
-export const stubQuoter = (handlers: {
-  exactIn?: QuoterFn;
-  exactOut?: QuoterFn;
-}) => {
+  const uniswapAbi = parseAbi([
+    "function factory() external view returns (address)",
+    "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)",
+    "function liquidity() external view returns (uint128)",
+    "function observe(uint32[] secondsAgos) external view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)",
+  ]);
+
   fakeActor.ethCall.mockImplementation(async (...args: unknown[]) => {
-    const decoded = decodeFunctionData({
-      abi: quoterAbi,
-      data: args[2] as Hex,
-    });
-    const params = decoded.args[0] as {
-      tokenIn: string;
-      tokenOut: string;
-      fee: number;
-      amountIn?: bigint;
-      amount?: bigint;
-    };
-
-    const isExactIn = decoded.functionName === "quoteExactInputSingle";
-    const handler = isExactIn ? handlers.exactIn : handlers.exactOut;
-    const result = handler?.({
-      tokenIn: getAddress(params.tokenIn),
-      tokenOut: getAddress(params.tokenOut),
-      fee: Number(params.fee),
-      amount: (isExactIn ? params.amountIn : params.amount) as bigint,
+    const to = getAddress(args[1] as string);
+    const data = args[2] as Hex;
+    const { functionName, args: params = [] } = decodeFunctionData({
+      abi: uniswapAbi,
+      data,
     });
 
-    if (result === null || result === undefined) {
-      throw new Error("no pool");
+    const result = (value: unknown) =>
+      encodeFunctionResult({
+        abi: uniswapAbi,
+        functionName,
+        result: value,
+      } as never);
+
+    if (functionName === "factory") return result(uniswapFactory);
+    if (functionName === "getPool" && to === uniswapFactory) {
+      const [tokenA, tokenB, fee] = params as [string, string, number];
+      const pair = [getAddress(tokenA), getAddress(tokenB)].sort().join();
+      for (const [poolAddress, pool] of byAddress) {
+        const tokens = pool.tokens
+          .map((t) => getAddress(t))
+          .sort()
+          .join();
+        if (tokens === pair && pool.fee === fee) return result(poolAddress);
+      }
+
+      return result(getAddress(`0x${"0".repeat(40)}`));
     }
 
-    return encodeQuoterResult(decoded.functionName, result);
+    const pool = byAddress.get(to);
+    if (!pool) {
+      throw new Error("execution reverted");
+    }
+
+    if (functionName === "liquidity") {
+      return result(pool.liquidity ?? 10n ** 18n);
+    }
+
+    if (functionName === "observe") {
+      const [[window]] = params as [readonly number[]];
+      if (window > (pool.history ?? Infinity)) {
+        throw new Error("OLD");
+      }
+
+      return result([
+        [0n, BigInt(pool.tick) * BigInt(window)],
+        [0n, 0n],
+      ]);
+    }
+
+    throw new Error("execution reverted");
   });
 };

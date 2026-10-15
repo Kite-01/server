@@ -1,7 +1,7 @@
-import { extname, resolve, sep } from "node:path";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, extname, resolve, sep } from "node:path";
+import { Elysia, type AnyElysia } from "elysia";
 import { HttpError } from "../../shared/errors";
-import { Elysia } from "elysia";
 
 const readAsset = async (relative: string) => {
   const root = resolve(process.cwd(), "client/dist");
@@ -94,3 +94,57 @@ const serve = async (request: Request) => {
 export const dashboardRoutes = new Elysia({ name: "Dashboard" })
   .get("/", ({ request }) => serve(request), { detail: { hide: true } })
   .get("/*", ({ request }) => serve(request), { detail: { hide: true } });
+
+export const dashboardDevRoutes = async (
+  openApiSpec: () => Promise<Response>,
+) => {
+  const root = resolve(process.cwd(), "client");
+  const spec = await openApiSpec();
+
+  if (spec.ok) {
+    const specPath = resolve(root, "node_modules/.kite/openapi.json");
+    await mkdir(dirname(specPath), {
+      recursive: true,
+    });
+
+    await writeFile(specPath, await spec.text());
+
+    process.env.KITE_OPENAPI_SPEC_PATH = specPath;
+  }
+
+  const { vite } = await import("elysia-vite-server");
+  const plugin = await vite({
+    mode: "development",
+    static: false,
+    vite: {
+      root,
+      appType: "custom",
+      configLoader: "native",
+      clearScreen: false,
+    },
+  });
+
+  const server = plugin.decorator.vite;
+
+  return new Elysia({ name: "DashboardDev" }).use(plugin as AnyElysia).get(
+    "/*",
+    async ({ request }) => {
+      const url = new URL(request.url);
+      if (
+        url.pathname === "/api" ||
+        url.pathname.startsWith("/api/") ||
+        extname(url.pathname)
+      ) {
+        throw new HttpError(404, "NotFound", "Route not found");
+      }
+
+      const html = await readFile(resolve(root, "index.html"), "utf8");
+      return new Response(await server.transformIndexHtml(request.url, html), {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+        },
+      });
+    },
+    { detail: { hide: true } },
+  );
+};

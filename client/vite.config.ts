@@ -5,6 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
+  const specPath = process.env.KITE_OPENAPI_SPEC_PATH;
+
   const env = loadEnv(mode, resolve(import.meta.dirname, ".."), "");
   const api = `http://localhost:${env.KITE_PORT ?? 3000}`;
 
@@ -13,7 +15,7 @@ export default defineConfig(({ mode }) => {
       heyApiPlugin({
         config: {
           input: {
-            path: `${api}/openapi/json`,
+            path: specPath ?? `${api}/openapi/json`,
             watch: true,
           },
           output: resolve(import.meta.dirname, "src/api"),
@@ -41,11 +43,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      proxy: {
-        "/api": api,
-        "/callback": api,
-        "/openapi": api,
-      },
+      proxy: specPath
+        ? undefined
+        : { "/api": api, "/callback": api, "/openapi": api },
     },
   };
 });

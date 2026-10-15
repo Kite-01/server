@@ -9,7 +9,11 @@ const main = async () => {
   const port = env.KITE_PORT;
   let stopServer: (() => void) | undefined;
 
-  createApp().listen(port, (server) => {
+  const app = createApp();
+
+  await app.modules;
+
+  app.listen(port, (server) => {
     stopServer = () => server.stop();
   });
 

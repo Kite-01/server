@@ -4,6 +4,7 @@ import {
   KeyType,
   KeyVars,
   Provider,
+  ProviderAction,
   TransferStatus,
   WebhookCategory,
 } from "../shared/constants";
@@ -454,6 +455,23 @@ const KvEntry = t.Object(
   named("KvEntry"),
 );
 
+const ProviderStatus = t.Object(
+  {
+    provider: t.Enum(Provider),
+    action: t.Enum(ProviderAction),
+    configured: t.Boolean(),
+    keys: t.Array(
+      t.Object({
+        key: t.Enum(KeyVars),
+        type: t.Enum(KeyType),
+        required: t.Boolean(),
+        set: t.Boolean(),
+      }),
+    ),
+  },
+  named("ProviderStatus"),
+);
+
 const SystemInfo = t.Object(
   {
     version: t.String(),
@@ -686,6 +704,8 @@ export const models = new Elysia({ name: "Models" }).model({
   EventPage: Page("EventPage", Event),
   KvEntry,
   KvEntryList: List("KvEntryList", KvEntry),
+  ProviderStatus,
+  ProviderStatusList: List("ProviderStatusList", ProviderStatus),
   SystemInfo,
   Stats,
   x402Supported,

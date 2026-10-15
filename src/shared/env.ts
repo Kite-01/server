@@ -5,6 +5,7 @@ import { z } from "zod";
 config({ quiet: true });
 
 const EnvSchema = z.object({
+  NODE_ENV: z.enum(["production", "development"]).default("development"),
   KITE_PORT: z.coerce.number().int().positive().default(3000),
   KITE_PUBLIC_BASE_URL: z.url(),
   KITE_PG_DB_URL: z.url(),

@@ -51,28 +51,27 @@ export const runProviderMethod = async <
   );
 };
 
+export const missingProviderKeys = (
+  provider: Provider,
+  action: ProviderAction,
+  variables: SdkOptions["variables"],
+) => {
+  const configuredVars = ProviderKeyVars[provider]?.[action];
+  if (!configuredVars) {
+    throw new ProviderNotConfiguredForActionError(provider, action);
+  }
+
+  return configuredVars
+    .filter((item) => item.required && !variables[item.key])
+    .map((item) => item.key);
+};
+
 export const isProviderConfiguredForAction = (
   provider: Provider,
   action: ProviderAction,
   options: SdkOptions,
 ) => {
-  const entry = ProviderKeyVars[provider];
-  const configuredVars = entry?.[action];
-  if (!configuredVars) {
-    throw new ProviderNotConfiguredForActionError(provider, action);
-  }
-
-  let isConfigured = true;
-  const vars = options.variables;
-
-  for (const item of configuredVars.filter((i) => i.required)) {
-    if (!vars[item.key]) {
-      isConfigured = false;
-      break;
-    }
-  }
-
-  if (!isConfigured) {
+  if (missingProviderKeys(provider, action, options.variables).length) {
     throw new ProviderYetToBeConfiguredError(provider, action);
   }
 };
