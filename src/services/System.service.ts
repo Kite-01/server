@@ -11,6 +11,10 @@ export class SystemService {
 
     return {
       version,
+      operators: Object.values(ChainType).map((chainType) => ({
+        chainType,
+        address: getOnchainActor(chainType).getAddress(),
+      })),
       chains: chains.map((chain) => {
         const registry = getChain(chain.caip2Id);
         return {

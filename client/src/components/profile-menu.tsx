@@ -1,10 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  IconExternalLink,
-  IconLogout,
-  IconSettings2,
-  IconShieldCheck,
-} from "@tabler/icons-react";
+import { IconPower, IconSettings2 } from "@tabler/icons-react";
 import { getApiOverviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
@@ -20,14 +15,12 @@ import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { Badge } from "./ui/badge";
 
-const storageLabels = {
-  memory: "Key kept in memory",
-  session: "Key kept for this session",
-  local: "Key kept on this device",
+const chainTypeLabels = {
+  Evm: "EVM",
 };
 
 export const ProfileMenu = () => {
-  const { signOut, storage } = useSession();
+  const { signOut } = useSession();
   const { data } = useQuery(getApiOverviewInfoOptions());
 
   return (
@@ -38,52 +31,33 @@ export const ProfileMenu = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 p-0">
-        {/* <div className="p-4">
-          <p className="text-sm font-semibold">Root</p>
-          <p className="text-xs text-muted">{storageLabels[storage]}</p>
-        </div>
-
-        <DropdownMenuSeparator /> */}
-
         <div className="flex items-center justify-between p-4 text-sm">
-          {/* <span className="text-muted">Version</span> */}
           {data ? (
-            // <span className="font-medium">v{data.version}</span>
             <Badge variant={"count"}>v{data.version}</Badge>
           ) : (
             <Skeleton className="h-3 w-12" />
           )}
         </div>
 
-        {/* <DropdownMenuSeparator /> */}
-
-        {!!data?.chains.length && (
+        {!!data?.operators.length && (
           <>
-            <div className="space-y-2 p-4">
-              <p className="text-xs font-medium text-muted">Operator wallet</p>
-              {data.chains.map((chain) => (
-                <div
-                  key={chain.id}
-                  className="flex items-center justify-between gap-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{chain.name}</p>
-                    <p className="font-mono text-xs text-muted">
-                      {shortAddress(chain.operatorAddress)}
-                    </p>
-                  </div>
+            <div className="space-y-1 px-4">
+              <p className="text-xs font-medium text-muted">Addresses</p>
 
-                  <div className="flex shrink-0">
-                    <CopyButton value={chain.operatorAddress} />
-                    <a
-                      href={chain.explorerUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Open in explorer"
-                      className="inline-flex size-8 items-center justify-center rounded-full hover:bg-soft"
-                    >
-                      <IconExternalLink className="size-4" />
-                    </a>
+              {data.operators.map((operator) => (
+                <div
+                  key={operator.chainType}
+                  className="w-full flex items-center justify-between text-sm"
+                >
+                  <p className="font-display font-medium">
+                    {chainTypeLabels[operator.chainType]}
+                  </p>
+
+                  <div className="flex items-center">
+                    <p className="text-xs text-muted">
+                      {shortAddress(operator.address)}
+                    </p>
+                    <CopyButton value={operator.address} />
                   </div>
                 </div>
               ))}
@@ -93,8 +67,11 @@ export const ProfileMenu = () => {
           </>
         )}
 
-        <DropdownMenuItem className="m-1" onSelect={signOut}>
-          <IconLogout className="size-4" />
+        <DropdownMenuItem
+          className="m-1.5 text-danger font-medium"
+          onSelect={signOut}
+        >
+          <IconPower className="size-4" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

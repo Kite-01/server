@@ -37,7 +37,7 @@ import SmartImage from "@/components/smart-image";
 type Provider = ChainConfig["gasSponsorProviders"][number];
 
 // The providers able to act as `action`; those without their keys set can't
-// be picked until they are added in KV.
+// be picked until they are added in Providers.
 const providerOptions = (
   statuses: ProviderStatus[],
   action: ProviderStatus["action"],
@@ -47,15 +47,7 @@ const providerOptions = (
     .map((status) => ({
       value: status.provider,
       label: status.provider,
-      unavailable: status.configured ? undefined : (
-        <>
-          Set its keys in{" "}
-          <Link to="/kv" className="text-ink underline underline-offset-2">
-            KV
-          </Link>{" "}
-          first
-        </>
-      ),
+      unavailable: status.configured ? undefined : <></>,
     }));
 
 const configuredProviders = (
@@ -348,7 +340,7 @@ const TokensTab = ({
             header: "Address",
             exportValue: (row) => row.address,
             cell: (row) => (
-              <span className="flex items-center text-xs">
+              <span className="flex items-center">
                 {shortAddress(row.address)}
                 <CopyButton value={row.address} />
               </span>

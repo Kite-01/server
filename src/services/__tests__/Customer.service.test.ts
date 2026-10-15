@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { createApp, createConfiguredChain } from "../../test/factories";
+import { PreconditionError } from "../../shared/errors";
 import { CustomerService } from "../Customer.service";
-import { createApp } from "../../test/factories";
+import { createQuoteRow } from "../../test/transfers";
+import { quote } from "../../db/schema";
+import { eq } from "drizzle-orm";
+import { db } from "../../db";
 
 const service = new CustomerService();
 
@@ -81,5 +86,25 @@ describe("CustomerService", () => {
 
     expect((await service.deleteCustomer(appId, c.id))?.id).toBe(c.id);
     expect(await service.getCustomerById(appId, c.id)).toBeUndefined();
+  });
+
+  it("refuses to delete a customer that has quotes", async () => {
+    const c = await service.upsertCustomer({ appId, externalId: "u-1" });
+    const { chain, usdc } = await createConfiguredChain();
+    const row = await createQuoteRow({
+      appId,
+      chainId: chain.id,
+      sourceTokenId: usdc.id,
+      targetTokenId: usdc.id,
+    });
+    await db
+      .update(quote)
+      .set({ customerId: c.id })
+      .where(eq(quote.id, row.id));
+
+    await expect(service.deleteCustomer(appId, c.id)).rejects.toThrow(
+      new PreconditionError("Customers with quotes cannot be deleted"),
+    );
+    expect(await service.getCustomerById(appId, c.id)).toBeDefined();
   });
 });

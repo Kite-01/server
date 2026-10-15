@@ -73,13 +73,11 @@ export const NewTransferDialog = ({
       open={quoteId !== null}
       onOpenChange={(open) => !open && onClose()}
       title="Open transfer"
-      description="Opens the on-chain payment address for a quote."
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field label="Quote ID">
           <Input
             required
-            className="font-mono"
             readOnly={!!quoteId}
             value={quoteId || quote}
             onChange={(event) => setQuote(event.target.value)}
@@ -91,10 +89,8 @@ export const NewTransferDialog = ({
         >
           <Input
             required
-            className="font-mono"
             value={refundAddress}
             onChange={(event) => setRefundAddress(event.target.value)}
-            placeholder="0x…"
           />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
@@ -229,10 +225,7 @@ export const Transfers = () => {
 
   return (
     <>
-      <PageHeader
-        title="Transfers"
-        description="Payments made against quotes."
-      />
+      <PageHeader title="Transfers" />
 
       <DataTable
         exportName="transfers"

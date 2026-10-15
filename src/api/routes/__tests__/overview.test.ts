@@ -4,6 +4,7 @@ import {
   createCustomer,
 } from "../../../test/factories";
 import { client, rootCredentials } from "../../../test/api";
+import { operatorAddress } from "../../../test/mocks";
 import { describe, expect, it } from "vitest";
 import { eventFor } from "../../../test/events";
 
@@ -18,6 +19,9 @@ describe("overview", () => {
     expect(res.json.version).toEqual(expect.any(String));
     expect(res.json.chains).toEqual([
       expect.objectContaining({ id: chain.id, isConfigured: false }),
+    ]);
+    expect(res.json.operators).toEqual([
+      { chainType: "Evm", address: operatorAddress },
     ]);
   });
 

@@ -7,6 +7,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
+import { formatUnits, parseUnits } from "viem";
 import {
   deleteApiPaymentLinksByIdMutation,
   getApiPaymentLinksCurrenciesOptions,
@@ -22,6 +23,7 @@ import { Field } from "@/components/field";
 import {
   fromLineItemRows,
   LineItemsBuilder,
+  lineItemsTotal,
   toLineItemRows,
 } from "@/components/line-items-builder";
 import { PageHeader } from "@/components/page-header";
@@ -29,7 +31,7 @@ import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
-import { formatDate, shortId } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 
 const trimAmount = (value: string) =>
@@ -52,6 +54,7 @@ const LinkForm = ({
   const [lineItems, setLineItems] = useState(() =>
     toLineItemRows(link?.lineItems ?? null),
   );
+  const [lineItemsError, setLineItemsError] = useState<string | null>(null);
 
   const headers = useAppHeaders();
   const currencies = useQuery(getApiPaymentLinksCurrenciesOptions({ headers }));
@@ -78,6 +81,23 @@ const LinkForm = ({
     event.preventDefault();
 
     const items = fromLineItemRows(lineItems);
+    if (items.length) {
+      const total = lineItemsTotal(items);
+      let amount: bigint | null = null;
+      try {
+        amount = parseUnits(values.amount.trim(), 36);
+      } catch {
+        // An amount that isn't a number is reported by the API.
+      }
+
+      if (amount !== null && total !== amount) {
+        return setLineItemsError(
+          `Line items add up to ${formatUnits(total, 36)} ${values.currency}, but the amount is ${formatUnits(amount, 36)} ${values.currency}.`,
+        );
+      }
+    }
+    setLineItemsError(null);
+
     const body = {
       title: values.title.trim(),
       currency: values.currency.trim(),
@@ -119,9 +139,7 @@ const LinkForm = ({
           </Select>
         </Field>
       </div>
-      <p className="-mt-2 text-xs text-muted">
-        Currencies other than USD are priced through their USD price feed.
-      </p>
+
       <Field
         label="Line items"
         hint="Optional. Shown to customers at checkout."
@@ -131,6 +149,9 @@ const LinkForm = ({
           currency={values.currency}
           onChange={setLineItems}
         />
+        {lineItemsError && (
+          <p className="text-xs text-danger">{lineItemsError}</p>
+        )}
       </Field>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" onClick={onClose}>
@@ -156,10 +177,7 @@ export const PaymentLinks = () => {
 
   return (
     <>
-      <PageHeader
-        title="Payment links"
-        description="Reusable payment requests."
-      />
+      <PageHeader title="Payment links" />
 
       <DataTable
         exportName="payment-links"
@@ -189,21 +207,15 @@ export const PaymentLinks = () => {
             cell: (row) => `${trimAmount(row.amount)} ${row.currency}`,
           },
           {
-            header: "ID",
-            exportValue: (row) => row.id,
-            cell: (row) => (
-              <span className="flex items-center gap-1 font-mono text-xs">
-                {shortId(row.id)}
-                <CopyButton value={row.id} />
-              </span>
-            ),
-          },
-          {
-            header: "Pay link",
+            header: "Payment link",
             exportValue: (row) => payUrl(row.id),
             cell: (row) => (
               <span className="flex items-center gap-1">
-                <CopyButton value={payUrl(row.id)} label="Copy" />
+                <CopyButton
+                  variant="default"
+                  value={payUrl(row.id)}
+                  label="Copy"
+                />
                 <Button
                   variant="ghost"
                   size="iconSm"

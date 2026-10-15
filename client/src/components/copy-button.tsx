@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button";
 export const CopyButton = ({
   value,
   label,
+  variant = "ghost",
 }: {
   value: string;
   label?: string;
+  variant?: "default" | "danger" | "secondary" | "outline" | "ghost";
 }) => {
   const [copied, setCopied] = useState(false);
 
   return (
     <Button
-      variant="ghost"
+      variant={variant}
       size={label ? "sm" : "iconSm"}
       aria-label={label ?? "Copy"}
       onClick={async () => {

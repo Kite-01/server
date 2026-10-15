@@ -148,4 +148,17 @@ describe("PriceFeedService", () => {
     await service.deletePriceFeed(feed.id);
     expect(await service.getPriceFeeds()).toHaveLength(0);
   });
+
+  it("lists each feed with its current rate, or none when it can't be read", async () => {
+    multicall.mockResolvedValue([{ result: "EUR / USD" }, { result: 8 }]);
+    await service.createPriceFeed({ chainId, address: FEED });
+
+    readContract.mockResolvedValueOnce(round({ answer: 108_123_456n }));
+    const [live] = await service.getPriceFeeds();
+    expect(live.rate).toBe("1.08123456");
+    expect(live.chain).not.toHaveProperty("config");
+
+    readContract.mockResolvedValueOnce(round({ updatedAt: 1n }));
+    expect((await service.getPriceFeeds())[0].rate).toBeNull();
+  });
 });

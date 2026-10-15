@@ -185,7 +185,7 @@ Dashboard features include:
 - Quotes and transfers
 - Price feeds and chains
 - Webhooks, customers, and API keys
-- KV: set the keys providers need (a chain can only use a gas sponsor or deposit notifier once its keys are set)
+- Providers: set the keys providers need (a chain can only use a gas sponsor or deposit notifier once its keys are set)
 
 The public checkout is also served by the app, with routes such as:
 

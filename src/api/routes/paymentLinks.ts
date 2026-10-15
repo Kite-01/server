@@ -1,11 +1,12 @@
 import { EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
+import { formatUnits, parseUnits } from "viem";
+import { Elysia, type Static } from "elysia";
 import { PaymentLinkService } from "../../services/PaymentLink.service";
 import { PriceFeedService } from "../../services/PriceFeed.service";
 import { QuoteService } from "../../services/Quote.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
 import { models } from "../models";
-import { Elysia } from "elysia";
 import { Scope } from "../middlewares/scope";
 import { Auth } from "../middlewares/auth";
 import { t } from "../schema";
@@ -42,6 +43,29 @@ const LineItems = t.Array(
     }),
   }),
 );
+
+// Prices and quantities carry up to 18 decimals each, so totals are compared
+// exactly at 36.
+const assertLineItemsTotal = (
+  amount: string,
+  lineItems: Static<typeof LineItems> | null | undefined,
+) => {
+  if (!lineItems?.length) return;
+
+  const total = lineItems.reduce(
+    (sum, item) =>
+      sum + parseUnits(item.price, 18) * parseUnits(String(item.quantity), 18),
+    0n,
+  );
+
+  if (total !== parseUnits(amount, 36)) {
+    throw new HttpError(
+      422,
+      "ValidationError",
+      `Line items add up to ${formatUnits(total, 36)}, but the amount is ${formatUnits(parseUnits(amount, 36), 36)}`,
+    );
+  }
+};
 
 const Fields = {
   title: t.String({
@@ -84,6 +108,7 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     "/payment-links",
     async ({ actor, body, set }) => {
       await assertSupportedCurrency(body.currency);
+      assertLineItemsTotal(body.amount, body.lineItems);
       const created = await paymentLinkService.createPaymentLink({
         ...body,
         currency: body.currency.toUpperCase(),
@@ -158,6 +183,23 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
     async ({ actor, params, body }) => {
       const appId = await Scope.appFor(actor, "paymentLink", params.id);
       await assertSupportedCurrency(body.currency);
+
+      if (body.amount !== undefined || body.lineItems !== undefined) {
+        const current = await paymentLinkService.getPaymentLink(
+          appId,
+          params.id,
+        );
+        if (!current) {
+          throw new HttpError(404, "NotFound", "Payment link not found");
+        }
+
+        assertLineItemsTotal(
+          body.amount ?? current.amount,
+          body.lineItems ??
+            (current.lineItems as Static<typeof LineItems> | null),
+        );
+      }
+
       const link = await paymentLinkService.updatePaymentLink(
         appId,
         params.id,

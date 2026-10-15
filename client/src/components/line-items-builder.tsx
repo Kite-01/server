@@ -1,4 +1,5 @@
 import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { parseUnits } from "viem";
 import type { PaymentLink } from "@/api/types.gen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,15 @@ export const fromLineItemRows = (rows: LineItemRow[]): LineItem[] =>
     quantity: Number(row.quantity),
     image: row.image.trim() || null,
   }));
+
+// Prices and quantities carry up to 18 decimals each, so the total is exact at
+// 36 decimals.
+export const lineItemsTotal = (items: LineItem[]) =>
+  items.reduce(
+    (sum, item) =>
+      sum + parseUnits(item.price, 18) * parseUnits(String(item.quantity), 18),
+    0n,
+  );
 
 export const LineItemsBuilder = ({
   rows,

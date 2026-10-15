@@ -4,7 +4,8 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { and, eq, desc, count, ilike, or } from "drizzle-orm";
-import { customer } from "../db/schema";
+import { PreconditionError } from "../shared/errors";
+import { customer, quote } from "../db/schema";
 import { omit } from "lodash";
 import { db } from "../db";
 
@@ -75,6 +76,14 @@ export class CustomerService {
   };
 
   deleteCustomer = async (appId: string, customerId: string) => {
+    const [quotes] = await db
+      .select({ count: count() })
+      .from(quote)
+      .where(and(eq(quote.appId, appId), eq(quote.customerId, customerId)));
+
+    if (quotes.count > 0)
+      throw new PreconditionError("Customers with quotes cannot be deleted");
+
     const [row] = await db
       .delete(customer)
       .where(and(eq(customer.appId, appId), eq(customer.id, customerId)))

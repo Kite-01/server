@@ -22,6 +22,13 @@ export const ProviderKeyVars: Record<
         required: true,
       },
     ],
+    [ProviderAction.OnchainNotifier]: [
+      {
+        key: KeyVars.AlchemyAuthToken,
+        type: KeyType.SecureString,
+        required: true,
+      },
+    ],
   },
   [Provider.QuickNode]: {
     [ProviderAction.OnchainNotifier]: [
@@ -44,6 +51,10 @@ export const SettableKeyVars = Object.fromEntries(
 ) as Partial<Record<KeyVars, KeyType>>;
 
 export const KeyVarDependents: Partial<Record<KeyVars, KeyVars[]>> = {
+  [KeyVars.AlchemyAuthToken]: [
+    KeyVars.AlchemyAddressActivity_Webhooks,
+    KeyVars.AlchemyContractEvents_Webhooks,
+  ],
   [KeyVars.QuickNodeApiKey]: [
     KeyVars.QuickNodeEvmWalletFilter_WebhookId,
     KeyVars.QuickNodeEvmContractEvents_WebhookId,

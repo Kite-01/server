@@ -18,10 +18,10 @@ import { Chains } from "@/pages/chains";
 import { Customers } from "@/pages/customers";
 import { Dashboard } from "@/pages/dashboard";
 import { Fees } from "@/pages/fees";
-import { Kv } from "@/pages/kv";
 import { Login } from "@/pages/login";
 import { PaymentLinks } from "@/pages/payment-links";
 import { PriceFeeds } from "@/pages/price-feeds";
+import { Providers } from "@/pages/providers";
 import { Quotes } from "@/pages/quotes";
 import { Transfers } from "@/pages/transfers";
 import { Webhooks } from "@/pages/webhooks";
@@ -71,7 +71,7 @@ export const App = () => {
         <Route path="chains/:chainId" element={<ChainDetail />} />
         <Route path="fees" element={<Fees />} />
         <Route path="apps" element={<Apps />} />
-        <Route path="kv" element={<Kv />} />
+        <Route path="providers" element={<Providers />} />
         <Route path="price-feeds" element={<PriceFeeds />} />
       </Route>
 

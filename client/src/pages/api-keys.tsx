@@ -25,9 +25,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { formatDateTime, shortId } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 import { generateKeyPair } from "@/lib/signing";
+import None from "@/components/none";
 
 type Scope = ApiKey["scopes"][number];
 
@@ -187,11 +189,9 @@ const NewKeyForm = ({
               <span className="flex gap-3 text-xs">
                 {group.scopes.map(([action, scope]) => (
                   <label key={scope} className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="accent-ink"
+                    <Switch
                       checked={scopes.includes(scope)}
-                      onChange={() => toggle(scope)}
+                      onCheckedChange={() => toggle(scope)}
                     />
                     {action}
                   </label>
@@ -286,10 +286,7 @@ export const ApiKeys = () => {
 
   return (
     <>
-      <PageHeader
-        title="API keys"
-        description="Keys are generated in your browser. The server only ever stores the public key."
-      />
+      <PageHeader title="API keys" />
 
       <DataTable
         exportName="api-keys"
@@ -310,40 +307,43 @@ export const ApiKeys = () => {
         }
         columns={[
           {
-            header: "Label",
-            cell: (row) => <span className="font-medium">{row.label}</span>,
-          },
-          {
-            header: "Key ID",
+            header: "ID",
             exportValue: (row) => row.id,
             cell: (row) => (
-              <span className="flex items-center gap-1 font-mono text-xs">
-                {shortId(row.id)}
+              <span className="flex items-center">
+                {shortId(row.id)}...
                 <CopyButton value={row.id} />
               </span>
             ),
           },
           {
-            header: "Scopes",
-            cell: (row) => (
-              <span title={row.scopes.join(", ")}>
-                {row.scopes.length === 0
-                  ? "None"
-                  : `${row.scopes.length} granted`}
-              </span>
-            ),
+            header: "Label",
+            cell: (row) => <span className="font-medium">{row.label}</span>,
           },
           {
-            header: "Origins",
+            header: "Scopes",
             cell: (row) =>
-              row.allowedOrigins?.join(", ") || (
-                <span className="text-muted">Any</span>
+              row.scopes.length === 0 ? (
+                <None />
+              ) : (
+                <span title={row.scopes.join(", ")}>
+                  {row.scopes.length} granted
+                </span>
               ),
+          },
+          {
+            header: "Allowed origins",
+            cell: (row) =>
+              row.allowedOrigins?.join(", ") || <None text="Any" />,
           },
           {
             header: "Last used",
             cell: (row) =>
-              row.lastUsedAt ? formatDateTime(row.lastUsedAt) : "Never",
+              row.lastUsedAt ? (
+                formatDateTime(row.lastUsedAt)
+              ) : (
+                <None text="Never" />
+              ),
           },
           {
             header: "Status",

@@ -1,12 +1,13 @@
+import { type Address, formatUnits } from "viem";
 import { AppError, NotFoundError } from "../shared/errors";
 import { ChainLinkAggregatorV3 } from "../shared/abis/ChainLinkAggregatorV3";
 import { getOnchainActor } from "../shared/onchainActor";
 import { and, eq, desc } from "drizzle-orm";
 import { ChainService } from "./Chain.service";
-import { type Address } from "viem";
 import { priceFeed } from "../db/schema";
 import { getChain } from "../shared/chains";
 import { OneDay } from "../shared/constants";
+import { omit } from "lodash";
 import { db } from "../db";
 
 export class PriceFeedService {
@@ -66,10 +67,22 @@ export class PriceFeedService {
   };
 
   getPriceFeeds = async () => {
-    return db.query.priceFeed.findMany({
+    const rows = await db.query.priceFeed.findMany({
       orderBy: desc(priceFeed.createdAt),
-      with: { chain: true },
+      with: { chain: { with: { config: true } } },
     });
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const answer = await this.readAnswer(row).catch(() => null);
+
+        return {
+          ...row,
+          chain: omit(row.chain, ["config"]),
+          rate: answer === null ? null : formatUnits(answer, row.decimals),
+        };
+      }),
+    );
   };
 
   getSupportedCurrencies = async () => {
@@ -121,18 +134,29 @@ export class PriceFeedService {
     if (!priceFeed)
       throw new NotFoundError("priceFeed", `${baseCurrency}/${quoteCurrency}`);
 
-    const onchainActor = getOnchainActor(
-      getChain(priceFeed.chain.caip2Id).type,
-    );
+    return {
+      answer: await this.readAnswer(priceFeed),
+      decimals: priceFeed.decimals,
+    };
+  };
 
+  private readAnswer = async (
+    feed: Pick<
+      typeof priceFeed.$inferSelect,
+      "address" | "baseCurrency" | "quoteCurrency"
+    > & {
+      chain: { caip2Id: Caip2Id; config: { rpcUrls: string[] | null } | null };
+    },
+  ) => {
+    const onchainActor = getOnchainActor(getChain(feed.chain.caip2Id).type);
     const client = await onchainActor.publicClient(
-      priceFeed.chain.caip2Id,
-      priceFeed.chain?.config?.rpcUrls ?? [],
+      feed.chain.caip2Id,
+      feed.chain.config?.rpcUrls ?? [],
     );
 
     const roundData = await client.readContract({
       abi: ChainLinkAggregatorV3.abi,
-      address: priceFeed.address as Address,
+      address: feed.address as Address,
       functionName: "latestRoundData",
     });
 
@@ -147,14 +171,11 @@ export class PriceFeedService {
       now - updatedAt > BigInt(OneDay)
     ) {
       throw new AppError(
-        `${baseCurrency}/${quoteCurrency} cannot be priced at the moment`,
+        `${feed.baseCurrency}/${feed.quoteCurrency} cannot be priced at the moment`,
       );
     }
 
-    return {
-      answer,
-      decimals: priceFeed.decimals,
-    };
+    return answer;
   };
 
   getPriceFeedByCurrency = async (

@@ -14,7 +14,7 @@ import {
   IconWebhook,
   IconMenu,
   IconX,
-  IconArrowLeft,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
@@ -22,7 +22,6 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/logo";
 import { ProfileMenu } from "@/components/profile-menu";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAppScope } from "@/lib/queries";
 
@@ -38,7 +37,7 @@ const rootItems: Item[] = [
   { to: "/chains", label: "Chains", icon: IconBlocks },
   { to: "/fees", label: "Fees", icon: IconDiscount2 },
   { to: "/apps", label: "Apps", icon: IconAppWindow },
-  { to: "/kv", label: "KV", icon: IconSecretPhrases },
+  { to: "/providers", label: "Providers", icon: IconSecretPhrases },
   { to: "/price-feeds", label: "Price feeds", icon: IconTag },
 ];
 
@@ -76,35 +75,9 @@ const Nav = ({ items }: { items: Item[] }) => (
   </nav>
 );
 
-// Which app the pages act on, and the way back to the server's pages.
-const AppContext = () => {
-  const { appId, name } = useAppScope();
-  const navigate = useNavigate();
-  if (!appId) return null;
-
-  return (
-    <div className="rounded-lg border border-pending/50 bg-pending/20 p-3 flex items-center gap-2">
-      <Button
-        type="button"
-        size={"iconSm"}
-        className="size-6.5"
-        onClick={() => navigate("/apps")}
-      >
-        <IconArrowLeft className="size-3.5" />
-      </Button>
-      {name ? (
-        <p className="font-display text-base font-medium">{name}</p>
-      ) : (
-        <Skeleton className="my-1 h-3 w-24 bg-line" />
-      )}
-    </div>
-  );
-};
-
 const Sidebar = ({ items }: { items: Item[] }) => (
   <>
     <Logo imgClassName="size-7" className="px-1 text-xl" />
-    <AppContext />
     <Nav items={items} />
   </>
 );
@@ -164,29 +137,49 @@ const MobileNav = ({ items }: { items: Item[] }) => {
 };
 
 export const Shell = () => {
-  const { appId } = useAppScope();
+  const { appId, name } = useAppScope();
+  const navigate = useNavigate();
   const items = appId ? appItems(`/apps/${appId}`) : rootItems;
 
   return (
-    <div className="flex min-h-full">
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 md:flex">
-        <Sidebar items={items} />
-      </aside>
+    <div className="mx-auto flex min-h-full max-w-400 flex-col bg-surface/10">
+      {appId && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2.5 text-sm font-medium text-white">
+          <span className="flex items-center gap-2">
+            <IconInfoCircle className="size-4 shrink-0" />
+            You are viewing {name ?? "this app"}, changes you make here apply to
+            this app.
+          </span>
 
-      <main className="min-w-0 flex-1">
-        <header className="flex h-14 items-center justify-between gap-4 px-4 sm:px-8 md:justify-end">
-          <div className="flex items-center gap-1 md:hidden">
-            <MobileNav items={items} />
-            <Logo imgClassName="size-7" hideLabel />
-          </div>
-
-          <ProfileMenu />
-        </header>
-
-        <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-8">
-          <Outlet />
+          <Button
+            size="sm"
+            className="h-9 px-4.5"
+            onClick={() => navigate("/apps")}
+          >
+            Back to apps
+          </Button>
         </div>
-      </main>
+      )}
+      <div className="flex min-h-full">
+        <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 md:flex">
+          <Sidebar items={items} />
+        </aside>
+
+        <main className="min-w-0 flex-1">
+          <header className="flex h-14 items-center justify-between gap-4 px-4 sm:px-8 md:justify-end">
+            <div className="flex items-center gap-1 md:hidden">
+              <MobileNav items={items} />
+              <Logo imgClassName="size-7" hideLabel />
+            </div>
+
+            <ProfileMenu />
+          </header>
+
+          <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

@@ -22,7 +22,7 @@ export const Textarea = ({
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) => (
   <textarea
-    className={cn(field, "min-h-24 py-2 font-mono text-xs", className)}
+    className={cn(field, "min-h-24 py-2 text-xs", className)}
     {...props}
   />
 );

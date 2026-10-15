@@ -130,6 +130,7 @@ export const Customers = () => {
         columns={[
           {
             header: "Customer",
+            exportValue: (row) => row.name ?? row.externalId,
             cell: (row) => (
               <div className="flex items-center gap-3">
                 <span className="flex size-9 items-center justify-center rounded-full bg-pending/10 text-xs font-semibold text-pending">

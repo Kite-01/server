@@ -414,6 +414,41 @@ describe("API resources", () => {
       expect(res3.status).toBe(404);
     });
 
+    it("requires line items to add up to the amount", async () => {
+      const lineItems = [
+        { name: "Seat", price: "4.5", quantity: 2 },
+        { name: "Setup", price: "1", quantity: 1 },
+      ];
+
+      const short = await api.post("/api/payment-links", {
+        ...linkBody,
+        amount: "12",
+        lineItems,
+      });
+      expect(short.status).toBe(422);
+      expect(short.json.error.message).toBe(
+        "Line items add up to 10, but the amount is 12",
+      );
+
+      const created = await api.post("/api/payment-links", {
+        ...linkBody,
+        lineItems,
+      });
+      expect(created.status).toBe(201);
+
+      const path = `/api/payment-links/${created.json.id}`;
+      expect((await api.patch(path, { amount: "12" })).status).toBe(422);
+      expect(
+        (
+          await api.patch(path, {
+            amount: "12",
+            lineItems: [{ name: "Seat", price: "6", quantity: 2 }],
+          })
+        ).status,
+      ).toBe(200);
+      expect((await api.patch(path, { lineItems: [] })).status).toBe(200);
+    });
+
     it.each([
       ["a negative amount", { amount: "-1" }],
       ["too many decimals", { amount: "1.0000000000000000001" }],

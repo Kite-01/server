@@ -1,5 +1,6 @@
 import {
   ApiKeyScope,
+  ChainType,
   FeeType,
   KeyType,
   KeyVars,
@@ -239,7 +240,11 @@ const PriceFeed = t.Object(
 );
 
 const PriceFeedWithChain = t.Object(
-  { ...PriceFeed.properties, chain: ref(Chain) },
+  {
+    ...PriceFeed.properties,
+    chain: ref(Chain),
+    rate: Nullable(t.String()),
+  },
   named("PriceFeedWithChain"),
 );
 
@@ -476,6 +481,12 @@ const ProviderStatus = t.Object(
 const SystemInfo = t.Object(
   {
     version: t.String(),
+    operators: t.Array(
+      t.Object({
+        chainType: t.Enum(ChainType),
+        address: t.String(),
+      }),
+    ),
     chains: t.Array(
       t.Object({
         id: Uuid,

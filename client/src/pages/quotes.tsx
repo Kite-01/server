@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  IconArrowsLeftRight,
+  IconArrowsExchange,
   IconPlus,
   IconReceipt2,
 } from "@tabler/icons-react";
@@ -31,6 +31,7 @@ import {
 import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
 import { toast } from "sonner";
 import { NewTransferDialog } from "./transfers";
+import None from "@/components/none";
 
 const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
   const headers = useAppHeaders();
@@ -95,10 +96,8 @@ const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
       >
         <Input
           required
-          className="font-mono"
           value={address}
           onChange={(event) => setAddress(event.target.value)}
-          placeholder="0x…"
         />
       </Field>
       <Field label="Amount" hint="In the token's own units, e.g. 25.50">
@@ -109,7 +108,7 @@ const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
           onChange={(event) => setAmount(event.target.value)}
         />
       </Field>
-      <Field label="Reference" hint="Optional. Unique per app.">
+      <Field label="Reference (optional)" hint="Unique per app.">
         <Input
           value={reference}
           onChange={(event) => setReference(event.target.value)}
@@ -136,15 +135,13 @@ export const Quotes = () => {
   const navigate = useNavigate();
   const { appId } = useAppScope();
   const headers = useAppHeaders();
+  const chains = useQuery(getApiChainsOptions({ headers }));
   const [creating, setCreating] = useState(false);
   const [transferFor, setTransferFor] = useState<string | null>(null);
 
   return (
     <>
-      <PageHeader
-        title="Quotes"
-        description="Priced payment offers. A quote is valid for five minutes and can open one transfer."
-      />
+      <PageHeader title="Quotes" />
 
       <DataTable
         exportName="quotes"
@@ -154,30 +151,44 @@ export const Quotes = () => {
         empty={{
           icon: IconReceipt2,
           title: "No quotes yet",
-          description:
-            "A quote prices a payment in a token for five minutes. Payment links create them as customers check out.",
+          description: "Quotes created under this app will appear here.",
         }}
         toolbar={
-          <Button onClick={() => setCreating(true)}>
+          <Button
+            disabled={!chains.data?.data.length}
+            onClick={() => setCreating(true)}
+          >
             <IconPlus className="size-4" />
             New quote
           </Button>
         }
         columns={[
           {
-            header: "Quote",
+            header: "ID",
             exportValue: (row) => row.id,
             cell: (row) => (
-              <div>
-                <p className="flex items-center gap-1 font-mono text-xs">
-                  {shortId(row.id)}
-                  <CopyButton value={row.id} />
-                </p>
-                {row.reference && (
-                  <p className="text-xs text-muted">{row.reference}</p>
-                )}
-              </div>
+              <p className="flex items-center">
+                {shortId(row.id)}...
+                <CopyButton value={row.id} />
+              </p>
             ),
+          },
+          {
+            header: "Reference",
+            cell: (row) =>
+              row.reference ? (
+                <p className="flex items-center">
+                  {row.reference}
+                  <CopyButton value={row.reference} />
+                </p>
+              ) : (
+                <None />
+              ),
+          },
+          {
+            header: "Customer",
+            cell: (row) =>
+              row.customer?.name ?? row.customer?.externalId ?? <None />,
           },
           {
             header: "Customer pays",
@@ -185,11 +196,6 @@ export const Quotes = () => {
               `${formatTokenAmount(row.sourceAmount, row.sourceToken.decimals)} ${row.sourceToken.symbol}`,
           },
           { header: "Value", cell: (row) => formatUsd(row.targetUsdAmount) },
-          {
-            header: "Customer",
-            cell: (row) =>
-              row.customer?.name ?? row.customer?.externalId ?? "—",
-          },
           { header: "Created", cell: (row) => formatDateTime(row.createdAt) },
           {
             header: "Status",
@@ -197,7 +203,7 @@ export const Quotes = () => {
               new Date(row.expiresAt) < new Date() ? (
                 <Badge variant="neutral">Expired</Badge>
               ) : (
-                <Badge variant="success">Valid</Badge>
+                <Badge variant="success">Open</Badge>
               ),
           },
           {
@@ -208,7 +214,7 @@ export const Quotes = () => {
                 actions={[
                   {
                     label: "Open transfer",
-                    icon: <IconArrowsLeftRight className="size-4" />,
+                    icon: <IconArrowsExchange className="size-4" />,
                     hidden: new Date(row.expiresAt) < new Date(),
                     onSelect: () => setTransferFor(row.id),
                   },

@@ -256,6 +256,7 @@ export type PriceFeedWithChain = {
   createdAt: string;
   updatedAt: string;
   chain: Chain;
+  rate: string | null;
 };
 
 export type PriceFeedWithChainList = Array<PriceFeedWithChain>;
@@ -599,7 +600,7 @@ export type EventPage = {
 };
 
 export type KvEntry = {
-  key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
+  key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'AlchemyAddressActivity_Webhooks' | 'AlchemyContractEvents_Webhooks' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
   type: 'String' | 'SecureString';
   value: string | null;
   createdAt: string;
@@ -613,7 +614,7 @@ export type ProviderStatus = {
   action: 'GasSponsor' | 'OnchainNotifier';
   configured: boolean;
   keys: Array<{
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'AlchemyAddressActivity_Webhooks' | 'AlchemyContractEvents_Webhooks' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
     type: 'String' | 'SecureString';
     required: boolean;
     set: boolean;
@@ -624,6 +625,10 @@ export type ProviderStatusList = Array<ProviderStatus>;
 
 export type SystemInfo = {
   version: string;
+  operators: Array<{
+    chainType: 'Evm';
+    address: string;
+  }>;
   chains: Array<{
     id: string;
     caip2Id: string;
@@ -1594,7 +1599,7 @@ export type PutApiKvByKeyData = {
     value: string | null;
   };
   path: {
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'AlchemyAddressActivity_Webhooks' | 'AlchemyContractEvents_Webhooks' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
   };
   query?: never;
   url: '/api/kv/{key}';

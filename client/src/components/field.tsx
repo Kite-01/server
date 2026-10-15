@@ -56,7 +56,7 @@ export const CheckboxGroup = <T extends string>({
         <div key={option.value} className="space-y-1">
           <label
             className={cn(
-              "flex w-max items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm transition-colors has-checked:border-ink has-checked:bg-soft",
+              "flex w-max items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-xs transition-colors has-checked:border-ink has-checked:bg-soft",
               disabled
                 ? "cursor-not-allowed bg-soft/50 text-muted"
                 : "cursor-pointer hover:border-ink/30",

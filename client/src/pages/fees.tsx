@@ -6,6 +6,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
+import { formatUnits } from "viem";
 import {
   deleteApiFeesByIdMutation,
   getApiChainsFullOptions,
@@ -30,10 +31,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
-import { formatDate, shortAddress } from "@/lib/format";
+import { formatDate, parseUnits, shortAddress } from "@/lib/format";
 import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
 import { chainName, useSupportedChains } from "./chains";
 import { CopyButton } from "@/components/copy-button";
+import None from "@/components/none";
 
 const FeeForm = ({
   fee,
@@ -46,16 +48,36 @@ const FeeForm = ({
 }) => {
   const headers = useAppHeaders();
   const supported = useSupportedChains();
-  const [values, setValues] = useState({
-    chainId: fee?.chainId ?? chains[0]?.id ?? "",
-    label: fee?.label ?? "",
-    type: fee?.type ?? "Variable",
-    value: fee?.value ?? "",
-    minAmountToCharge: fee?.minAmountToCharge ?? "",
-    maxAmountToCharge: fee?.maxAmountToCharge ?? "",
-    feeAddress: fee?.feeAddress ?? "",
-    condition: JSON.stringify(fee?.condition ?? {}, null, 2),
+  const settlementToken = (chainId: string) =>
+    chains.find((chain) => chain.id === chainId)?.config?.settlementToken;
+
+  const [values, setValues] = useState(() => {
+    // Amounts are stored in the settlement token's smallest unit and edited
+    // in whole tokens when the chain has one.
+    const token = fee && settlementToken(fee.chainId);
+    const amount = (units?: string | null) =>
+      units == null
+        ? ""
+        : token
+          ? formatUnits(BigInt(units), token.decimals)
+          : units;
+
+    return {
+      chainId: fee?.chainId ?? chains[0]?.id ?? "",
+      label: fee?.label ?? "",
+      type: fee?.type ?? "Variable",
+      value: fee?.type === "Fixed" ? amount(fee.value) : (fee?.value ?? ""),
+      minAmountToCharge: amount(fee?.minAmountToCharge),
+      maxAmountToCharge: amount(fee?.maxAmountToCharge),
+      feeAddress: fee?.feeAddress ?? "",
+      condition: JSON.stringify(fee?.condition ?? {}, null, 2),
+    };
   });
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const token = settlementToken(values.chainId);
+  const unitHint = token
+    ? `In ${token.symbol}, the chain's settlement token.`
+    : "In the settlement token's smallest unit.";
   // Null when the stored condition can't be shown in the builder.
   const [rules, setRules] = useState(() => toRules(fee?.condition ?? {}));
   const [conditionError, setConditionError] = useState<string | null>(null);
@@ -97,12 +119,34 @@ const FeeForm = ({
     }
     setConditionError(null);
 
+    const toUnits = (amount: string) =>
+      token ? parseUnits(amount, token.decimals) : amount;
+
+    let value: string;
+    let minAmountToCharge: string | null;
+    let maxAmountToCharge: string | null;
+    try {
+      value =
+        values.type === "Fixed"
+          ? toUnits(values.value.trim())
+          : values.value.trim();
+      minAmountToCharge = values.minAmountToCharge.trim()
+        ? toUnits(values.minAmountToCharge.trim())
+        : null;
+      maxAmountToCharge = values.maxAmountToCharge.trim()
+        ? toUnits(values.maxAmountToCharge.trim())
+        : null;
+    } catch (error) {
+      return setAmountError((error as Error).message);
+    }
+    setAmountError(null);
+
     const body = {
       label: values.label.trim(),
       type: values.type,
-      value: values.value.trim(),
-      minAmountToCharge: values.minAmountToCharge.trim() || null,
-      maxAmountToCharge: values.maxAmountToCharge.trim() || null,
+      value,
+      minAmountToCharge,
+      maxAmountToCharge,
       feeAddress: values.feeAddress.trim() || null,
       condition,
     };
@@ -136,36 +180,39 @@ const FeeForm = ({
         </Field>
         <Field
           label={values.type === "Variable" ? "Basis points" : "Amount"}
-          hint={
-            values.type === "Variable"
-              ? "100 = 1%"
-              : "In the settlement token's smallest unit"
-          }
+          hint={values.type === "Variable" ? "100 = 1%" : unitHint}
         >
           <Input
             required
-            inputMode="numeric"
+            inputMode={values.type === "Fixed" && token ? "decimal" : "numeric"}
             value={values.value}
             onChange={set("value")}
           />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Min. charge (optional)">
+        <Field
+          label="Min. charge (optional)"
+          hint={`The fee is never less than this. ${unitHint}`}
+        >
           <Input
-            inputMode="numeric"
+            inputMode={token ? "decimal" : "numeric"}
             value={values.minAmountToCharge}
             onChange={set("minAmountToCharge")}
           />
         </Field>
-        <Field label="Max. charge (optional)">
+        <Field
+          label="Max. charge (optional)"
+          hint={`The fee is never more than this. ${unitHint}`}
+        >
           <Input
-            inputMode="numeric"
+            inputMode={token ? "decimal" : "numeric"}
             value={values.maxAmountToCharge}
             onChange={set("maxAmountToCharge")}
           />
         </Field>
       </div>
+      {amountError && <p className="text-xs text-danger">{amountError}</p>}
       <Field
         label="Fee address (optional)"
         hint="Defaults to the settlement address."
@@ -238,7 +285,7 @@ export const Fees = () => {
         }}
         toolbar={
           <Button
-            disabled={!chains.data?.length}
+            disabled={!chains.data?.some((chain) => chain.config)}
             onClick={() => setEditing("new")}
           >
             <IconPlus className="size-4" />
@@ -258,15 +305,24 @@ export const Fees = () => {
           },
           {
             header: "Charge",
-            cell: (row) =>
-              row.type === "Variable" ? (
-                `${Number(row.value) / 100}%`
-              ) : (
+            cell: (row) => {
+              if (row.type === "Variable") {
+                return `${Number(row.value) / 100}%`;
+              }
+              const settlementToken = chains.data?.find(
+                (chain) => chain.id === row.chainId,
+              )?.config?.settlementToken;
+
+              if (!settlementToken) return <None />;
+
+              return (
                 <p>
-                  {row.value}
-                  USDC
+                  {formatUnits(BigInt(row.value), settlementToken.decimals)}
+                  &nbsp;
+                  {settlementToken.symbol}
                 </p>
-              ),
+              );
+            },
           },
           {
             header: "Recipient",
@@ -322,10 +378,12 @@ export const Fees = () => {
         onOpenChange={(open) => !open && setEditing(null)}
         title={editing === "new" ? "New fee" : "Edit fee"}
       >
-        {editing !== null && (
+        {/* The form converts amounts with the chain's settlement token, so it
+            waits for the chains. */}
+        {editing !== null && chains.data && (
           <FeeForm
             fee={editing === "new" ? undefined : editing}
-            chains={chains.data ?? []}
+            chains={chains.data}
             onClose={() => setEditing(null)}
           />
         )}

@@ -113,6 +113,9 @@ export enum KeyType {
 export enum KeyVars {
   AlchemyApiKey = "AlchemyApiKey",
   AlchemyGasPolicyId = "AlchemyGasPolicyId",
+  AlchemyAuthToken = "AlchemyAuthToken",
+  AlchemyAddressActivity_Webhooks = "AlchemyAddressActivity_Webhooks",
+  AlchemyContractEvents_Webhooks = "AlchemyContractEvents_Webhooks",
   QuickNodeApiKey = "QuickNodeApiKey",
   QuickNodeEvmWalletFilter_WalletsListName = "QuickNodeEvmWalletFilter_WalletsListName",
   QuickNodeEvmWalletFilter_WebhookId = "QuickNodeEvmWalletFilter_WebhookId",

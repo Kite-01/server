@@ -204,10 +204,7 @@ export const Webhooks = () => {
 
   return (
     <>
-      <PageHeader
-        title="Webhooks"
-        description="Endpoints that receive signed events when payments change."
-      />
+      <PageHeader title="Webhooks" />
 
       <DataTable
         exportName="webhooks"
@@ -229,10 +226,7 @@ export const Webhooks = () => {
           {
             header: "Url",
             cell: (row) => (
-              <div className="flex items-center gap-2">
-                <p className="max-w-xs truncate text-sm">{row.url}</p>
-                <CopyButton value={row.url} />
-              </div>
+              <p className="max-w-xs truncate text-sm">{row.url}</p>
             ),
           },
           {

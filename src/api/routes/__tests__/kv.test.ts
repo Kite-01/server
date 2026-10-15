@@ -53,12 +53,14 @@ describe("configuration values", () => {
   it("reports which providers have their keys set", async () => {
     const res = await client(rootCredentials()).get("/api/kv/providers");
     const byProvider = Object.fromEntries(
-      res.json.map((row: { provider: string }) => [row.provider, row]),
+      res.json.map((row: { provider: string; action: string }) => [
+        `${row.provider}:${row.action}`,
+        row,
+      ]),
     );
 
     expect(res.status).toBe(200);
-    expect(byProvider.Alchemy).toMatchObject({
-      action: "GasSponsor",
+    expect(byProvider["Alchemy:GasSponsor"]).toMatchObject({
       configured: true,
       keys: [
         { key: KeyVars.AlchemyApiKey, type: KeyType.SecureString, set: true },
@@ -66,8 +68,12 @@ describe("configuration values", () => {
       ],
     });
 
-    expect(byProvider.QuickNode).toMatchObject({
-      action: "OnchainNotifier",
+    expect(byProvider["Alchemy:OnchainNotifier"]).toMatchObject({
+      configured: false,
+      keys: [{ key: KeyVars.AlchemyAuthToken, set: false }],
+    });
+
+    expect(byProvider["QuickNode:OnchainNotifier"]).toMatchObject({
       configured: false,
       keys: [{ key: KeyVars.QuickNodeApiKey, set: false }],
     });

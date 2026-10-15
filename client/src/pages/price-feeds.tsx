@@ -20,6 +20,7 @@ import { Input, Select } from "@/components/ui/input";
 import { formatDate, shortAddress } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import { chainName, useSupportedChains } from "./chains";
+import None from "@/components/none";
 
 export const PriceFeeds = () => {
   const feeds = useQuery(getApiPriceFeedsOptions());
@@ -65,7 +66,7 @@ export const PriceFeeds = () => {
         }}
         toolbar={
           <Button
-            disabled={!chains.data?.length}
+            disabled={!chains.data?.some((chain) => chain.config)}
             onClick={() => {
               setChainId(chains.data?.[0]?.id ?? "");
               setAdding(true);
@@ -84,7 +85,11 @@ export const PriceFeeds = () => {
               </span>
             ),
           },
-          { header: "Rate", cell: (row) => 0.0005 },
+          {
+            header: "Rate",
+            exportValue: (row) => row.rate,
+            cell: (row) => row.rate ?? <None text="N/A" />,
+          },
           {
             header: "Aggregator",
             exportValue: (row) => row.decimals,
