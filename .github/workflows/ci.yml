@@ -40,11 +40,11 @@ jobs:
       - run: bun run test
 
   client:
-    name: Ui build
+    name: Platform build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - run: bun run client:build
+      - run: bun run build
