@@ -52,6 +52,7 @@ const FeeForm = ({
     chains.find((chain) => chain.id === chainId)?.config?.settlementToken;
 
   const [values, setValues] = useState(() => {
+    const configuredChains = chains.filter((chain) => chain.config);
     // Amounts are stored in the settlement token's smallest unit and edited
     // in whole tokens when the chain has one.
     const token = fee && settlementToken(fee.chainId);
@@ -63,7 +64,7 @@ const FeeForm = ({
           : units;
 
     return {
-      chainId: fee?.chainId ?? chains[0]?.id ?? "",
+      chainId: fee?.chainId ?? configuredChains[0]?.id ?? "",
       label: fee?.label ?? "",
       type: fee?.type ?? "Variable",
       value: fee?.type === "Fixed" ? amount(fee.value) : (fee?.value ?? ""),
@@ -160,11 +161,13 @@ const FeeForm = ({
       {!fee && (
         <Field label="Chain">
           <Select required value={values.chainId} onChange={set("chainId")}>
-            {chains.map((chain) => (
-              <option key={chain.id} value={chain.id}>
-                {chainName(chain.caip2Id, supported.data)}
-              </option>
-            ))}
+            {chains
+              .filter((chain) => chain.config)
+              .map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chainName(chain.caip2Id, supported.data)}
+                </option>
+              ))}
           </Select>
         </Field>
       )}

@@ -25,6 +25,7 @@ import None from "@/components/none";
 export const PriceFeeds = () => {
   const feeds = useQuery(getApiPriceFeedsOptions());
   const chains = useQuery(getApiChainsFullOptions());
+  const configuredChains = chains.data?.filter((chain) => chain.config) ?? [];
   const supported = useSupportedChains();
   const [adding, setAdding] = useState(false);
   const [chainId, setChainId] = useState("");
@@ -66,9 +67,9 @@ export const PriceFeeds = () => {
         }}
         toolbar={
           <Button
-            disabled={!chains.data?.some((chain) => chain.config)}
+            disabled={configuredChains.length === 0}
             onClick={() => {
-              setChainId(chains.data?.[0]?.id ?? "");
+              setChainId(configuredChains[0]?.id ?? "");
               setAdding(true);
             }}
           >
@@ -133,7 +134,7 @@ export const PriceFeeds = () => {
               value={chainId}
               onChange={(event) => setChainId(event.target.value)}
             >
-              {chains.data?.map((chain) => (
+              {configuredChains.map((chain) => (
                 <option key={chain.id} value={chain.id}>
                   {chainName(chain.caip2Id, supported.data)}
                 </option>

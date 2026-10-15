@@ -1,4 +1,5 @@
 import {
+  IconChevronDown,
   IconDownload,
   IconKey,
   IconPencil,
@@ -179,26 +180,38 @@ const NewKeyForm = ({
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted">Scopes</p>
-        <div className="space-y-2 rounded-xl border border-line p-3">
-          {scopeGroups.map((group) => (
-            <div
-              key={group.label}
-              className="flex items-center justify-between gap-3 text-sm"
-            >
-              <span>{group.label}</span>
-              <span className="flex gap-3 text-xs">
-                {group.scopes.map(([action, scope]) => (
-                  <label key={scope} className="flex items-center gap-1.5">
-                    <Switch
-                      checked={scopes.includes(scope)}
-                      onCheckedChange={() => toggle(scope)}
-                    />
-                    {action}
-                  </label>
-                ))}
-              </span>
-            </div>
-          ))}
+        <div className="divide-y divide-line rounded-xl border border-line">
+          {scopeGroups.map((group) => {
+            const selectedCount = group.scopes.filter(([, scope]) =>
+              scopes.includes(scope),
+            ).length;
+
+            return (
+              <details key={group.label} className="group py-1 px-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-2 text-sm [&::-webkit-details-marker]:hidden">
+                  <span className="text-[13px]">{group.label}</span>
+                  <span className="flex items-center gap-2 text-xs text-muted">
+                    {`${selectedCount}/${group.scopes.length} selected`}
+                    <IconChevronDown className="size-4 transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 pb-3 pt-1 text-xs">
+                  {group.scopes.map(([action, scope]) => (
+                    <label
+                      key={scope}
+                      className="flex items-center gap-1.5 capitalize"
+                    >
+                      <Switch
+                        checked={scopes.includes(scope)}
+                        onCheckedChange={() => toggle(scope)}
+                      />
+                      {action}
+                    </label>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
         </div>
       </div>
 
