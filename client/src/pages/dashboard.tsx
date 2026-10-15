@@ -9,7 +9,7 @@ import {
   IconCoins,
 } from "@tabler/icons-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -46,6 +46,7 @@ import {
 } from "@/lib/format";
 import { useAppHeaders, useAppScope } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import SmartImage from "@/components/smart-image";
 
 type Preset = "today" | "3d" | "7d" | "1m" | "custom";
 
@@ -540,30 +541,40 @@ export const Dashboard = () => {
           ) : (
             <div className="divide-y divide-line">
               {transfers.data?.data.map((transfer) => {
-                const customer = transfer.quote.customer;
-                const who =
-                  customer?.name ?? customer?.externalId ?? "No customer";
-
                 return (
                   <div
                     key={transfer.id}
                     className="flex flex-wrap items-center gap-3 px-4.5 py-3"
                   >
                     <div className="min-w-0 flex-1 basis-40">
-                      <p className="truncate text-sm font-medium">{who}</p>
-                      <p className="truncate font-mono text-xs text-muted">
-                        {appId
-                          ? `#${shortId(transfer.id)}`
-                          : `${transfer.app.name} · #${shortId(transfer.id)}`}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-display text-muted">
+                          #{shortId(transfer.id)}...
+                        </p>
+                        <StatusBadge status={transfer.status} />
+                      </div>
+                      {!appId ? (
+                        <Link
+                          to={`/apps/${transfer.app.id}`}
+                          className="flex items-center gap-1"
+                        >
+                          <SmartImage
+                            url={transfer.app.icon}
+                            className="size-7"
+                          />
+                          <p className="truncate text-sm font-">
+                            {transfer.app.name}
+                          </p>
+                        </Link>
+                      ) : null}
                     </div>
-                    <StatusBadge status={transfer.status} />
-                    <div className="ml-auto min-w-20 text-right">
-                      <p className="text-sm tabular-nums">
+
+                    <div className="ml-auto min-w-20 text-right space-y-1">
+                      <p className="text-sm tabular-nums font-medium">
                         {formatUsd(transfer.quote.targetUsdAmount)}
                       </p>
+
                       <p className="text-xs text-muted">
-                        {transfer.quote.sourceToken.symbol} ·{" "}
                         {formatDate(transfer.createdAt)}
                       </p>
                     </div>
