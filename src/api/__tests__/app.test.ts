@@ -41,7 +41,11 @@ describe("dashboard", { timeout: 60_000 }, () => {
   });
 
   it("is served at the root when enabled", async () => {
-    const app = await loadApp({ KITE_ENABLE_DASHBOARD: "true" });
+    const app = await loadApp({
+      NODE_ENV: "production",
+      KITE_ENABLE_DASHBOARD: "true",
+    });
+
     const root = await get(app, "/");
 
     expect(root.status).toBe(200);
@@ -51,7 +55,11 @@ describe("dashboard", { timeout: 60_000 }, () => {
   });
 
   it("serves built assets with long-lived caching", async () => {
-    const app = await loadApp({ KITE_ENABLE_DASHBOARD: "true" });
+    const app = await loadApp({
+      NODE_ENV: "production",
+      KITE_ENABLE_DASHBOARD: "true",
+    });
+
     const asset = await get(app, "/assets/test.js");
 
     expect(asset.status).toBe(200);
@@ -60,7 +68,11 @@ describe("dashboard", { timeout: 60_000 }, () => {
   });
 
   it("falls back to the app for client-side routes", async () => {
-    const app = await loadApp({ KITE_ENABLE_DASHBOARD: "true" });
+    const app = await loadApp({
+      NODE_ENV: "production",
+      KITE_ENABLE_DASHBOARD: "true",
+    });
+
     const res = await get(app, "/apps/123/customers");
 
     expect(res.status).toBe(200);
@@ -68,7 +80,10 @@ describe("dashboard", { timeout: 60_000 }, () => {
   });
 
   it("returns 404 for missing files, traversal attempts and unknown api paths", async () => {
-    const app = await loadApp({ KITE_ENABLE_DASHBOARD: "true" });
+    const app = await loadApp({
+      NODE_ENV: "production",
+      KITE_ENABLE_DASHBOARD: "true",
+    });
 
     expect((await get(app, "/missing.png")).status).toBe(404);
     expect((await get(app, "/..%2F..%2Fsecret.txt")).status).toBe(404);

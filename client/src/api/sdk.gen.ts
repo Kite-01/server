@@ -302,16 +302,21 @@ export const patchApiFeesById = <ThrowOnError extends boolean = true>(options: O
 export const getApiKv = <ThrowOnError extends boolean = true>(options?: Options<GetApiKvData, ThrowOnError>): RequestResult<GetApiKvResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiKvResponses, unknown, ThrowOnError>({ url: '/api/kv', ...options });
 
 /**
- * List providers and whether their keys are set
+ * List providers secrets configuration status
  */
 export const getApiKvProviders = <ThrowOnError extends boolean = true>(options?: Options<GetApiKvProvidersData, ThrowOnError>): RequestResult<GetApiKvProvidersResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiKvProvidersResponses, unknown, ThrowOnError>({ url: '/api/kv/providers', ...options });
 
 /**
  * Set a provider key
- *
- * Sets one of the keys a provider needs
  */
-export const putApiKvByKey = <ThrowOnError extends boolean = true>(options: Options<PutApiKvByKeyData, ThrowOnError>): RequestResult<PutApiKvByKeyResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiKvByKeyResponses, unknown, ThrowOnError>({ url: '/api/kv/{key}', ...options });
+export const putApiKvByKey = <ThrowOnError extends boolean = true>(options: Options<PutApiKvByKeyData, ThrowOnError>): RequestResult<PutApiKvByKeyResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiKvByKeyResponses, unknown, ThrowOnError>({
+  url: '/api/kv/{key}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * Service version & operator address

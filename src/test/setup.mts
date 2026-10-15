@@ -17,6 +17,7 @@ await admin.end();
 const databaseUrl = new URL(testDbUrl);
 databaseUrl.pathname = `/${database}`;
 
+process.env.NODE_ENV = "development";
 process.env.KITE_PG_DB_URL = databaseUrl.toString();
 process.env.KITE_PUBLIC_BASE_URL = "http://localhost:3000";
 process.env.KITE_ENCRYPTION_KEY = randomBytes(32).toString("base64");

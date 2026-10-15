@@ -866,7 +866,7 @@ export const getApiKvOptions = (options?: Options<GetApiKvData>) => queryOptions
 export const getApiKvProvidersQueryKey = (options?: Options<GetApiKvProvidersData>) => createQueryKey('getApiKvProviders', options);
 
 /**
- * List providers and whether their keys are set
+ * List providers secrets configuration status
  */
 export const getApiKvProvidersOptions = (options?: Options<GetApiKvProvidersData>) => queryOptions<GetApiKvProvidersResponse, DefaultError, GetApiKvProvidersResponse, ReturnType<typeof getApiKvProvidersQueryKey>>({
   queryFn: async ({ queryKey, signal }) => {
@@ -883,8 +883,6 @@ export const getApiKvProvidersOptions = (options?: Options<GetApiKvProvidersData
 
 /**
  * Set a provider key
- *
- * Sets one of the keys a provider needs
  */
 export const putApiKvByKeyMutation = (options?: Partial<Options<PutApiKvByKeyData>>): UseMutationOptions<PutApiKvByKeyResponse, DefaultError, Options<PutApiKvByKeyData>> => {
   const mutationOptions: UseMutationOptions<PutApiKvByKeyResponse, DefaultError, Options<PutApiKvByKeyData>> = {

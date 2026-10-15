@@ -8,7 +8,7 @@ import { node } from "@elysiajs/node";
 import { env } from "../shared/env";
 
 // routes
-import { dashboardDevRoutes, dashsboardRoutes } from "./routes/dashboard";
+import { dashboardDevRoutes, dashboardRoutes } from "./routes/dashboard";
 import { paymentLinkRoutes } from "./routes/paymentLinks";
 import { priceFeedRoutes } from "./routes/priceFeeds";
 import { callbackRoutes } from "./routes/callbacks";
