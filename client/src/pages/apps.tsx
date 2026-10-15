@@ -1,4 +1,10 @@
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  IconAppWindow,
+  IconEye,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -124,10 +130,15 @@ export const Apps = () => {
         options={(query) => getApiAppsAllOptions({ query })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search apps"
-        empty="No apps yet. Create the first one."
+        empty={{
+          icon: IconAppWindow,
+          title: "No apps yet",
+          description:
+            "Create an app for each product or business taking payments.",
+        }}
         toolbar={
           <Button onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             New app
           </Button>
         }
@@ -163,17 +174,17 @@ export const Apps = () => {
                   actions={[
                     {
                       label: "View app",
-                      icon: <Eye className="size-4" />,
+                      icon: <IconEye className="size-4" />,
                       onSelect: () => navigate(`/apps/${row.id}`),
                     },
                     {
                       label: "Edit",
-                      icon: <Pencil className="size-4" />,
+                      icon: <IconPencil className="size-4" />,
                       onSelect: () => setEditing(row),
                     },
                     {
                       label: "Delete",
-                      icon: <Trash2 className="size-4" />,
+                      icon: <IconTrash className="size-4" />,
                       danger: true,
                       onSelect: () => setDeleting(row),
                     },

@@ -1,16 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
-  ExternalLink,
-  FileText,
-  Loader2,
-  RotateCcw,
-  Wallet as WalletIcon,
-  XCircle,
-  Zap,
-} from "lucide-react";
+  IconAlertTriangle,
+  IconArrowBackUp,
+  IconArrowLeft,
+  IconBolt,
+  IconCircleCheck,
+  IconCircleX,
+  IconExternalLink,
+  IconFileText,
+  IconLoader2,
+  IconWallet,
+} from "@tabler/icons-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
@@ -132,7 +132,7 @@ const Choice = ({
 
 const ErrorNote = ({ children }: { children: ReactNode }) => (
   <p className="flex items-start gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger">
-    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+    <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
     <span>{children}</span>
   </p>
 );
@@ -221,45 +221,45 @@ const Status = ({
     chain && hash ? `${chain.blockExplorer.url}/tx/${hash}` : undefined;
 
   const view = !data
-    ? { icon: Loader2, tone: "text-muted", spin: true, title: "Loading…" }
+    ? { icon: IconLoader2, tone: "text-muted", spin: true, title: "Loading…" }
     : data.status === "Settled"
       ? {
-          icon: CheckCircle2,
+          icon: IconCircleCheck,
           tone: "text-success",
           title: "Payment complete",
           text: `${checkout.app.name} has received your payment.`,
         }
       : data.status === "Refunded"
         ? {
-            icon: RotateCcw,
+            icon: IconArrowBackUp,
             tone: "text-warning",
             title: "Payment refunded",
             text: "Your payment couldn't be completed and was sent back to your refund address.",
           }
         : data.status === "Failed" || data.status === "Cancelled"
           ? {
-              icon: XCircle,
+              icon: IconCircleX,
               tone: "text-danger",
               title: "Payment failed",
               text: "This payment couldn't be completed.",
             }
           : expired
             ? {
-                icon: AlertTriangle,
+                icon: IconAlertTriangle,
                 tone: "text-warning",
                 title: "Payment window closed",
                 text: "No payment arrived in time. Anything sent late is returned to your refund address.",
               }
             : Pending.includes(data.status)
               ? {
-                  icon: Loader2,
+                  icon: IconLoader2,
                   tone: "text-brand",
                   spin: true,
                   title: "Waiting for your payment",
                   text: "This updates by itself once your payment is seen on chain.",
                 }
               : {
-                  icon: Loader2,
+                  icon: IconLoader2,
                   tone: "text-brand",
                   spin: true,
                   title: "Payment received",
@@ -288,7 +288,7 @@ const Status = ({
           rel="noreferrer"
           className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
         >
-          View transaction <ExternalLink className="size-3.5" />
+          View transaction <IconExternalLink className="size-3.5" />
         </a>
       )}
       {(expired ||
@@ -354,7 +354,7 @@ const Instructions = ({
       </div>
 
       <p className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-xs text-warning">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+        <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
         Only send {token.symbol} on {chain.name}. Other tokens or networks can't
         be recovered; late or short payments are refunded to{" "}
         {shortAddress(transfer.refundAddress)}.
@@ -582,7 +582,7 @@ export const Pay = () => {
         setStep(to);
       }}
     >
-      <ArrowLeft className="size-4" /> Back
+      <IconArrowLeft className="size-4" /> Back
     </button>
   );
 
@@ -591,13 +591,13 @@ export const Pay = () => {
   if (checkout.isLoading) {
     body = (
       <div className="flex justify-center py-16">
-        <Loader2 className="size-6 animate-spin text-muted" />
+        <IconLoader2 className="size-6 animate-spin text-muted" />
       </div>
     );
   } else if (!checkout.data) {
     body = (
       <div className="space-y-2 py-12 text-center">
-        <XCircle className="mx-auto size-10 text-muted" />
+        <IconCircleX className="mx-auto size-10 text-muted" />
         <h1 className="text-lg font-semibold">Payment link not found</h1>
         <p className="text-sm text-muted">
           It may have been removed. Check the link with whoever sent it.
@@ -628,7 +628,7 @@ export const Pay = () => {
 
         {wallets === null ? (
           <Choice
-            icon={<WalletIcon className="size-5" />}
+            icon={<IconWallet className="size-5" />}
             title="Connect a wallet"
             description="Pay from a browser wallet; gasless where the token allows."
             onClick={chooseWallet}
@@ -642,7 +642,7 @@ export const Pay = () => {
                 w.icon ? (
                   <img src={w.icon} alt="" className="size-6" />
                 ) : (
-                  <WalletIcon className="size-5" />
+                  <IconWallet className="size-5" />
                 )
               }
               title={w.name}
@@ -659,7 +659,7 @@ export const Pay = () => {
         )}
 
         <Choice
-          icon={<FileText className="size-5" />}
+          icon={<IconFileText className="size-5" />}
           title="Pay with payment details"
           description="Get an address and amount to send from any wallet or exchange."
           onClick={() => {
@@ -725,7 +725,7 @@ export const Pay = () => {
         <div className="rounded-xl border border-line px-4">
           <Row label="You pay">
             {quote.isFetching ? (
-              <Loader2 className="ml-auto size-4 animate-spin text-muted" />
+              <IconLoader2 className="ml-auto size-4 animate-spin text-muted" />
             ) : q && token ? (
               <span className="font-medium">
                 {formatUnits(BigInt(q.sourceAmount), token.decimals)}{" "}
@@ -754,7 +754,7 @@ export const Pay = () => {
             <Row label="Network fee">
               {token.x402 ? (
                 <span className="inline-flex items-center gap-1 text-success">
-                  <Zap className="size-3.5" /> None, just sign
+                  <IconBolt className="size-3.5" /> None, just sign
                 </span>
               ) : (
                 `Paid in ${chain?.nativeCurrency.symbol ?? "gas"}`
@@ -796,7 +796,7 @@ export const Pay = () => {
         >
           {busy ? (
             <>
-              <Loader2 className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
               {busy}
             </>
           ) : step.method === "wallet" ? (
@@ -836,7 +836,7 @@ export const Pay = () => {
         {body}
         {busy && step.kind === "method" && (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-            <Loader2 className="size-4 animate-spin" />
+            <IconLoader2 className="size-4 animate-spin" />
             {busy}
           </p>
         )}

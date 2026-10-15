@@ -1,9 +1,8 @@
-import { Search } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Table, Td, Th } from "@/components/ui/table";
-import type { Column } from "@/components/data-table";
+import { TableSearch, TableState, type Column } from "@/components/data-table";
+import type { Empty } from "@/components/empty-state";
 import {
   Checkbox,
   ExportBar,
@@ -22,7 +21,7 @@ type Props<Row> = {
   searchPlaceholder?: string;
   searchText?: (row: Row) => string;
   toolbar?: ReactNode;
-  empty?: string;
+  empty?: Empty;
   exportName?: string;
 };
 
@@ -48,89 +47,84 @@ export const SimpleTable = <Row,>({
   }, [rows, q, searchText]);
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
+    <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3">
         {searchPlaceholder ? (
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <Input
-              className="rounded-full pl-9"
-              placeholder={searchPlaceholder}
-              value={q}
-              onChange={(event) => setQ(event.target.value)}
-            />
-          </div>
+          <TableSearch
+            placeholder={searchPlaceholder}
+            value={q}
+            onChange={setQ}
+          />
         ) : (
           <span />
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <ExportBar
-            count={selection.selected.size}
-            onClear={selection.clear}
-            onExport={() =>
-              exportCsv(exportName, columns, [...selection.selected.values()])
-            }
-          />
+          {visible.length > 0 && (
+            <ExportBar
+              count={selection.selected.size}
+              onClear={selection.clear}
+              onExport={() =>
+                exportCsv(exportName, columns, [...selection.selected.values()])
+              }
+            />
+          )}
           {toolbar}
         </div>
       </div>
 
-      <Table>
-        <thead>
-          <tr>
-            <Th className={selectColumnClass}>
-              <Checkbox
-                label="Select all rows"
-                checked={
-                  visible.length > 0 && visible.every(selection.isSelected)
-                }
-                indeterminate={
-                  visible.some(selection.isSelected) &&
-                  !visible.every(selection.isSelected)
-                }
-                onChange={() => selection.toggleAll(visible)}
-              />
-            </Th>
-            {columns.map((column) => (
-              <Th key={column.header} className={column.className}>
-                {column.header}
-              </Th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((row) => (
-            <tr
-              key={rowKey(row)}
-              className={rowClass(selection.isSelected(row), false)}
-            >
-              <Td className={selectColumnClass}>
+      {visible.length > 0 ? (
+        <Table className="border-t border-line">
+          <thead>
+            <tr>
+              <Th className={selectColumnClass}>
                 <Checkbox
-                  label="Select row"
-                  checked={selection.isSelected(row)}
-                  onChange={() => selection.toggle(row)}
+                  label="Select all rows"
+                  checked={visible.every(selection.isSelected)}
+                  indeterminate={
+                    visible.some(selection.isSelected) &&
+                    !visible.every(selection.isSelected)
+                  }
+                  onChange={() => selection.toggleAll(visible)}
                 />
-              </Td>
+              </Th>
               {columns.map((column) => (
-                <Td key={column.header} className={column.className}>
-                  {column.cell(row)}
-                </Td>
+                <Th key={column.header} className={column.className}>
+                  {column.header}
+                </Th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </Table>
-
-      {loading && (
-        <p className="p-8 text-center text-sm text-muted">Loading…</p>
-      )}
-      {error && (
-        <p className="p-8 text-center text-sm text-danger">{error.message}</p>
-      )}
-      {!loading && !error && visible.length === 0 && (
-        <p className="p-8 text-center text-sm text-muted">
-          {q ? "No results match your search" : empty}
-        </p>
+          </thead>
+          <tbody>
+            {visible.map((row) => (
+              <tr
+                key={rowKey(row)}
+                className={rowClass(selection.isSelected(row), false)}
+              >
+                <Td className={selectColumnClass}>
+                  <Checkbox
+                    label="Select row"
+                    checked={selection.isSelected(row)}
+                    onChange={() => selection.toggle(row)}
+                  />
+                </Td>
+                {columns.map((column) => (
+                  <Td key={column.header} className={column.className}>
+                    {column.cell(row)}
+                  </Td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <div className="border-t border-line">
+          <TableState
+            loading={loading}
+            error={error}
+            searching={!!q.trim()}
+            empty={empty}
+          />
+        </div>
       )}
     </Card>
   );

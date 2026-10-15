@@ -1,5 +1,4 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Checkbox,
@@ -9,12 +8,17 @@ import {
   selectColumnClass,
   useRowSelection,
 } from "@/components/table-export";
+import { EmptyState, toEmptyState, type Empty } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, Td, Th } from "@/components/ui/table";
-import { IconBug, IconLoader2 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
-import { Card } from "./ui/card";
+import {
+  IconAlertTriangle,
+  IconChevronLeft,
+  IconChevronRight,
+  IconSearch,
+} from "@tabler/icons-react";
 
 export type Column<Row> = {
   header: string;
@@ -22,6 +26,82 @@ export type Column<Row> = {
   // What a CSV export holds for this column; defaults to the cell's text.
   exportValue?: (row: Row) => string | number | boolean | null | undefined;
   className?: string;
+};
+
+export const TableSearch = ({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) => (
+  <div className="relative w-full max-w-xs">
+    <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+    <Input
+      className="pl-9"
+      placeholder={placeholder}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  </div>
+);
+
+const LoadingRows = () => (
+  <div className="divide-y divide-line" aria-busy="true" aria-label="Loading">
+    {[0, 1, 2].map((row) => (
+      <div key={row} className="flex items-center gap-4 px-4 py-4">
+        <div className="h-3 w-1/4 animate-pulse rounded-full bg-soft" />
+        <div className="h-3 w-1/6 animate-pulse rounded-full bg-soft" />
+        <div className="ml-auto h-3 w-1/12 animate-pulse rounded-full bg-soft" />
+      </div>
+    ))}
+  </div>
+);
+
+/** What a table shows in place of rows: loading, an error, or why it's empty. */
+export const TableState = ({
+  loading,
+  error,
+  searching,
+  empty,
+  onRetry,
+}: {
+  loading: boolean;
+  error?: Error | null;
+  searching: boolean;
+  empty: Empty;
+  onRetry?: () => void;
+}) => {
+  if (loading) return <LoadingRows />;
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={IconAlertTriangle}
+        title="Couldn't load this"
+        description={error.message}
+        action={
+          onRetry ? (
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              Try again
+            </Button>
+          ) : null
+        }
+      />
+    );
+  }
+
+  return searching ? (
+    <EmptyState
+      icon={IconSearch}
+      title="No results"
+      description="Nothing matches your search. Try another term."
+    />
+  ) : (
+    <EmptyState {...toEmptyState(empty)} />
+  );
 };
 
 type Page = { data: unknown[]; total: number };
@@ -36,7 +116,7 @@ type Props<T extends Page> = {
   rowKey: (row: Row<T>) => string;
   searchPlaceholder?: string;
   toolbar?: ReactNode;
-  empty?: string;
+  empty?: Empty;
   pageSize?: number;
   onRowClick?: (row: Row<T>) => void;
   exportName?: string;
@@ -80,152 +160,131 @@ export const DataTable = <T extends Page>({
   );
   useEffect(() => clearSelection(), [scopeKey, clearSelection]);
 
-  const { data, isLoading, error } = useQuery(options(query));
+  const { data, isLoading, error, refetch } = useQuery(options(query));
 
   const rows = data?.data ?? [];
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
+    <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3">
         {searchPlaceholder ? (
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <Input
-              className="rounded-full pl-10 h-11 font-light"
-              placeholder={searchPlaceholder}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-            />
-          </div>
+          <TableSearch
+            placeholder={searchPlaceholder}
+            value={text}
+            onChange={setText}
+          />
         ) : (
           <span />
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <ExportBar
-            count={selection.selected.size}
-            onClear={selection.clear}
-            onExport={() =>
-              exportCsv(exportName, columns, [...selection.selected.values()])
-            }
-          />
+          {rows.length > 0 && (
+            <ExportBar
+              count={selection.selected.size}
+              onClear={selection.clear}
+              onExport={() =>
+                exportCsv(exportName, columns, [...selection.selected.values()])
+              }
+            />
+          )}
 
           {toolbar}
         </div>
       </div>
 
-      <Table>
-        <thead>
-          <tr>
-            <Th className={selectColumnClass}>
-              <Checkbox
-                label="Select all rows on this page"
-                checked={rows.length > 0 && rows.every(selection.isSelected)}
-                indeterminate={
-                  rows.some(selection.isSelected) &&
-                  !rows.every(selection.isSelected)
-                }
-                onChange={() => selection.toggleAll(rows)}
-              />
-            </Th>
-            {columns.map((column) => (
-              <Th
-                key={column.header}
-                className={cn(
-                  "font-display text-sm font-normal text-black",
-                  column.className,
-                )}
-              >
-                {column.header}
-              </Th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={rowKey(row)}
-              className={rowClass(selection.isSelected(row), !!onRowClick)}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-            >
-              <Td className={selectColumnClass}>
-                <Checkbox
-                  label="Select row"
-                  checked={selection.isSelected(row)}
-                  onChange={() => selection.toggle(row)}
-                />
-              </Td>
-              {columns.map((column) => (
-                <Td key={column.header} className={column.className}>
-                  {column.cell(row)}
-                </Td>
+      {rows.length > 0 ? (
+        <>
+          <Table className="border-t border-line">
+            <thead>
+              <tr>
+                <Th className={selectColumnClass}>
+                  <Checkbox
+                    label="Select all rows on this page"
+                    checked={rows.every(selection.isSelected)}
+                    indeterminate={
+                      rows.some(selection.isSelected) &&
+                      !rows.every(selection.isSelected)
+                    }
+                    onChange={() => selection.toggleAll(rows)}
+                  />
+                </Th>
+                {columns.map((column) => (
+                  <Th key={column.header} className={column.className}>
+                    {column.header}
+                  </Th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={rowKey(row)}
+                  className={rowClass(selection.isSelected(row), !!onRowClick)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                >
+                  <Td className={selectColumnClass}>
+                    <Checkbox
+                      label="Select row"
+                      checked={selection.isSelected(row)}
+                      onChange={() => selection.toggle(row)}
+                    />
+                  </Td>
+                  {columns.map((column) => (
+                    <Td key={column.header} className={column.className}>
+                      {column.cell(row)}
+                    </Td>
+                  ))}
+                </tr>
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+            </tbody>
+          </Table>
 
-      {isLoading && (
-        <div className="h-30 gap-2 flex items-center justify-center">
-          <IconLoader2 className="animate-spin size-5" strokeWidth={1.5} />
-          <span className="font-display">Loading...</span>
+          {pages > 1 || total > pageSize ? (
+            <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-xs text-muted">
+              <span>
+                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}{" "}
+                of {total}
+              </span>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Previous page"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <IconChevronLeft className="size-4" />
+                </Button>
+                <span className="px-1 tabular-nums">
+                  {page} / {pages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  aria-label="Next page"
+                  disabled={page >= pages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <IconChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div className="border-t border-line">
+          <TableState
+            loading={isLoading}
+            error={error}
+            searching={!!q}
+            empty={empty}
+            onRetry={() => void refetch()}
+          />
         </div>
       )}
-
-      {error && (
-        <div className="h-40 gap-3 flex flex-col items-center justify-center">
-          <div className="text-center flex items-center justify-center text-danger">
-            <span className="font-display">{error.message}</span>
-          </div>
-
-          <Button>
-            Report
-            <IconBug strokeWidth={1.5} />
-          </Button>
-        </div>
-      )}
-
-      {!isLoading && !error && rows.length === 0 && (
-        <p className="p-8 text-center text-sm text-muted">
-          {q ? "No results match your search" : empty}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between gap-3 p-4 text-sm text-muted">
-        <span>
-          {total === 0
-            ? "0 results"
-            : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`}
-        </span>
-
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="iconSm"
-            aria-label="Previous page"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-
-          <span className="px-2">
-            {page} / {pages}
-          </span>
-
-          <Button
-            variant="outline"
-            size="iconSm"
-            aria-label="Next page"
-            disabled={page >= pages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
     </Card>
   );
 };

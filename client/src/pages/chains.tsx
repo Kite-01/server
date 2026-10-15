@@ -1,5 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Settings, Trash2 } from "lucide-react";
+import {
+  IconBlocks,
+  IconPlus,
+  IconSettings,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -74,7 +79,12 @@ export const Chains = () => {
         searchText={(row) =>
           `${chainName(row.caip2Id, supported.data)} ${row.caip2Id}`
         }
-        empty="No chains yet. Add the first one."
+        empty={{
+          icon: IconBlocks,
+          title: "No chains yet",
+          description:
+            "Add a network payments can settle on, then configure it.",
+        }}
         toolbar={
           <Button
             onClick={() => {
@@ -82,7 +92,7 @@ export const Chains = () => {
               setAdding(true);
             }}
           >
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             Add chain
           </Button>
         }
@@ -149,12 +159,12 @@ export const Chains = () => {
                 actions={[
                   {
                     label: "Manage",
-                    icon: <Settings className="size-4" />,
+                    icon: <IconSettings className="size-4" />,
                     onSelect: () => navigate(`/chains/${row.id}`),
                   },
                   {
                     label: "Remove",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },

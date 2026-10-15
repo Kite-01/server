@@ -1,4 +1,4 @@
-import { MoreHorizontal } from "lucide-react";
+import { IconDots } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ export const RowActions = ({ actions }: { actions: RowAction[] }) => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="iconSm" aria-label="Actions">
-          <MoreHorizontal className="size-4" />
+          <IconDots className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

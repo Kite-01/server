@@ -1,11 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import {
+  IconArrowLeft,
+  IconBlocks,
+  IconCoins,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   deleteApiChainsByIdMutation,
   deleteApiTokensByIdMutation,
   getApiChainsFullOptions,
+  getApiKvProvidersOptions,
   getApiTokensOptions,
   putApiChainsByIdConfigMutation,
 } from "@/api/@tanstack/react-query.gen";
@@ -13,11 +20,13 @@ import { getApiTokensByChainIdByAddress } from "@/api/sdk.gen";
 import type {
   ChainConfig,
   ChainWithConfig,
+  ProviderStatus,
   TokenWithChain,
 } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/empty-state";
 import { CopyButton } from "@/components/copy-button";
-import { CheckboxGroup, Field } from "@/components/field";
+import { CheckboxGroup, Field, type CheckboxOption } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
@@ -31,20 +40,44 @@ import { chainName, useSupportedChains } from "./chains";
 
 type Provider = ChainConfig["gasSponsorProviders"][number];
 
-const notifierProviders: { value: Provider; label: string }[] = [
-  { value: "QuickNode", label: "QuickNode" },
-];
+// The providers able to act as `action`; those without their keys set can't
+// be picked until they are added in KV.
+const providerOptions = (
+  statuses: ProviderStatus[],
+  action: ProviderStatus["action"],
+): CheckboxOption<Provider>[] =>
+  statuses
+    .filter((status) => status.action === action)
+    .map((status) => ({
+      value: status.provider,
+      label: status.provider,
+      unavailable: status.configured ? undefined : (
+        <>
+          Set its keys in{" "}
+          <Link to="/kv" className="text-ink underline underline-offset-2">
+            KV
+          </Link>{" "}
+          first
+        </>
+      ),
+    }));
 
-const gasSponsorProviders: { value: Provider; label: string }[] = [
-  { value: "Alchemy", label: "Alchemy" },
-];
+const configuredProviders = (
+  statuses: ProviderStatus[],
+  action: ProviderStatus["action"],
+) =>
+  statuses
+    .filter((status) => status.action === action && status.configured)
+    .map((status) => status.provider);
 
 const ConfigurationForm = ({
   chain,
   tokens,
+  providers,
 }: {
   chain: ChainWithConfig;
   tokens: TokenWithChain[];
+  providers: ProviderStatus[];
 }) => {
   const config = chain.config;
   const [values, setValues] = useState({
@@ -55,10 +88,13 @@ const ConfigurationForm = ({
     usdPeggedTokenId: config?.usdPeggedTokenId ?? "",
     settlementAddress: config?.settlementAddress ?? "",
     maxGasPrice: config?.maxGasPrice ?? "",
+    // A new configuration starts with every provider that is ready.
     onchainNotifierProviders:
-      config?.onchainNotifierProviders ?? (["QuickNode"] as Provider[]),
+      config?.onchainNotifierProviders ??
+      configuredProviders(providers, "OnchainNotifier"),
     gasSponsorProviders:
-      config?.gasSponsorProviders ?? (["Alchemy"] as Provider[]),
+      config?.gasSponsorProviders ??
+      configuredProviders(providers, "GasSponsor"),
   });
 
   useEffect(() => {
@@ -193,9 +229,12 @@ const ConfigurationForm = ({
           <Textarea value={values.rpcUrls} onChange={set("rpcUrls")} />
         </Field>
 
-        <Field label="Deposit notifier providers">
+        <Field
+          label="Deposit notifier providers"
+          hint="Watch pay-in addresses and tell the server when deposits land."
+        >
           <CheckboxGroup
-            options={notifierProviders}
+            options={providerOptions(providers, "OnchainNotifier")}
             value={values.onchainNotifierProviders}
             onChange={(next) =>
               setValues({ ...values, onchainNotifierProviders: next })
@@ -203,9 +242,12 @@ const ConfigurationForm = ({
           />
         </Field>
 
-        <Field label="Gas sponsor providers">
+        <Field
+          label="Gas sponsor providers"
+          hint="Pay gas for the operator's settlement transactions."
+        >
           <CheckboxGroup
-            options={gasSponsorProviders}
+            options={providerOptions(providers, "GasSponsor")}
             value={values.gasSponsorProviders}
             onChange={(next) =>
               setValues({ ...values, gasSponsorProviders: next })
@@ -277,7 +319,7 @@ const TokensTab = ({
             </Field>
           </div>
           <Button type="submit" disabled={add.isPending || !address.trim()}>
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             Add token
           </Button>
         </form>
@@ -290,7 +332,12 @@ const TokensTab = ({
         rowKey={(row) => row.id}
         searchPlaceholder="Search tokens"
         searchText={(row) => `${row.symbol} ${row.name} ${row.address}`}
-        empty="No tokens on this chain yet"
+        empty={{
+          icon: IconCoins,
+          title: "No tokens on this chain yet",
+          description:
+            "Add the tokens customers pay with and settle in, by contract address.",
+        }}
         columns={[
           {
             header: "Token",
@@ -324,7 +371,7 @@ const TokensTab = ({
                 actions={[
                   {
                     label: "Remove",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },
@@ -357,6 +404,7 @@ export const ChainDetail = () => {
   const [confirming, setConfirming] = useState(false);
 
   const chains = useQuery(getApiChainsFullOptions());
+  const providers = useQuery(getApiKvProvidersOptions());
   const supported = useSupportedChains();
   const tokens = useQuery(
     getApiTokensOptions({ query: { chainId, pageSize: 100 } }),
@@ -368,8 +416,21 @@ export const ChainDetail = () => {
   });
 
   const chain = chains.data?.find((row) => row.id === chainId);
-  if (chains.isLoading) return null;
-  if (!chain) return <p className="text-sm text-muted">Chain not found.</p>;
+  if (chains.isLoading || providers.isLoading) return null;
+  if (!chain) {
+    return (
+      <EmptyState
+        icon={IconBlocks}
+        title="Chain not found"
+        description="It may have been removed."
+        action={
+          <Link to="/chains" className="text-sm font-medium text-brand">
+            Back to chains
+          </Link>
+        }
+      />
+    );
+  }
 
   return (
     <>
@@ -377,7 +438,7 @@ export const ChainDetail = () => {
         to="/chains"
         className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
       >
-        <ArrowLeft className="size-4" />
+        <IconArrowLeft className="size-4" />
         Chains
       </Link>
 
@@ -386,21 +447,23 @@ export const ChainDetail = () => {
         description={chain.caip2Id}
         action={
           <Button variant="outline" onClick={() => setConfirming(true)}>
-            <Trash2 className="size-4" />
+            <IconTrash className="size-4" />
             Remove chain
           </Button>
         }
       />
 
-      <div className="mb-6 flex gap-1 rounded-full border border-line p-1 text-sm w-fit">
+      <div className="mb-6 flex w-fit gap-0.5 rounded-lg bg-soft p-0.5 text-sm">
         {(["configuration", "tokens"] as const).map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => setTab(item)}
             className={cn(
-              "rounded-full px-4 py-1.5 font-medium capitalize",
-              tab === item ? "bg-ink text-white" : "text-muted hover:text-ink",
+              "rounded-md px-3 py-1.5 font-medium capitalize transition-colors",
+              tab === item
+                ? "bg-surface text-ink shadow-sm"
+                : "text-muted hover:text-ink",
             )}
           >
             {item}
@@ -417,6 +480,7 @@ export const ChainDetail = () => {
           }
           chain={chain}
           tokens={tokens.data?.data ?? []}
+          providers={providers.data ?? []}
         />
       ) : (
         <TokensTab

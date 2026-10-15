@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Label } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export const Field = ({
   label,
@@ -17,38 +18,56 @@ export const Field = ({
   </div>
 );
 
+export type CheckboxOption<T extends string> = {
+  value: T;
+  label: string;
+  /** Why the option can't be picked; the option is disabled when set. */
+  unavailable?: ReactNode;
+};
+
 export const CheckboxGroup = <T extends string>({
   options,
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
+  options: CheckboxOption<T>[];
   value: T[];
   onChange: (value: T[]) => void;
 }) => (
-  <div className="space-y-2">
+  <div className="flex flex-wrap gap-2">
     {options.map((option) => {
       const checked = value.includes(option.value);
+      const disabled = !!option.unavailable && !checked;
 
       return (
-        <label
-          key={option.value}
-          className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-xs has-checked:border-ink has-checked:bg-soft"
-        >
-          <input
-            type="checkbox"
-            className="accent-ink"
-            checked={checked}
-            onChange={() =>
-              onChange(
-                checked
-                  ? value.filter((item) => item !== option.value)
-                  : [...value, option.value],
-              )
-            }
-          />
-          {option.label}
-        </label>
+        <div key={option.value} className="space-y-1">
+          <label
+            className={cn(
+              "flex w-max items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm transition-colors has-checked:border-ink has-checked:bg-soft",
+              disabled
+                ? "cursor-not-allowed bg-soft/50 text-muted"
+                : "cursor-pointer hover:border-ink/30",
+            )}
+          >
+            <input
+              type="checkbox"
+              className="accent-ink"
+              checked={checked}
+              disabled={disabled}
+              onChange={() =>
+                onChange(
+                  checked
+                    ? value.filter((item) => item !== option.value)
+                    : [...value, option.value],
+                )
+              }
+            />
+            {option.label}
+          </label>
+          {option.unavailable ? (
+            <p className="text-xs text-muted">{option.unavailable}</p>
+          ) : null}
+        </div>
       );
     })}
   </div>

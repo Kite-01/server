@@ -1,5 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  IconExternalLink,
+  IconPaywall,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import {
   deleteApiPaymentLinksByIdMutation,
@@ -160,10 +166,15 @@ export const PaymentLinks = () => {
         options={(query) => getApiPaymentLinksOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search payment links"
-        empty="No payment links yet"
+        empty={{
+          icon: IconPaywall,
+          title: "No payment links yet",
+          description:
+            "Create a reusable link customers can pay with any supported token.",
+        }}
         toolbar={
           <Button onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             New payment link
           </Button>
         }
@@ -199,7 +210,7 @@ export const PaymentLinks = () => {
                   aria-label="Open checkout"
                   onClick={() => window.open(payUrl(row.id), "_blank")}
                 >
-                  <ExternalLink className="size-4" />
+                  <IconExternalLink className="size-4" />
                 </Button>
               </span>
             ),
@@ -213,12 +224,12 @@ export const PaymentLinks = () => {
                 actions={[
                   {
                     label: "Edit",
-                    icon: <Pencil className="size-4" />,
+                    icon: <IconPencil className="size-4" />,
                     onSelect: () => setEditing(row),
                   },
                   {
                     label: "Delete",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },

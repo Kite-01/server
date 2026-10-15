@@ -311,7 +311,14 @@ export const getApiKvProviders = <ThrowOnError extends boolean = true>(options?:
  *
  * Sets one of the keys a provider needs, or clears it with null. Keys the server manages itself cannot be set.
  */
-export const putApiKvByKey = <ThrowOnError extends boolean = true>(options: Options<PutApiKvByKeyData, ThrowOnError>): RequestResult<PutApiKvByKeyResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiKvByKeyResponses, unknown, ThrowOnError>({ url: '/api/kv/{key}', ...options });
+export const putApiKvByKey = <ThrowOnError extends boolean = true>(options: Options<PutApiKvByKeyData, ThrowOnError>): RequestResult<PutApiKvByKeyResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiKvByKeyResponses, unknown, ThrowOnError>({
+  url: '/api/kv/{key}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * Service version & operator address

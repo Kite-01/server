@@ -1,4 +1,9 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  IconPencil,
+  IconPlus,
+  IconTrash,
+  IconUserCircle,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import {
   deleteApiCustomersByIdMutation,
@@ -125,10 +130,15 @@ export const Customers = () => {
         options={(query) => getApiCustomersOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search customers"
-        empty="No customers yet"
+        empty={{
+          icon: IconUserCircle,
+          title: "No customers yet",
+          description:
+            "Add the people and businesses who pay, to group their payments.",
+        }}
         toolbar={
           <Button onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             New customer
           </Button>
         }
@@ -179,12 +189,12 @@ export const Customers = () => {
                 actions={[
                   {
                     label: "Edit",
-                    icon: <Pencil className="size-4" />,
+                    icon: <IconPencil className="size-4" />,
                     onSelect: () => setEditing(row),
                   },
                   {
                     label: "Delete",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },

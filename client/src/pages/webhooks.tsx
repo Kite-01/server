@@ -18,7 +18,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
-import { IconListDetails, IconTrash } from "@tabler/icons-react";
+import {
+  IconListDetails,
+  IconSend,
+  IconTrash,
+  IconWebhook,
+} from "@tabler/icons-react";
 
 type Category = Webhook["categories"][number];
 
@@ -148,7 +153,11 @@ const Deliveries = ({ webhook }: { webhook: Webhook }) => {
         })
       }
       rowKey={(row) => row.id}
-      empty="No deliveries yet"
+      empty={{
+        icon: IconSend,
+        title: "No deliveries yet",
+        description: "Events sent to this endpoint are listed here.",
+      }}
       pageSize={8}
       columns={[
         { header: "Attempt", cell: (row) => `#${row.attempt}` },
@@ -205,7 +214,12 @@ export const Webhooks = () => {
         options={(query) => getApiWebhooksOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search webhooks"
-        empty="No webhooks yet"
+        empty={{
+          icon: IconWebhook,
+          title: "No webhooks yet",
+          description:
+            "Add an endpoint to receive signed events when payments change.",
+        }}
         toolbar={<Button onClick={() => setCreating(true)}>New webhook</Button>}
         columns={[
           {

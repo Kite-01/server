@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus, IconTag, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import {
   deleteApiPriceFeedsByIdMutation,
@@ -60,7 +60,12 @@ export const PriceFeeds = () => {
         searchText={(row) =>
           `${row.baseCurrency}/${row.quoteCurrency} ${row.address}`
         }
-        empty="No price feeds yet"
+        empty={{
+          icon: IconTag,
+          title: "No price feeds yet",
+          description:
+            "Add a Chainlink aggregator to price payment links in currencies other than USD.",
+        }}
         toolbar={
           <Button
             disabled={!chains.data?.length}
@@ -69,7 +74,7 @@ export const PriceFeeds = () => {
               setAdding(true);
             }}
           >
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             Add price feed
           </Button>
         }
@@ -105,7 +110,7 @@ export const PriceFeeds = () => {
                 actions={[
                   {
                     label: "Remove",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },

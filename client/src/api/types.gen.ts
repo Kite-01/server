@@ -1588,7 +1588,9 @@ export type GetApiKvProvidersResponses = {
 export type GetApiKvProvidersResponse = GetApiKvProvidersResponses[keyof GetApiKvProvidersResponses];
 
 export type PutApiKvByKeyData = {
-  body?: never;
+  body: {
+    value: string | null;
+  };
   path: {
     key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmWalletFilter_WebhookId' | 'QuickNodeEvmContractEvents_WebhookId' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
   };

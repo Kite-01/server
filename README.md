@@ -46,11 +46,12 @@ flowchart LR
 - App and merchant management
 - Payment links with catalog line items and pricing
 - Checkout quote and transfer creation for supported tokens/chains
+- Swap pricing from Uniswap V3 pool TWAPs, so quotes can't be skewed by moving a pool
 - X402 payment flows and settlement support
 - Chain and token configuration management
 - Fee calculation and policy enforcement
-- Dashboard overview, stats, and recent events
-- API key, customer, webhook, and KV infrastructure
+- Dashboard overview and stats
+- API key, customer, webhook, and KV infrastructure, with provider keys set from the dashboard
 - Static front-end hosting for the dashboard and public pay page
 
 ## Tech stack
@@ -127,6 +128,7 @@ Notes:
 
 ```bash
 bun install
+bun install --cwd client
 ```
 
 ### 2) Prepare the database
@@ -143,13 +145,13 @@ If you need to generate new schema files after changes:
 bun run db:generate
 ```
 
-### 3) Start the API in development mode
+### 3) Start in development mode
 
 ```bash
 bun run dev
 ```
 
-This starts the Bun server with the API and dashboard assets served when built.
+One process on `KITE_PORT` serves the API and the dashboard with hot reload: the dashboard's Vite dev server runs inside the API through the [`elysia-vite-server`](https://github.com/kravetsone/elysia-vite-server) plugin, and the client's SDK is regenerated from the API's OpenAPI spec whenever the server restarts. Use `bun run dev:api` to run the API alone.
 
 ### 4) Build the app
 
@@ -171,13 +173,13 @@ The project includes a React dashboard served from the server when `KITE_ENABLE_
 
 Dashboard features include:
 
-- Overview page with stats and recent activity
+- Overview page with stats, volume, top tokens and recent transfers
 - Apps and app-scoped configuration
 - Payment links management
 - Quotes and transfers
 - Price feeds and chains
 - Webhooks, customers, and API keys
-- KV store access for app metadata
+- KV: set the keys providers need (a chain can only use a gas sponsor or deposit notifier once its keys are set)
 
 The public checkout is also served by the app, with routes such as:
 
@@ -207,6 +209,8 @@ The server exposes most business functionality under the `/api` prefix. Core mod
 - `GET /api/overview/stats`
 - `GET /api/overview/events`
 - `GET /api/chains`
+- `GET /api/kv/providers`
+- `PUT /api/kv/:key`
 - `GET /api/tokens`
 - `GET /api/fees`
 
@@ -237,6 +241,10 @@ Kite uses request signing and scoped access control.
 - `x-kite-nonce`
 
 You can use root-key access for administrative flows or an app-scoped API key for per-app operations. The middleware enforces both app identity and required scopes.
+
+## Pricing
+
+Quotes for payments in a token other than the settlement token are priced from Uniswap V3 time-weighted average prices rather than the pools' spot price. For each pair, Kite reads the pools of every fee tier from the factory behind the chain's `SwapRouter02` (the router transfers swap through), takes the arithmetic mean tick over the last 10 minutes (falling back to 5 minutes, then 1, for pools that keep less history), and prices from the deepest pool. That pool's fee tier is the one the swap uses, and the configured slippage protects the settlement against the spot price moving away from the TWAP.
 
 ## Payment flow
 
@@ -271,9 +279,8 @@ bun src/db/migrate.ts && exec bun src/index.ts
 
 ## Local development notes
 
-- The server uses `bun --watch src/index.ts` for local development.
-- The front-end is built with Vite and bundled into `client/dist`.
-- If you are changing dashboard behavior, run the client build step so the server serves the updated static assets.
+- `bun run dev` runs `bun --watch src/index.ts` with `KITE_DASHBOARD_DEV=true`, which serves the dashboard from Vite inside the same process.
+- Without `KITE_DASHBOARD_DEV`, the server serves the built dashboard from `client/dist` (`bun run build`).
 - The app uses timezone-aware stats and dashboard event queries.
 
 ## Common commands
@@ -291,7 +298,7 @@ bun run lint
 # build client + run type-check
 bun run build
 
-# start local server
+# start the API and dashboard with hot reload
 bun run dev
 
 # migrate database

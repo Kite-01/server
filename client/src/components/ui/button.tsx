@@ -9,14 +9,15 @@ const variants = cva(
       variant: {
         default: "bg-ink text-white hover:bg-ink/85",
         secondary: "bg-soft text-ink hover:bg-line",
-        outline: "border border-line bg-surface text-ink hover:bg-soft",
+        outline:
+          "border border-line bg-surface text-ink shadow-[0_1px_0_var(--color-line)] hover:bg-soft",
         ghost: "text-ink hover:bg-soft",
         danger: "bg-danger text-white hover:bg-danger/90",
       },
       size: {
-        default: "h-10.5 px-5",
+        default: "h-9 px-4",
         sm: "h-8 px-3 text-xs",
-        icon: "size-10",
+        icon: "size-9",
         iconSm: "size-8",
       },
     },

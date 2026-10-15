@@ -1,5 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  IconDiscount2,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import {
   deleteApiFeesByIdMutation,
@@ -210,13 +215,17 @@ export const Fees = () => {
         options={(query) => getApiFeesOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search fees"
-        empty="No fees yet"
+        empty={{
+          icon: IconDiscount2,
+          title: "No fees yet",
+          description: "Add a fixed or percentage fee to take from payments.",
+        }}
         toolbar={
           <Button
             disabled={!chains.data?.length}
             onClick={() => setEditing("new")}
           >
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             New fee
           </Button>
         }
@@ -286,13 +295,13 @@ export const Fees = () => {
                 actions={[
                   {
                     label: "Edit",
-                    icon: <Pencil className="size-4" />,
+                    icon: <IconPencil className="size-4" />,
                     hidden: !!appId && !row.appId,
                     onSelect: () => setEditing(row),
                   },
                   {
                     label: "Delete",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     hidden: !!appId && !row.appId,
                     onSelect: () => setDeleting(row),

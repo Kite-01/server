@@ -1,4 +1,11 @@
-import { Download, Pencil, Plus, ShieldOff, Trash2 } from "lucide-react";
+import {
+  IconDownload,
+  IconKey,
+  IconPencil,
+  IconPlus,
+  IconShieldOff,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import {
   deleteApiApiKeyByIdMutation,
@@ -289,10 +296,15 @@ export const ApiKeys = () => {
         options={(query) => getApiApiKeyOptions({ query, headers })}
         rowKey={(row) => row.id}
         searchPlaceholder="Search API keys"
-        empty="No API keys yet"
+        empty={{
+          icon: IconKey,
+          title: "No API keys yet",
+          description:
+            "Create a key to call the API from your backend. Its private key never leaves your browser.",
+        }}
         toolbar={
           <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
+            <IconPlus className="size-4" />
             New API key
           </Button>
         }
@@ -352,7 +364,7 @@ export const ApiKeys = () => {
                 actions={[
                   {
                     label: "Rename",
-                    icon: <Pencil className="size-4" />,
+                    icon: <IconPencil className="size-4" />,
                     onSelect: () => {
                       setLabel(row.label);
                       setRenaming(row);
@@ -360,13 +372,13 @@ export const ApiKeys = () => {
                   },
                   {
                     label: "Revoke",
-                    icon: <ShieldOff className="size-4" />,
+                    icon: <IconShieldOff className="size-4" />,
                     hidden: !!row.revokedAt,
                     onSelect: () => setRevoking(row),
                   },
                   {
                     label: "Delete",
-                    icon: <Trash2 className="size-4" />,
+                    icon: <IconTrash className="size-4" />,
                     danger: true,
                     onSelect: () => setDeleting(row),
                   },
@@ -413,7 +425,7 @@ export const ApiKeys = () => {
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={download}>
-                <Download className="size-4" />
+                <IconDownload className="size-4" />
                 Download
               </Button>
               <Button onClick={() => setCreated(null)}>I have saved it</Button>

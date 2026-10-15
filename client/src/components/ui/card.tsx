@@ -6,7 +6,7 @@ export const Card = ({
   ...props
 }: HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("rounded-2xl border border-line bg-surface", className)}
+    className={cn("rounded-xl border border-line bg-surface", className)}
     {...props}
   />
 );

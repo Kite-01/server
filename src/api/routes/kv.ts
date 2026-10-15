@@ -33,6 +33,7 @@ export const kvRoutes = new Elysia({ name: "KvRoute" })
     "/kv/:key",
     ({ params, body }) => kv.setProviderKey(params.key, body.value),
     {
+      parse: "json",
       params: t.Object({ key: t.Enum(KeyVars) }),
       body: t.Object({
         value: t.Union([t.String({ minLength: 1 }), t.Null()]),
