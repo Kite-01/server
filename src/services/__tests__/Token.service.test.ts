@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError, NotFoundError } from "../../shared/errors";
 import { fakeActor, resetMocks } from "../../test/mocks";
 import { TokenService } from "../Token.service";
+import { env } from "../../shared/env";
 
 const httpGet = vi.hoisted(() => vi.fn());
 
@@ -145,6 +146,42 @@ describe("TokenService", () => {
       await expect(service.getTokenByAddress(chainId, TOKEN)).rejects.toThrow(
         new AppError("Could not get meta information for token"),
       );
+    });
+
+    it("reads testnet tokens on-chain, since Trust Wallet lists none", async () => {
+      env.KITE_IS_TESTNET = true;
+
+      try {
+        const sepolia = (await createConfiguredChain("eip155:11155111")).chain
+          .id;
+        multicall
+          .mockResolvedValueOnce([
+            { result: "USDC" },
+            { result: "2" },
+            { result: false },
+          ])
+          .mockResolvedValueOnce([
+            { result: "USDC" },
+            { result: "USDC" },
+            { result: 6 },
+          ]);
+
+        const saved = await service.getTokenByAddress(sepolia, TOKEN);
+        const native = await service.getTokenByAddress(sepolia, ZERO);
+
+        expect(saved).toMatchObject({
+          symbol: "USDC",
+          decimals: 6,
+          version: "2",
+          supportsEIP3009: true,
+          icon: null,
+        });
+
+        expect(native).toMatchObject({ symbol: "ETH", icon: null });
+        expect(httpGet).not.toHaveBeenCalled();
+      } finally {
+        env.KITE_IS_TESTNET = false;
+      }
     });
 
     it("saves a token once when requested concurrently", async () => {

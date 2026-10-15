@@ -172,6 +172,10 @@ export class TransferService {
     address: string,
     providers: Provider[],
   ) => {
+    if (!providers.length) {
+      return;
+    }
+
     const options = await this.sdkOptions();
 
     await Promise.all([
@@ -524,6 +528,10 @@ export class TransferService {
 
     const transferId = common.uuidv4();
     const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
+    const router = chain.contracts.UniswapSwapRouter02;
+    if (!isSameToken && !router)
+      throw new AppError("This chain has no swap router");
+
     const struct = kite.buildTransferInput({
       transferId,
       payInTokenAddress: quote_.sourceToken.address,
@@ -538,9 +546,7 @@ export class TransferService {
       })),
       refundAddress,
       expiresAt: quote_.expiresAt,
-      routerAddress: isSameToken
-        ? zeroAddress
-        : chain.contracts.Uniswap.SwapRouter02,
+      routerAddress: isSameToken || !router ? zeroAddress : router,
       poolFeeTier: quote_.uniswapPoolFeeTier ?? 0,
     });
 

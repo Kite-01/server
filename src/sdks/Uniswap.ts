@@ -136,9 +136,14 @@ export class Uniswap implements UniswapQuoter {
       return cached;
     }
 
+    const router = getChain(caip2Id).contracts.UniswapSwapRouter02;
+    if (!router) {
+      return null;
+    }
+
     const result = await this.ethCall(
       caip2Id,
-      getChain(caip2Id).contracts.Uniswap.SwapRouter02,
+      router,
       encodeFunctionData({
         abi: Uniswap.RouterAbi,
         functionName: "factory",

@@ -1,9 +1,8 @@
 import { Digits, EvmAddress, t, Uuid, UuidIdParams } from "../schema";
+import { getChain, getSupportedChains } from "../../shared/chains";
 import { ChainService } from "../../services/Chain.service";
 import { HttpError } from "../../shared/errors";
 import { Provider } from "../../shared/constants";
-import { getChain } from "../../shared/chains";
-import { Chains } from "../../shared/chains/registry";
 import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
@@ -62,10 +61,11 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
   .get(
     "/chains/supported",
     () => {
-      return Object.values(Chains).map((chain) => ({
+      return getSupportedChains().map((chain) => ({
         caip2Id: chain.caip2Id,
         name: chain.name,
         chainId: chain.chainId,
+        testnet: !!chain.testnet,
         nativeCurrency: chain.nativeCurrency,
         blockExplorer: chain.blockExplorer,
         confirmations: chain.confirmations,

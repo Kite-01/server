@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { App } from "./App";
 import { SessionProvider } from "./lib/session";
+import { TooltipProvider } from "./components/ui/tooltip";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -18,8 +19,10 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
         <BrowserRouter>
-          <App />
-          <Toaster position="bottom-right" />
+          <TooltipProvider>
+            <App />
+          </TooltipProvider>
+          <Toaster position="bottom-right" richColors />
         </BrowserRouter>
       </SessionProvider>
     </QueryClientProvider>

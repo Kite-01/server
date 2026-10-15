@@ -17,9 +17,14 @@ import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
+import {
+  fromTraitRows,
+  toTraitRows,
+  TraitsBuilder,
+} from "@/components/traits-builder";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Textarea } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { formatDate, initials, shortId } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 
@@ -32,8 +37,8 @@ const CustomerForm = ({
 }) => {
   const [externalId, setExternalId] = useState(customer?.externalId ?? "");
   const [name, setName] = useState(customer?.name ?? "");
-  const [traits, setTraits] = useState(
-    customer?.traits ? JSON.stringify(customer.traits, null, 2) : "",
+  const [traits, setTraits] = useState(() =>
+    toTraitRows(customer?.traits ?? null),
   );
   const [traitsError, setTraitsError] = useState<string | null>(null);
 
@@ -46,28 +51,15 @@ const CustomerForm = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
 
-    let parsed: Customer["traits"] = null;
-    if (traits.trim()) {
-      try {
-        parsed = JSON.parse(traits);
-      } catch {
-        return setTraitsError("Traits must be valid JSON");
-      }
-    }
-
-    if (
-      parsed !== null &&
-      (typeof parsed !== "object" || Array.isArray(parsed))
-    ) {
-      return setTraitsError("Traits must be a JSON object");
-    }
+    const result = fromTraitRows(traits);
+    if ("error" in result) return setTraitsError(result.error);
 
     setTraitsError(null);
     save.mutate({
       body: {
         externalId: externalId.trim(),
         name: name.trim() || null,
-        traits: parsed,
+        traits: result.traits,
       },
     });
   };
@@ -87,13 +79,9 @@ const CustomerForm = ({
       </Field>
       <Field
         label="Traits"
-        hint="Optional JSON object. Fees can target customers by trait."
+        hint="Optional. Fees can target customers by trait."
       >
-        <Textarea
-          value={traits}
-          onChange={(event) => setTraits(event.target.value)}
-          placeholder='{ "plan": "pro" }'
-        />
+        <TraitsBuilder rows={traits} onChange={setTraits} />
         {traitsError && <p className="text-xs text-danger">{traitsError}</p>}
       </Field>
       <div className="flex justify-end gap-2 pt-2">

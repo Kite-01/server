@@ -68,6 +68,7 @@ export class CheckoutService {
           caip2Id: chain.caip2Id,
           name: meta.name,
           chainId: meta.chainId,
+          testnet: !!meta.testnet,
           nativeCurrency: meta.nativeCurrency,
           blockExplorer: meta.blockExplorer,
           rpcUrls: [...meta.publicRpcUrls],

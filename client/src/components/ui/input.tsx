@@ -14,7 +14,7 @@ export const Input = ({
   className,
   ...props
 }: InputHTMLAttributes<HTMLInputElement>) => (
-  <input className={cn(field, "h-9", className)} {...props} />
+  <input className={cn(field, "h-9.5", className)} {...props} />
 );
 
 export const Textarea = ({
@@ -34,7 +34,11 @@ export const Select = ({
 }: SelectHTMLAttributes<HTMLSelectElement> & { wrapperClassName?: string }) => (
   <div className={cn("relative w-full", wrapperClassName)}>
     <select
-      className={cn(field, "h-9 appearance-none bg-no-repeat pr-8", className)}
+      className={cn(
+        field,
+        "h-9.5 appearance-none bg-no-repeat pr-8",
+        className,
+      )}
       {...props}
     />
 

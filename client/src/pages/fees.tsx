@@ -10,14 +10,17 @@ import {
   deleteApiFeesByIdMutation,
   getApiChainsFullOptions,
   getApiFeesOptions,
+  getApiTokensOptions,
   patchApiFeesByIdMutation,
   postApiFeesMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type {
-  ChainWithConfig,
-  FeeWithChain,
-  PostApiFeesData,
-} from "@/api/types.gen";
+import type { ChainWithConfig, FeeWithChain } from "@/api/types.gen";
+import {
+  ConditionBuilder,
+  fromRules,
+  toRules,
+  type Condition,
+} from "@/components/condition-builder";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
@@ -30,8 +33,6 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { shortAddress } from "@/lib/format";
 import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
 import { chainName, useSupportedChains } from "./chains";
-
-type Condition = PostApiFeesData["body"]["condition"];
 
 const FeeForm = ({
   fee,
@@ -54,7 +55,15 @@ const FeeForm = ({
     feeAddress: fee?.feeAddress ?? "",
     condition: JSON.stringify(fee?.condition ?? {}, null, 2),
   });
+  // Null when the stored condition can't be shown in the builder.
+  const [rules, setRules] = useState(() => toRules(fee?.condition ?? {}));
   const [conditionError, setConditionError] = useState<string | null>(null);
+
+  const tokens = useQuery(
+    getApiTokensOptions({
+      query: { chainId: values.chainId, pageSize: 100 },
+    }),
+  );
 
   const create = useMutate(postApiFeesMutation({ headers }), {
     success: "Fee created",
@@ -74,10 +83,16 @@ const FeeForm = ({
     event.preventDefault();
 
     let condition: Condition;
-    try {
-      condition = JSON.parse(values.condition || "{}");
-    } catch {
-      return setConditionError("The condition must be valid JSON");
+    if (rules) {
+      const result = fromRules(rules);
+      if ("error" in result) return setConditionError(result.error);
+      condition = result.condition;
+    } else {
+      try {
+        condition = JSON.parse(values.condition || "{}");
+      } catch {
+        return setConditionError("The condition must be valid JSON");
+      }
     }
     setConditionError(null);
 
@@ -114,8 +129,8 @@ const FeeForm = ({
       <div className="grid grid-cols-2 gap-3">
         <Field label="Type">
           <Select value={values.type} onChange={set("type")}>
-            <option value="Variable">Variable (basis points)</option>
-            <option value="Fixed">Fixed (token base units)</option>
+            <option value="Variable">Variable</option>
+            <option value="Fixed">Fixed</option>
           </Select>
         </Field>
         <Field
@@ -135,14 +150,14 @@ const FeeForm = ({
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Minimum charge">
+        <Field label="Min. charge (optional)">
           <Input
             inputMode="numeric"
             value={values.minAmountToCharge}
             onChange={set("minAmountToCharge")}
           />
         </Field>
-        <Field label="Maximum charge">
+        <Field label="Max. charge (optional)">
           <Input
             inputMode="numeric"
             value={values.maxAmountToCharge}
@@ -151,25 +166,32 @@ const FeeForm = ({
         </Field>
       </div>
       <Field
-        label="Fee address"
-        hint="Optional. Defaults to the settlement address."
+        label="Fee address (optional)"
+        hint="Defaults to the settlement address."
       >
-        <Input
-          className="font-mono"
-          value={values.feeAddress}
-          onChange={set("feeAddress")}
-          placeholder="0x…"
-        />
+        <Input value={values.feeAddress} onChange={set("feeAddress")} />
       </Field>
       <Field
-        label="Condition"
-        hint='JSON. Keys: customer, sourceCurrency, targetCurrency, sourceAmount. Example: { "sourceAmount": { "_gte": "1000000" } }'
+        label="Conditions (optional)"
+        hint={
+          rules
+            ? "The fee is charged on payments that match every condition, or on every payment when there are none."
+            : 'This condition uses options the builder can\'t show, so it is edited as JSON. Keys: customer, sourceCurrency, targetCurrency, sourceAmount. Example: { "sourceAmount": { "_gte": "1000000" } }'
+        }
       >
-        <Textarea
-          className="min-h-28"
-          value={values.condition}
-          onChange={set("condition")}
-        />
+        {rules ? (
+          <ConditionBuilder
+            rules={rules}
+            tokens={tokens.data?.data ?? []}
+            onChange={setRules}
+          />
+        ) : (
+          <Textarea
+            className="min-h-28"
+            value={values.condition}
+            onChange={set("condition")}
+          />
+        )}
         {conditionError && (
           <p className="text-xs text-danger">{conditionError}</p>
         )}
@@ -201,14 +223,7 @@ export const Fees = () => {
 
   return (
     <>
-      <PageHeader
-        title="Fees"
-        description={
-          appId
-            ? "Fees charged on this app's payments, plus the system-wide fees that also apply."
-            : "System-wide fees. They apply to every app."
-        }
-      />
+      <PageHeader title="Fees" />
 
       <DataTable
         exportName="fees"

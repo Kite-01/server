@@ -4,13 +4,23 @@ import {
   erc20Abi,
   type Hex,
 } from "viem";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { address, USDC, ZERO } from "../../test/factories";
+import { KeyType, KeyVars } from "../../shared/constants";
 import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
 import { createHmac } from "node:crypto";
+import { KvService } from "../../services/Kv.service";
 import { QuickNode } from "../QuickNode";
-import { KeyVars } from "../../shared/constants";
 import { common } from "../../shared/common";
+
+const http = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+
+vi.mock("../Http", () => ({
+  Http: class {
+    get = http.get;
+    post = http.post;
+  },
+}));
 
 const quickNode = new QuickNode();
 
@@ -262,5 +272,156 @@ describe("QuickNode callbacks", () => {
         }),
       ]);
     });
+  });
+});
+
+describe("QuickNode notifiers", () => {
+  const kv = new KvService();
+  const PAYIN = address(0xca11);
+  const OTHER = address(0xbeef);
+  const THIRD = address(0xc0ffee);
+
+  let lists: Map<string, string[]>;
+
+  const sdkOptions = async () => ({
+    variables: {
+      ...(await kv.getSdkOptionVariables()),
+      [KeyVars.QuickNodeApiKey]: "qn-key",
+    },
+  });
+
+  const webhookPosts = () =>
+    http.post.mock.calls.filter(([url]) => String(url).startsWith("/webhooks"));
+
+  const storedWebhookIds = async (key: KeyVars) =>
+    JSON.parse((await kv.getKv(key))?.value ?? "null");
+
+  beforeEach(() => {
+    lists = new Map();
+    http.get.mockReset();
+    http.post.mockReset();
+
+    http.get.mockImplementation(async (url: string) => {
+      const items = lists.get(url.replace("/kv/rest/v1/lists/", ""));
+      return items
+        ? { isOk: true, data: { data: { items } } }
+        : { isOk: false, statusCode: 404 };
+    });
+
+    http.post.mockImplementation(async (url: string, body: any) => {
+      if (url === "/kv/rest/v1/lists") {
+        lists.set(body.key, [...body.items]);
+        return { isOk: true, data: {} };
+      }
+
+      const item = url.match(/^\/kv\/rest\/v1\/lists\/(.+)\/items$/);
+      if (item) {
+        lists.get(item[1])!.push(body.item);
+        return { isOk: true, data: {} };
+      }
+
+      const template = url.match(
+        /^\/webhooks\/rest\/v1\/webhooks\/template\/(.+)$/,
+      );
+      if (template) {
+        return { isOk: true, data: { id: `${template[1]}:${body.network}` } };
+      }
+
+      return { isOk: false, statusCode: 404 };
+    });
+  });
+
+  it("creates one webhook per network, with its filter at the top level", async () => {
+    await quickNode.trackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      await sdkOptions(),
+    );
+    await quickNode.trackAddressActivity(
+      { caip2Id: "eip155:1", address: OTHER },
+      await sdkOptions(),
+    );
+    await quickNode.trackAddressActivity(
+      { caip2Id: "eip155:8453", address: THIRD },
+      await sdkOptions(),
+    );
+
+    expect(webhookPosts().map(([url, body]) => [url, body.network])).toEqual([
+      ["/webhooks/rest/v1/webhooks/template/evmWalletFilter", "base-mainnet"],
+      [
+        "/webhooks/rest/v1/webhooks/template/evmWalletFilter",
+        "ethereum-mainnet",
+      ],
+    ]);
+
+    const [, body] = webhookPosts()[0];
+    expect(body.templateArgs).toEqual({
+      walletsListName: "evmWalletFilterWalletsList",
+    });
+    expect(body.destination_attributes).toEqual({
+      url: "http://localhost:3000/callback/QuickNode/addressActivity",
+      security_token: expect.any(String),
+      compression: "gzip",
+    });
+
+    expect(
+      await storedWebhookIds(KeyVars.QuickNodeEvmWalletFilter_WebhookId),
+    ).toEqual({
+      "base-mainnet": "evmWalletFilter:base-mainnet",
+      "ethereum-mainnet": "evmWalletFilter:ethereum-mainnet",
+    });
+    expect(http.get).toHaveBeenCalledWith(
+      "/kv/rest/v1/lists/evmWalletFilterWalletsList",
+    );
+    expect(lists.get("evmWalletFilterWalletsList")).toEqual([
+      PAYIN.toLowerCase(),
+      OTHER.toLowerCase(),
+      THIRD.toLowerCase(),
+    ]);
+  });
+
+  it("signs both first webhooks with one token when they are created together", async () => {
+    const options = await sdkOptions();
+
+    await Promise.all([
+      quickNode.trackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        options,
+      ),
+      quickNode.trackKiteContractEvent(
+        { caip2Id: "eip155:8453", contractAddress: PAYIN },
+        options,
+      ),
+    ]);
+
+    const tokens = webhookPosts().map(
+      ([, body]) => body.destination_attributes.security_token,
+    );
+    expect(tokens).toHaveLength(2);
+    expect(tokens[1]).toBe(tokens[0]);
+    expect((await kv.getKv(KeyVars.QuickNodeWebhookSecurityToken))?.value).toBe(
+      tokens[0],
+    );
+    expect(webhookPosts()[1][1].templateArgs).toEqual({
+      contractsListName: "evmContractEventsContractsListName",
+      eventHashesListName: "evmContractEventsEventHashesListName",
+    });
+  });
+
+  it("starts over from a webhook id stored before ids were kept per network", async () => {
+    await kv.upsertKv({
+      key: KeyVars.QuickNodeEvmWalletFilter_WebhookId,
+      type: KeyType.String,
+      value: "legacy-webhook-id",
+    });
+
+    await quickNode.trackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      await sdkOptions(),
+    );
+
+    expect(webhookPosts()).toHaveLength(1);
+    expect(
+      await storedWebhookIds(KeyVars.QuickNodeEvmWalletFilter_WebhookId),
+    ).toEqual({ "base-mainnet": "evmWalletFilter:base-mainnet" });
   });
 });

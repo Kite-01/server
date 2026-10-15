@@ -23,6 +23,7 @@ process.env.KITE_PUBLIC_BASE_URL = "http://localhost:3000";
 process.env.KITE_ENCRYPTION_KEY = randomBytes(32).toString("base64");
 process.env.KITE_OPERATOR_MNEMONIC = testMnemonic;
 process.env.KITE_ROOT_KEY = rootKey;
+process.env.KITE_IS_TESTNET = "false";
 
 const resetClient = postgres(databaseUrl.toString(), {
   max: 1,

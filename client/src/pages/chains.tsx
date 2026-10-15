@@ -25,8 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { shortAddress } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
+import None from "@/components/none";
 
 export const useSupportedChains = () =>
   useQuery(getApiChainsSupportedOptions());
@@ -64,10 +64,7 @@ export const Chains = () => {
 
   return (
     <>
-      <PageHeader
-        title="Chains"
-        description="Networks payments can settle on. Add a chain, then configure it."
-      />
+      <PageHeader title="Chains" />
 
       <SimpleTable
         exportName="chains"
@@ -100,16 +97,9 @@ export const Chains = () => {
           {
             header: "Chain",
             cell: (row) => (
-              <button
-                type="button"
-                className="text-left"
-                onClick={() => navigate(`/chains/${row.id}`)}
-              >
-                <p className="font-medium">
-                  {chainName(row.caip2Id, supported.data)}
-                </p>
-                <p className="text-xs text-muted">{row.caip2Id}</p>
-              </button>
+              <p className="font-medium">
+                {chainName(row.caip2Id, supported.data)}
+              </p>
             ),
           },
           {
@@ -123,19 +113,7 @@ export const Chains = () => {
           },
           {
             header: "Settlement token",
-            cell: (row) => row.config?.settlementToken.symbol ?? "—",
-          },
-          {
-            header: "Factory",
-            exportValue: (row) => row.config?.kiteFactoryAddress,
-            cell: (row) =>
-              row.config ? (
-                <span className="font-mono text-xs">
-                  {shortAddress(row.config.kiteFactoryAddress)}
-                </span>
-              ) : (
-                "—"
-              ),
+            cell: (row) => row.config?.settlementToken.symbol ?? <None />,
           },
           {
             header: "Active",

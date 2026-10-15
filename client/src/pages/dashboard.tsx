@@ -33,6 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   formatChange,
   formatCompactUsd,
@@ -114,8 +115,8 @@ const Delta = ({ value }: { value: number | null }) => {
 
 const segment = (active: boolean) =>
   cn(
-    "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
-    active ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+    "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors",
+    active ? "bg-soft text-ink shadow-sm" : "text-muted hover:text-ink",
   );
 
 const RangePicker = ({
@@ -133,7 +134,7 @@ const RangePicker = ({
   const [draft, setDraft] = useState(custom);
 
   return (
-    <div className="flex items-center gap-0.5 rounded-lg bg-soft p-0.5">
+    <div className="flex items-center gap-0.5 rounded-full bg-white p-1">
       {presets.map((item) =>
         item.value === "custom" ? (
           <Popover key={item.value} open={open} onOpenChange={setOpen}>
@@ -151,6 +152,7 @@ const RangePicker = ({
                   From
                   <Input
                     type="date"
+                    className="text-xs"
                     value={draft.from}
                     max={draft.to}
                     onChange={(e) =>
@@ -162,6 +164,7 @@ const RangePicker = ({
                   To
                   <Input
                     type="date"
+                    className="text-xs"
                     value={draft.to}
                     min={draft.from}
                     onChange={(e) => setDraft({ ...draft, to: e.target.value })}
@@ -202,21 +205,43 @@ const Metric = ({
   value,
   delta,
   hint,
+  loading,
 }: {
   label: string;
   value: ReactNode;
   delta?: number | null;
   hint?: ReactNode;
+  loading?: boolean;
 }) => (
-  <div className="space-y-1 p-5">
+  <div className="space-y-2 p-5">
     <p className="text-xs text-muted">{label}</p>
-    <div className="flex items-baseline gap-2">
-      <span className="font-display text-2xl font-semibold tabular-nums tracking-tight">
-        {value}
-      </span>
-      {delta !== undefined && <Delta value={delta} />}
-    </div>
+    {loading ? (
+      <Skeleton className="my-1 h-6 w-24 rounded-md" />
+    ) : (
+      <div className="flex items-baseline gap-2">
+        <span className="font-display text-3xl font-semibold tabular-nums tracking-tight">
+          {value}
+        </span>
+        {delta !== undefined && <Delta value={delta} />}
+      </div>
+    )}
+
     {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+  </div>
+);
+
+const LoadingList = ({ rows, avatar }: { rows: number; avatar?: boolean }) => (
+  <div className="divide-y divide-line" aria-busy="true" aria-label="Loading">
+    {Array.from({ length: rows }, (_, row) => (
+      <div key={row} className="flex items-center gap-3 px-4 py-3">
+        {avatar && <Skeleton className="size-8 shrink-0" />}
+        <div className="flex h-9 flex-1 flex-col justify-center gap-2">
+          <Skeleton className="h-3 w-1/3" />
+          <Skeleton className="h-2.5 w-1/4" />
+        </div>
+        <Skeleton className="h-3 w-16" />
+      </div>
+    ))}
   </div>
 );
 
@@ -325,7 +350,7 @@ const Growth = ({ series }: { series: Stats["series"] }) => {
 };
 
 export const Dashboard = () => {
-  const { appId, name } = useAppScope();
+  const { appId } = useAppScope();
   const headers = useAppHeaders();
   const [preset, setPreset] = useState<Preset>("7d");
   const [rank, setRank] = useState<"value" | "volume">("value");
@@ -358,12 +383,7 @@ export const Dashboard = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={appId ? (name ?? "Overview") : "Overview"}
-        description={
-          appId
-            ? "How this app's payments are doing."
-            : "Payments across every app on this server."
-        }
+        title="Overview"
         action={
           <RangePicker
             preset={preset}
@@ -379,20 +399,27 @@ export const Dashboard = () => {
           label="Amount processed"
           value={data ? formatCompactUsd(data.amountProcessed.amount) : "—"}
           delta={data?.amountProcessed.change ?? null}
+          loading={stats.isLoading}
         />
         <Metric
           label="Settled transfers"
           value={data ? formatCount(data.amountProcessed.count) : "—"}
+          loading={stats.isLoading}
         />
         <Metric
           label="Customers"
           value={data ? formatCount(data.customers.total) : "—"}
           delta={data?.customers.change ?? null}
+          loading={stats.isLoading}
         />
       </Card>
 
       <Section title="Volume">
-        {stats.error ? (
+        {stats.isLoading ? (
+          <div className="p-4" aria-busy="true" aria-label="Loading">
+            <Skeleton className="h-65 w-full rounded-lg" />
+          </div>
+        ) : stats.error ? (
           <EmptyState
             icon={IconChartLine}
             title="Couldn't load volume"
@@ -429,7 +456,9 @@ export const Dashboard = () => {
             </div>
           }
         >
-          {data?.topTokens.length === 0 ? (
+          {stats.isLoading ? (
+            <LoadingList rows={5} avatar />
+          ) : data?.topTokens.length === 0 ? (
             <EmptyState
               icon={IconCoins}
               title="No tokens yet"
@@ -479,7 +508,9 @@ export const Dashboard = () => {
             ) : null
           }
         >
-          {transfers.data?.data.length === 0 ? (
+          {transfers.isLoading ? (
+            <LoadingList rows={6} />
+          ) : transfers.data?.data.length === 0 ? (
             <EmptyState
               icon={IconArrowsExchange}
               title="No transfers yet"

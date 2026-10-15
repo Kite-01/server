@@ -12,6 +12,7 @@ import { EmptyState, toEmptyState, type Empty } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, Td, Th } from "@/components/ui/table";
 import {
   IconAlertTriangle,
@@ -52,9 +53,9 @@ const LoadingRows = () => (
   <div className="divide-y divide-line" aria-busy="true" aria-label="Loading">
     {[0, 1, 2].map((row) => (
       <div key={row} className="flex items-center gap-4 px-4 py-4">
-        <div className="h-3 w-1/4 animate-pulse rounded-full bg-soft" />
-        <div className="h-3 w-1/6 animate-pulse rounded-full bg-soft" />
-        <div className="ml-auto h-3 w-1/12 animate-pulse rounded-full bg-soft" />
+        <Skeleton className="h-3 w-1/4" />
+        <Skeleton className="h-3 w-1/6" />
+        <Skeleton className="ml-auto h-3 w-1/12" />
       </div>
     ))}
   </div>
@@ -185,7 +186,13 @@ export const DataTable = <T extends Page>({
               count={selection.selected.size}
               onClear={selection.clear}
               onExport={() =>
-                exportCsv(exportName, columns, [...selection.selected.values()])
+                exportCsv(
+                  exportName,
+                  columns,
+                  selection.selected.size
+                    ? [...selection.selected.values()]
+                    : rows,
+                )
               }
             />
           )}

@@ -22,6 +22,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/logo";
 import { ProfileMenu } from "@/components/profile-menu";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAppScope } from "@/lib/queries";
 
@@ -84,7 +85,11 @@ const AppContext = () => {
   return (
     <div className="rounded-lg border border-line bg-soft/50 p-3">
       <p className="text-xs text-muted">Managing app</p>
-      <p className="truncate text-sm font-medium">{name ?? "…"}</p>
+      {name ? (
+        <p className="truncate text-sm font-medium">{name}</p>
+      ) : (
+        <Skeleton className="my-1 h-3 w-24 bg-line" />
+      )}
       <button
         type="button"
         onClick={() => navigate("/apps")}

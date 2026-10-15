@@ -31,6 +31,7 @@ import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +46,12 @@ import {
 } from "@/lib/wallet";
 
 type Token = CheckoutChain["tokens"][number];
+
+// Some testnet names don't say so, e.g. "Sepolia".
+const networkName = (chain: CheckoutChain) =>
+  chain.testnet && !/testnet/i.test(chain.name)
+    ? `${chain.name} (testnet)`
+    : chain.name;
 
 type Step =
   | { kind: "details" }
@@ -324,7 +331,7 @@ const Instructions = ({
       </div>
 
       <div className="divide-y divide-line rounded-xl border border-line px-4">
-        <Row label="Network">{chain.name}</Row>
+        <Row label="Network">{networkName(chain)}</Row>
         <Row label="Token">
           <span className="flex items-center justify-end gap-1">
             {token.symbol}
@@ -355,8 +362,8 @@ const Instructions = ({
 
       <p className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-xs text-warning">
         <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-        Only send {token.symbol} on {chain.name}. Other tokens or networks can't
-        be recovered; late or short payments are refunded to{" "}
+        Only send {token.symbol} on {networkName(chain)}. Other tokens or
+        networks can't be recovered; late or short payments are refunded to{" "}
         {shortAddress(transfer.refundAddress)}.
       </p>
     </div>
@@ -590,8 +597,18 @@ export const Pay = () => {
 
   if (checkout.isLoading) {
     body = (
-      <div className="flex justify-center py-16">
-        <IconLoader2 className="size-6 animate-spin text-muted" />
+      <div className="space-y-6" aria-busy="true" aria-label="Loading">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="size-10 shrink-0" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-36 rounded-lg" />
+        </div>
+        <Skeleton className="h-12 w-full" />
       </div>
     );
   } else if (!checkout.data) {
@@ -703,7 +720,7 @@ export const Pay = () => {
             >
               {chains.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {networkName(c)}
                 </option>
               ))}
             </Select>

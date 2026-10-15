@@ -64,7 +64,13 @@ export const SimpleTable = <Row,>({
               count={selection.selected.size}
               onClear={selection.clear}
               onExport={() =>
-                exportCsv(exportName, columns, [...selection.selected.values()])
+                exportCsv(
+                  exportName,
+                  columns,
+                  selection.selected.size
+                    ? [...selection.selected.values()]
+                    : visible,
+                )
               }
             />
           )}

@@ -225,7 +225,7 @@ describe("TransferService", () => {
         payInTokenAddress: WETH,
         settlementTokenAddress: USDC,
         poolFeeTier: 500,
-        routerAddress: getChain(CAIP2).contracts.Uniswap.SwapRouter02,
+        routerAddress: getChain(CAIP2).contracts.UniswapSwapRouter02,
         fees: [
           {
             id: common.uuidToBytes32(fee.id),
@@ -301,6 +301,19 @@ describe("TransferService", () => {
       await expect(
         service.createTransfer(appId, quote.id, address(0)),
       ).rejects.toThrow("refund address cannot be the zero address");
+    });
+
+    it("opens a transfer on a chain without a deposit notifier", async () => {
+      await db
+        .update(chainConfig)
+        .set({ onchainNotifierProviders: [] })
+        .where(eq(chainConfig.chainId, chainId));
+
+      const quote = await newQuote();
+      const created = await service.createTransfer(appId, quote.id, REFUND_TO);
+
+      expect(created.status).toBe(TransferStatus.AwaitingDeposit);
+      expect(vi.mocked(runProviderMethod)).not.toHaveBeenCalled();
     });
 
     it("does not save anything when the contract would reject the deployment", async () => {

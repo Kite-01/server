@@ -14,20 +14,23 @@ import {
   patchApiPaymentLinksByIdMutation,
   postApiPaymentLinksMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type { PaymentLink, PostApiPaymentLinksData } from "@/api/types.gen";
+import type { PaymentLink } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
+import {
+  fromLineItemRows,
+  LineItemsBuilder,
+  toLineItemRows,
+} from "@/components/line-items-builder";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { formatDate, shortId } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
-
-type LineItems = PostApiPaymentLinksData["body"]["lineItems"];
 
 const trimAmount = (value: string) =>
   value.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value;
@@ -45,9 +48,10 @@ const LinkForm = ({
     title: link?.title ?? "",
     currency: link?.currency ?? "USD",
     amount: link ? trimAmount(link.amount) : "",
-    lineItems: link?.lineItems ? JSON.stringify(link.lineItems, null, 2) : "",
   });
-  const [lineItemsError, setLineItemsError] = useState<string | null>(null);
+  const [lineItems, setLineItems] = useState(() =>
+    toLineItemRows(link?.lineItems ?? null),
+  );
 
   const headers = useAppHeaders();
   const currencies = useQuery(getApiPaymentLinksCurrenciesOptions({ headers }));
@@ -73,21 +77,13 @@ const LinkForm = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
 
-    let lineItems: LineItems;
-    if (values.lineItems.trim()) {
-      try {
-        lineItems = JSON.parse(values.lineItems);
-      } catch {
-        return setLineItemsError("Line items must be valid JSON");
-      }
-    }
-
-    setLineItemsError(null);
+    const items = fromLineItemRows(lineItems);
     const body = {
       title: values.title.trim(),
       currency: values.currency.trim(),
       amount: values.amount.trim(),
-      lineItems,
+      // An edit sends an empty list to remove the link's line items.
+      lineItems: items.length || link ? items : undefined,
     };
 
     if (link) update.mutate({ path: { id: link.id }, body });
@@ -126,11 +122,15 @@ const LinkForm = ({
       <p className="-mt-2 text-xs text-muted">
         Currencies other than USD are priced through their USD price feed.
       </p>
-      <Field label="Line items" hint="Optional JSON.">
-        <Textarea value={values.lineItems} onChange={set("lineItems")} />
-        {lineItemsError && (
-          <p className="text-xs text-danger">{lineItemsError}</p>
-        )}
+      <Field
+        label="Line items"
+        hint="Optional. Shown to customers at checkout."
+      >
+        <LineItemsBuilder
+          rows={lineItems}
+          currency={values.currency}
+          onChange={setLineItems}
+        />
       </Field>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" onClick={onClose}>

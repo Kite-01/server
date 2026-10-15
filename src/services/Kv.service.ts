@@ -3,8 +3,8 @@ import {
   KeyVarDependents,
   SettableKeyVars,
 } from "../shared/providers/registry";
+import { eq, inArray, isNull } from "drizzle-orm";
 import { KeyType, KeyVars } from "../shared/constants";
-import { eq, inArray } from "drizzle-orm";
 import { AppError } from "../shared/errors";
 import { crypt } from "../shared/crypt";
 import { kv } from "../db/schema";
@@ -38,6 +38,29 @@ export class KvService {
           updatedAt: new Date(),
         },
       });
+  };
+
+  getOrCreateKv = async (input: {
+    key: KeyVars;
+    type: KeyType;
+    value: string;
+  }) => {
+    const value = this.encode(input.key, input.type, input.value);
+
+    await db
+      .insert(kv)
+      .values({ ...input, value })
+      .onConflictDoUpdate({
+        target: kv.key,
+        set: {
+          value,
+          type: input.type,
+          updatedAt: new Date(),
+        },
+        setWhere: isNull(kv.value),
+      });
+
+    return (await this.getKv(input.key))!.value!;
   };
 
   createKv = async (input: typeof kv.$inferInsert) => {

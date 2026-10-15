@@ -100,6 +100,22 @@ describe("KvService", () => {
     ).toEqual([KeyVars.AlchemyGasPolicyId]);
   });
 
+  it("keeps the first value when two callers create the same key", async () => {
+    const input = {
+      key: KeyVars.QuickNodeWebhookSecurityToken,
+      type: KeyType.SecureString,
+    } as const;
+
+    const [a, b] = await Promise.all([
+      service.getOrCreateKv({ ...input, value: "first" }),
+      service.getOrCreateKv({ ...input, value: "second" }),
+    ]);
+
+    expect(a).toBe(b);
+    expect((await service.getKv(input.key))?.value).toBe(a);
+    expect(await service.getOrCreateKv({ ...input, value: "third" })).toBe(a);
+  });
+
   it("deletes a key", async () => {
     await service.upsertKv({
       key: KeyVars.AlchemyGasPolicyId,

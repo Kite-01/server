@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
@@ -44,7 +45,11 @@ export const ProfileMenu = () => {
 
         <div className="flex items-center justify-between p-4 text-sm">
           <span className="text-muted">Version</span>
-          <span className="font-medium">{data ? `v${data.version}` : "…"}</span>
+          {data ? (
+            <span className="font-medium">v{data.version}</span>
+          ) : (
+            <Skeleton className="h-3 w-12" />
+          )}
         </div>
 
         <DropdownMenuSeparator />

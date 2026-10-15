@@ -21,6 +21,7 @@ const EnvSchema = z.object({
   KITE_ENABLE_OPENAPI_UI_PROVIDER: z
     .enum(["scalar", "swagger"])
     .default("scalar"),
+  KITE_IS_TESTNET: z.stringbool().default(false),
 });
 
 export const env = EnvSchema.parse(process.env);

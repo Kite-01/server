@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import { providerActionLabels } from "@/lib/providers";
@@ -141,7 +142,27 @@ export const Kv = () => {
           description="Keys your providers need. Chains can only use a gas sponsor or deposit notifier once its keys are set. Secrets are encrypted at rest."
         />
 
-        {providers.data?.length === 0 ? (
+        {providers.isLoading ? (
+          <div
+            className="grid gap-4 lg:grid-cols-2"
+            aria-busy="true"
+            aria-label="Loading"
+          >
+            {[0, 1].map((card) => (
+              <Card key={card} className="space-y-4 px-5 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-36" />
+                  </div>
+                  <Skeleton className="h-6 w-16" />
+                </div>
+                <Skeleton className="h-9 w-full rounded-lg" />
+                <Skeleton className="h-9 w-full rounded-lg" />
+              </Card>
+            ))}
+          </div>
+        ) : providers.data?.length === 0 ? (
           <Card>
             <EmptyState
               icon={IconPlugConnected}

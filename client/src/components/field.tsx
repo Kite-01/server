@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { IconInfoCircle } from "@tabler/icons-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 
 export const Field = ({
   label,
@@ -11,10 +13,21 @@ export const Field = ({
   hint?: string;
   children: ReactNode;
 }) => (
-  <div className="space-y-1.25">
-    <Label className="block">{label}</Label>
+  <div className="space-y-1.5">
+    <Label className="flex items-center gap-1">
+      <span>{label}</span>
+      {hint && (
+        <Tooltip>
+          <TooltipTrigger>
+            <IconInfoCircle className="size-3.5" strokeWidth={1.5} />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-center">{hint}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </Label>
     {children}
-    {hint && <p className="text-xs text-muted">{hint}</p>}
   </div>
 );
 

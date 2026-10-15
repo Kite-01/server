@@ -98,6 +98,7 @@ export type SupportedChain = {
   caip2Id: string;
   name: string;
   chainId: number;
+  testnet: boolean;
   nativeCurrency: {
     name: string;
     symbol: string;
@@ -755,6 +756,7 @@ export type Checkout = {
     caip2Id: string;
     name: string;
     chainId: number;
+    testnet: boolean;
     nativeCurrency: {
       name: string;
       symbol: string;

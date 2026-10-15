@@ -6,10 +6,20 @@ import {
 import { defineChain, fallback, http } from "viem";
 import { ChainType, Provider } from "../constants";
 import { Chains } from "./registry";
+import { env } from "../env";
+
+export const getSupportedChains = () => {
+  return Object.values(Chains).filter(
+    (chain) => !!chain.testnet === env.KITE_IS_TESTNET,
+  );
+};
 
 export const getChain = (caip2Id: Caip2Id) => {
   const chain = Chains[caip2Id];
-  if (!chain) throw new ChainNotSupportedError(caip2Id);
+  if (!chain || !!chain.testnet !== env.KITE_IS_TESTNET) {
+    throw new ChainNotSupportedError(caip2Id);
+  }
+
   return chain;
 };
 
@@ -30,6 +40,7 @@ export const getViemChain = (caip2Id: Caip2Id) => {
     id: chain.chainId,
     name: chain.name,
     nativeCurrency: chain.nativeCurrency,
+    testnet: chain.testnet,
     rpcUrls: {
       default: {
         http: chain.publicRpcUrls,

@@ -29,7 +29,7 @@ export const Td = ({
 }: TdHTMLAttributes<HTMLTableCellElement>) => (
   <td
     className={cn(
-      "border-b border-line px-4 py-3 align-middle [tr:last-child>&]:border-b-0",
+      "border-b border-line px-4 py-3 align-middle [tr:last-child>&]:border-b-0 whitespace-nowrap",
       className,
     )}
     {...props}

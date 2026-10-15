@@ -13,7 +13,7 @@ import {
 } from "../shared/pagination";
 import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
 import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
-import { getChain, providerDescriptorOfChain } from "../shared/chains";
+import { getChain } from "../shared/chains";
 import { Provider, zeroBytes32 } from "../shared/constants";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ChainService } from "./Chain.service";
@@ -64,15 +64,11 @@ export class TokenService {
     const TWAssetsUrl =
       "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains";
     const http = new Http(TWAssetsUrl);
-    const descriptor = providerDescriptorOfChain<string>(
-      chain.caip2Id,
-      Provider.TrustWallet,
-    );
-
-    const chainBaseUrl = `/${descriptor}`;
+    const chain_ = getChain(chain.caip2Id);
+    const descriptor = chain_.descriptors[Provider.TrustWallet] as
+      string | undefined;
 
     if (common.isZeroAddress(address)) {
-      const chain_ = getChain(chain.caip2Id);
       return saveToken({
         chainId,
         address,
@@ -80,7 +76,7 @@ export class TokenService {
         decimals: chain_.nativeCurrency.decimals,
         name: chain_.nativeCurrency.name,
         supportsEIP3009: false,
-        icon: `${TWAssetsUrl}${chainBaseUrl}/info/logo.png`,
+        icon: descriptor ? `${TWAssetsUrl}/${descriptor}/info/logo.png` : null,
       });
     }
 
@@ -88,34 +84,34 @@ export class TokenService {
     const supportsEIP3009 = !!domain;
     const version = domain?.version;
 
-    const tokenBaseUrl = `${chainBaseUrl}/assets/${address}`;
-    const iconUrl = `${TWAssetsUrl}${tokenBaseUrl}/logo.png`;
+    if (descriptor) {
+      const tokenBaseUrl = `/${descriptor}/assets/${address}`;
+      const response = await http.get<{
+        name: string;
+        type: string;
+        symbol: string;
+        decimals: number;
+        description: string;
+        website: string;
+        explorer: string;
+        status: string;
+        id: string;
+        links: Array<{ name: string; url: string }>;
+        tags: Array<string>;
+      }>(`${tokenBaseUrl}/info.json`);
 
-    const response = await http.get<{
-      name: string;
-      type: string;
-      symbol: string;
-      decimals: number;
-      description: string;
-      website: string;
-      explorer: string;
-      status: string;
-      id: string;
-      links: Array<{ name: string; url: string }>;
-      tags: Array<string>;
-    }>(`${tokenBaseUrl}/info.json`);
-
-    if (response.isOk && !!response.data) {
-      return saveToken({
-        chainId,
-        address,
-        symbol: response.data.symbol,
-        decimals: response.data.decimals,
-        name: response.data.name,
-        version,
-        supportsEIP3009,
-        icon: iconUrl,
-      });
+      if (response.isOk && !!response.data) {
+        return saveToken({
+          chainId,
+          address,
+          symbol: response.data.symbol,
+          decimals: response.data.decimals,
+          name: response.data.name,
+          version,
+          supportsEIP3009,
+          icon: `${TWAssetsUrl}${tokenBaseUrl}/logo.png`,
+        });
+      }
     }
 
     const onchainActor = getOnchainActor(getChain(chain.caip2Id).type);

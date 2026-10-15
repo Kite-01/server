@@ -1,16 +1,23 @@
 import { type Address, isAddress, keccak256, toHex } from "viem";
+import { and, eq, inArray, isNull, desc } from "drizzle-orm";
 import { isProviderConfiguredForAction } from "../shared/providers";
+import { getChain, getSupportedChains } from "../shared/chains";
 import { AppError, NotFoundError } from "../shared/errors";
-import { and, eq, isNull, desc } from "drizzle-orm";
 import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
 import { chain, chainConfig } from "../db/schema";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ProviderAction } from "../shared/constants";
 import { KvService } from "./Kv.service";
-import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { omit } from "lodash";
 import { db } from "../db";
+
+const supportedCaip2Ids = () => {
+  return inArray(
+    chain.caip2Id,
+    getSupportedChains().map((item) => item.caip2Id),
+  );
+};
 
 export class ChainService {
   createChain = async (input: typeof chain.$inferInsert) => {
@@ -32,7 +39,7 @@ export class ChainService {
 
   getChains = async () => {
     return await db.query.chain.findMany({
-      where: isNull(chain.deletedAt),
+      where: and(isNull(chain.deletedAt), supportedCaip2Ids()),
       orderBy: desc(chain.createdAt),
       with: {
         config: {
@@ -47,7 +54,11 @@ export class ChainService {
 
   getActiveChains = async () => {
     return await db.query.chain.findMany({
-      where: and(eq(chain.isActive, true), isNull(chain.deletedAt)),
+      where: and(
+        eq(chain.isActive, true),
+        isNull(chain.deletedAt),
+        supportedCaip2Ids(),
+      ),
       orderBy: desc(chain.createdAt),
       with: {
         config: {

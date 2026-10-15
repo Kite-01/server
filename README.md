@@ -113,6 +113,7 @@ KITE_ROOT_KEY=super-secret-root-key
 KITE_ENABLE_DASHBOARD=true
 KITE_ENABLE_OPENAPI_UI_SPECS=true
 KITE_ENABLE_OPENAPI_UI_PROVIDER=scalar
+KITE_IS_TESTNET=false
 ```
 
 Notes:
@@ -120,7 +121,12 @@ Notes:
 - `KITE_ENCRYPTION_KEY` must decode to exactly 32 bytes.
 - `KITE_PUBLIC_BASE_URL` is used for callback URLs and public docs.
 - `KITE_ENABLE_OPENAPI_UI_PROVIDER` can be `scalar` or `swagger`.
+- `KITE_IS_TESTNET=true` makes the server run on testnets instead of mainnets. See [Testnets](#testnets).
 - The server validates these values at startup with Zod.
+
+## Testnets
+
+To try Kite without real funds, run a separate server with `KITE_IS_TESTNET=true` and its own database. A server without the flag only offers mainnets, so test tokens can never pay a real payment link. Switching the flag on an existing database hides the other kind of chains rather than deleting them.
 
 ## Quick start
 

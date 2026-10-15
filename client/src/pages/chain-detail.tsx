@@ -1,11 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  IconArrowLeft,
-  IconBlocks,
-  IconCoins,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconBlocks, IconCoins, IconTrash } from "@tabler/icons-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -33,10 +27,12 @@ import { SimpleTable } from "@/components/simple-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { chainName, useSupportedChains } from "./chains";
+import SmartImage from "@/components/smart-image";
 
 type Provider = ChainConfig["gasSponsorProviders"][number];
 
@@ -140,7 +136,7 @@ const ConfigurationForm = ({
 
   const tokenOptions = tokens.map((token) => (
     <option key={token.id} value={token.id}>
-      {token.symbol} — {shortAddress(token.address)}
+      {token.symbol}
     </option>
   ));
 
@@ -150,10 +146,8 @@ const ConfigurationForm = ({
         <Field label="KiteFactory address">
           <Input
             required
-            className="font-mono"
             value={values.kiteFactoryAddress}
             onChange={set("kiteFactoryAddress")}
-            placeholder="0x…"
           />
         </Field>
 
@@ -201,7 +195,7 @@ const ConfigurationForm = ({
               onChange={set("slippageBps")}
             />
           </Field>
-          <Field label="Max gas price (wei)" hint="Optional.">
+          <Field label="Max gas price in wei (optional)">
             <Input
               inputMode="numeric"
               value={values.maxGasPrice}
@@ -211,14 +205,12 @@ const ConfigurationForm = ({
         </div>
 
         <Field
-          label="Settlement address"
+          label="Settlement address (optional)"
           hint="Where settled funds go. Leave empty to use the operator wallet."
         >
           <Input
-            className="font-mono"
             value={values.settlementAddress}
             onChange={set("settlementAddress")}
-            placeholder="0x…"
           />
         </Field>
 
@@ -257,7 +249,7 @@ const ConfigurationForm = ({
 
         <div className="flex justify-end">
           <Button type="submit" disabled={save.isPending}>
-            Save configuration
+            Save changes
           </Button>
         </div>
       </form>
@@ -299,27 +291,28 @@ const TokensTab = ({
     <div className="space-y-4">
       <Card className="p-4">
         <form
-          className="flex flex-wrap items-end gap-3"
+          className="flex flex-col md:flex-row md:items-end gap-3"
           onSubmit={(event) => {
             event.preventDefault();
             add.mutate(address.trim());
           }}
         >
-          <div className="min-w-64 flex-1">
+          <div className="flex-1">
             <Field
               label="Add a token by contract address"
               hint="Its name, symbol and decimals are read from the chain."
             >
               <Input
-                className="font-mono"
                 value={address}
                 onChange={(event) => setAddress(event.target.value)}
-                placeholder="0x…"
               />
             </Field>
           </div>
-          <Button type="submit" disabled={add.isPending || !address.trim()}>
-            <IconPlus className="size-4" />
+          <Button
+            type="submit"
+            className="h-9.5 px-5"
+            disabled={add.isPending || !address.trim()}
+          >
             Add token
           </Button>
         </form>
@@ -342,9 +335,12 @@ const TokensTab = ({
           {
             header: "Token",
             cell: (row) => (
-              <div>
-                <p className="font-medium">{row.symbol}</p>
-                <p className="text-xs text-muted">{row.name}</p>
+              <div className="flex items-center gap-2 w-max">
+                <SmartImage url={row.icon} />
+                <div>
+                  <p className="font-medium text-[13px]">{row.symbol}</p>
+                  <p className="text-[10px] text-muted">{row.name}</p>
+                </div>
               </div>
             ),
           },
@@ -352,7 +348,7 @@ const TokensTab = ({
             header: "Address",
             exportValue: (row) => row.address,
             cell: (row) => (
-              <span className="flex items-center gap-1 font-mono text-xs">
+              <span className="flex items-center text-xs">
                 {shortAddress(row.address)}
                 <CopyButton value={row.address} />
               </span>
@@ -416,7 +412,26 @@ export const ChainDetail = () => {
   });
 
   const chain = chains.data?.find((row) => row.id === chainId);
-  if (chains.isLoading || providers.isLoading) return null;
+  if (chains.isLoading || providers.isLoading) {
+    return (
+      <div aria-busy="true" aria-label="Loading">
+        <Skeleton className="mb-4 h-4 w-16 bg-line" />
+        <div className="mb-6 space-y-2">
+          <Skeleton className="h-6 w-44 bg-line" />
+          <Skeleton className="h-3 w-24 bg-line" />
+        </div>
+        <Skeleton className="mb-6 h-9 w-52 rounded-lg bg-line" />
+        <Card className="max-w-2xl space-y-5 p-6">
+          {[0, 1, 2, 3].map((field) => (
+            <div key={field} className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-9 w-full rounded-lg" />
+            </div>
+          ))}
+        </Card>
+      </div>
+    );
+  }
   if (!chain) {
     return (
       <EmptyState
@@ -434,35 +449,30 @@ export const ChainDetail = () => {
 
   return (
     <>
-      <Link
-        to="/chains"
-        className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
-      >
-        <IconArrowLeft className="size-4" />
-        Chains
-      </Link>
-
       <PageHeader
         title={chainName(chain.caip2Id, supported.data)}
-        description={chain.caip2Id}
         action={
-          <Button variant="outline" onClick={() => setConfirming(true)}>
+          <Button
+            variant="danger"
+            className="h-9.25"
+            onClick={() => setConfirming(true)}
+          >
             <IconTrash className="size-4" />
-            Remove chain
+            Remove
           </Button>
         }
       />
 
-      <div className="mb-6 flex w-fit gap-0.5 rounded-lg bg-soft p-0.5 text-sm">
+      <div className="mb-6 flex w-fit gap-0.5 rounded-full bg-white p-1">
         {(["configuration", "tokens"] as const).map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => setTab(item)}
             className={cn(
-              "rounded-md px-3 py-1.5 font-medium capitalize transition-colors",
+              "rounded-full px-3.5 py-1.5 font-medium capitalize transition-colors text-sm",
               tab === item
-                ? "bg-surface text-ink shadow-sm"
+                ? "bg-soft text-ink shadow-sm"
                 : "text-muted hover:text-ink",
             )}
           >

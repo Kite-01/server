@@ -166,8 +166,7 @@ export const ExportBar = ({
       variant="ghost"
       size="sm"
       className="text-muted hover:text-ink"
-      disabled={count === 0}
-      title={count === 0 ? "Select rows to export" : undefined}
+      title={count > 0 ? "Export the selected rows" : "Export the rows shown"}
       onClick={onExport}
     >
       Export CSV

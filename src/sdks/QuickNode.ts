@@ -50,7 +50,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
       const getListResponse = await client.get<{
         data: { items: Array<string> };
-      }>(`/kv/rest/v1/lists${key}`);
+      }>(`/kv/rest/v1/lists/${key}`);
 
       if (!getListResponse.isOk || !getListResponse.data?.data.items.length) {
         const url = "/kv/rest/v1/lists";
@@ -87,12 +87,11 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
     };
 
     let templateArgs;
-    let webhookId = common.getVar(
-      options,
+    const webhookKey =
       template === "evmWalletFilter"
         ? KeyVars.QuickNodeEvmWalletFilter_WebhookId
-        : KeyVars.QuickNodeEvmContractEvents_WebhookId,
-    );
+        : KeyVars.QuickNodeEvmContractEvents_WebhookId;
+    const webhookIds = this.webhookIds(common.getVar(options, webhookKey));
 
     if (template === "evmWalletFilter") {
       let walletsListName = common.getVar(
@@ -152,23 +151,18 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
       templateArgs = { contractsListName, eventHashesListName };
     }
 
-    if (!webhookId) {
-      let securityToken = common.getVar(
-        options,
-        KeyVars.QuickNodeWebhookSecurityToken,
-      );
-
-      if (!securityToken) {
-        securityToken = common.uuidv4();
-
-        await kvService.upsertKv({
+    if (!webhookIds[network]) {
+      // both templates can create their first webhook at the same time;
+      // they must sign with the same token.
+      const securityToken =
+        common.getVar(options, KeyVars.QuickNodeWebhookSecurityToken) ??
+        (await kvService.getOrCreateKv({
           key: KeyVars.QuickNodeWebhookSecurityToken,
-          value: securityToken,
+          value: common.uuidv4(),
           type: KeyType.SecureString,
-        });
-      }
+        }));
 
-      const url = `/webhooks/rest/v1/template/${template}`;
+      const url = `/webhooks/rest/v1/webhooks/template/${template}`;
       const response = await client.post<{ id: string }>(url, {
         name:
           template === "evmWalletFilter"
@@ -183,24 +177,30 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
           ),
           security_token: securityToken,
           compression: "gzip",
-          templateArgs,
         },
+        templateArgs,
       });
 
       if (!response.isOk || !response.data?.id) {
         throw new SdkRequestError(Provider.QuickNode, url, response);
       }
 
-      webhookId = response.data.id;
-
       await kvService.upsertKv({
-        key:
-          template === "evmWalletFilter"
-            ? KeyVars.QuickNodeEvmWalletFilter_WebhookId
-            : KeyVars.QuickNodeEvmContractEvents_WebhookId,
-        value: webhookId,
+        key: webhookKey,
+        value: JSON.stringify({ ...webhookIds, [network]: response.data.id }),
         type: KeyType.String,
       });
+    }
+  };
+
+  private webhookIds = (value: string | null): Record<string, string> => {
+    try {
+      const parsed = JSON.parse(value ?? "{}");
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {};
+    } catch {
+      return {};
     }
   };
 
@@ -215,7 +215,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
     return await this.upsertNotifier(
       "evmWalletFilter",
-      common.normalizeAddress(input.address),
+      common.normalizeAddress(input.address).toLowerCase(),
       network,
       options,
     );
@@ -232,7 +232,7 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
 
     return await this.upsertNotifier(
       "evmContractEvents",
-      common.normalizeAddress(input.contractAddress),
+      common.normalizeAddress(input.contractAddress).toLowerCase(),
       network,
       options,
     );
