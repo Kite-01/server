@@ -39,7 +39,6 @@ type Chain = {
      */
     Uniswap: {
       SwapRouter02: string;
-      QuoterV2: string;
     };
   };
 };
@@ -67,7 +66,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-        QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
       },
     },
   },
@@ -93,7 +91,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x4200000000000000000000000000000000000006",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-        QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
       },
     },
   },
@@ -119,7 +116,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
       Uniswap: {
         SwapRouter02: "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
-        QuoterV2: "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",
       },
     },
   },
@@ -145,7 +141,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-        QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
       },
     },
   },
@@ -171,7 +166,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
       Uniswap: {
         SwapRouter02: "0xCaf681a66D020601342297493863E78C959E5cb2",
-        QuoterV2: "0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7",
       },
     },
   },
@@ -197,7 +191,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x4200000000000000000000000000000000000006",
       Uniswap: {
         SwapRouter02: "0x2626664c2603336E57B271c5C0b26F421741e481",
-        QuoterV2: "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
       },
     },
   },
@@ -223,7 +216,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
       Uniswap: {
         SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-        QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
       },
     },
   },
@@ -249,7 +241,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
       Uniswap: {
         SwapRouter02: "0xfE31F71C1b106EAc32F1A19239c9a9A72ddfb900",
-        QuoterV2: "0x661E93cca42AfacB172121EF892830cA3b70F08d",
       },
     },
   },

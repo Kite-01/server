@@ -16,6 +16,8 @@ const EnvSchema = z.object({
     .refine(common.isValidMnemonic, "Invalid mnemonic"),
   KITE_ROOT_KEY: z.string().min(16, "Must be at least 16 characters"),
   KITE_ENABLE_DASHBOARD: z.stringbool().default(true),
+  /** Serves the dashboard from Vite with hot reload, for local development. */
+  KITE_DASHBOARD_DEV: z.stringbool().default(false),
   KITE_ENABLE_OPENAPI_UI_SPECS: z.stringbool().default(true),
   KITE_ENABLE_OPENAPI_UI_PROVIDER: z
     .enum(["scalar", "swagger"])

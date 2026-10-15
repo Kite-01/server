@@ -1,8 +1,4 @@
-import {
-  KiteMaxFees,
-  QuoteTTLSeconds,
-  UniswapFeeTiers,
-} from "../shared/constants";
+import { KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
 import {
   paginate,
   searchPattern,
@@ -149,42 +145,17 @@ export class QuoteService {
     if (settlementToken.id === sourceToken.id) {
       targetAmount = sourceAmount;
     } else {
-      const uniswap = new Uniswap();
-      const results = await Promise.all(
-        UniswapFeeTiers.map(async (feeTier) => ({
-          feeTier,
-          amountOut: await uniswap.quoteExactInputSingle({
-            caip2Id: chain.caip2Id,
-            tokenIn: sourceToken.address,
-            amountIn: sourceAmount,
-            tokenOut: settlementToken.address,
-            feeTier,
-          }),
-        })),
-      );
-
-      let best: Maybe<{
-        feeTier: number;
-        amountOut: bigint;
-      }> = null;
-
-      for (const result of results) {
-        if (
-          result.amountOut !== null &&
-          result.amountOut > 0n &&
-          (!best || result.amountOut > best.amountOut)
-        ) {
-          best = {
-            feeTier: result.feeTier,
-            amountOut: result.amountOut,
-          };
-        }
-      }
+      const best = await new Uniswap().quoteExactInput({
+        caip2Id: chain.caip2Id,
+        tokenIn: sourceToken.address,
+        amountIn: sourceAmount,
+        tokenOut: settlementToken.address,
+      });
 
       if (!best)
         throw new AppError("No pool can swap this token/amount at the moment");
 
-      targetAmount = best.amountOut;
+      targetAmount = best.amount;
       feeTier = best.feeTier;
     }
 
@@ -201,30 +172,17 @@ export class QuoteService {
       targetUsdAmount = formatUnits(targetAmount, settlementToken.decimals);
       sourceUsdAmount = targetUsdAmount;
     } else {
-      const uniswap = new Uniswap();
-      const usdResults = await Promise.all(
-        UniswapFeeTiers.map((tier) =>
-          uniswap.quoteExactInputSingle({
-            caip2Id: chain.caip2Id,
-            tokenIn: sourceToken.address,
-            amountIn: sourceAmount,
-            tokenOut: chainUsdToken.address,
-            feeTier: tier,
-          }),
-        ),
-      );
+      const usd = await new Uniswap().quoteExactInput({
+        caip2Id: chain.caip2Id,
+        tokenIn: sourceToken.address,
+        amountIn: sourceAmount,
+        tokenOut: chainUsdToken.address,
+      });
 
-      let bestUsdOut: Maybe<bigint> = null;
-      for (const out of usdResults) {
-        if (out !== null && out > 0n && (!bestUsdOut || out > bestUsdOut)) {
-          bestUsdOut = out;
-        }
-      }
-
-      if (!bestUsdOut)
+      if (!usd)
         throw new AppError("Unable to determine USD value at the moment");
 
-      sourceUsdAmount = formatUnits(bestUsdOut, chainUsdToken.decimals);
+      sourceUsdAmount = formatUnits(usd.amount, chainUsdToken.decimals);
       targetUsdAmount = sourceUsdAmount;
     }
 
@@ -312,35 +270,17 @@ export class QuoteService {
     if (settlementToken.id === chainUsdToken.id) {
       targetAmount = usdTokenAmount;
     } else {
-      const results = await Promise.all(
-        UniswapFeeTiers.map(async (feeTier) => ({
-          feeTier,
-          amountOut: await uniswap.quoteExactInputSingle({
-            caip2Id: chain.caip2Id,
-            tokenIn: chainUsdToken.address,
-            amountIn: usdTokenAmount,
-            tokenOut: settlementToken.address,
-            feeTier,
-          }),
-        })),
-      );
+      const settlement = await uniswap.quoteExactInput({
+        caip2Id: chain.caip2Id,
+        tokenIn: chainUsdToken.address,
+        amountIn: usdTokenAmount,
+        tokenOut: settlementToken.address,
+      });
 
-      let bestAmountOut: Maybe<bigint> = null;
-
-      for (const result of results) {
-        if (
-          result.amountOut !== null &&
-          result.amountOut > 0n &&
-          (!bestAmountOut || result.amountOut > bestAmountOut)
-        ) {
-          bestAmountOut = result.amountOut;
-        }
-      }
-
-      if (!bestAmountOut)
+      if (!settlement)
         throw new AppError("Settlement token cannot be priced at the moment");
 
-      targetAmount = bestAmountOut;
+      targetAmount = settlement.amount;
     }
 
     if (targetAmount <= 0n)
@@ -352,41 +292,17 @@ export class QuoteService {
     if (sourceToken.id === settlementToken.id) {
       sourceAmount = targetAmount;
     } else {
-      const results = await Promise.all(
-        UniswapFeeTiers.map(async (feeTier) => ({
-          feeTier,
-          amountIn: await uniswap.quoteExactOutputSingle({
-            caip2Id: chain.caip2Id,
-            tokenIn: sourceToken.address,
-            amountOut: targetAmount,
-            tokenOut: settlementToken.address,
-            feeTier,
-          }),
-        })),
-      );
-
-      let best: Maybe<{
-        feeTier: number;
-        amountIn: bigint;
-      }> = null;
-
-      for (const result of results) {
-        if (
-          result.amountIn !== null &&
-          result.amountIn > 0n &&
-          (!best || result.amountIn < best.amountIn)
-        ) {
-          best = {
-            amountIn: result.amountIn,
-            feeTier: result.feeTier,
-          };
-        }
-      }
+      const best = await uniswap.quoteExactOutput({
+        caip2Id: chain.caip2Id,
+        tokenIn: sourceToken.address,
+        amountOut: targetAmount,
+        tokenOut: settlementToken.address,
+      });
 
       if (!best)
         throw new AppError("No pool can satisfy this payment amount/token");
 
-      sourceAmount = best.amountIn;
+      sourceAmount = best.amount;
       feeTier = best.feeTier;
     }
 

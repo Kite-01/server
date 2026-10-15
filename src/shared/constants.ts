@@ -128,6 +128,12 @@ export const OneDay = 24 * OneHour;
 
 export const QuoteTTLSeconds = 5 * OneMinute;
 export const UniswapFeeTiers = [100, 500, 3000, 10000] as const;
+/** TWAP windows tried in order, for pools with too little history for the first. */
+export const UniswapTwapWindowsSeconds = [
+  10 * OneMinute,
+  5 * OneMinute,
+  OneMinute,
+] as const;
 
 export const KiteMaxFees = 10;
 export const OperatorTxTimeoutMs = common.toMs(2 * OneMinute);

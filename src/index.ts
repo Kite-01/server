@@ -9,7 +9,12 @@ const main = async () => {
   const port = env.KITE_PORT;
   let stopServer: (() => void) | undefined;
 
-  createApp().listen(port, (server) => {
+  const app = createApp();
+  // Lazily loaded plugins (the dashboard's dev server) must be in place
+  // before the server starts handling requests.
+  await app.modules;
+
+  app.listen(port, (server) => {
     stopServer = () => server.stop();
   });
 

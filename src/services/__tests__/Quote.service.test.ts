@@ -14,7 +14,7 @@ import {
   fakeActor,
   operatorAddress,
   resetMocks,
-  stubQuoter,
+  stubPools,
 } from "../../test/mocks";
 import { FeeType, KiteMaxFees, QuoteTTLSeconds } from "../../shared/constants";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,10 +22,18 @@ import { AppError, NotFoundError } from "../../shared/errors";
 import { chainConfig, quoteFee } from "../../db/schema";
 import { PriceFeedService } from "../PriceFeed.service";
 import { QuoteService } from "../Quote.service";
+import { quoteAtTick } from "../../sdks/Uniswap";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 
 const service = new QuoteService();
+
+// About 3100 USDC per WETH, and 2000 DAI per WETH.
+const WethUsdcTick = -195929;
+const WethDaiTick = 76012;
+
+const lessFee = (amount: bigint, fee: number) =>
+  (amount * (1_000_000n - BigInt(fee))) / 1_000_000n;
 
 describe("QuoteService", () => {
   let appId: string;
@@ -76,17 +84,12 @@ describe("QuoteService", () => {
       expect(ttl).toBeLessThanOrEqual(QuoteTTLSeconds * 1000);
     });
 
-    it("swaps through the best Uniswap fee tier", async () => {
-      stubQuoter({
-        exactIn: ({ fee, tokenIn, tokenOut }) => {
-          expect(tokenIn).toBe(WETH);
-          expect(tokenOut).toBe(USDC);
-          return (
-            { 500: 3_100_000n, 3000: 3_000_000n, 10000: 2_900_000n }[fee] ??
-            null
-          );
-        },
-      });
+    it("swaps at the TWAP of the deepest pool", async () => {
+      stubPools([
+        { tokens: [WETH, USDC], fee: 500, tick: WethUsdcTick, liquidity: 5n },
+        // A better price, but a shallower pool.
+        { tokens: [WETH, USDC], fee: 3000, tick: -195000, liquidity: 1n },
+      ]);
 
       const quote = await service.createQuote(appId, {
         chainId,
@@ -94,16 +97,24 @@ describe("QuoteService", () => {
         amount: 10n ** 15n,
       });
 
+      const targetAmount = quoteAtTick(
+        WethUsdcTick,
+        lessFee(10n ** 15n, 500),
+        WETH,
+        USDC,
+      );
+
+      // 0.001 WETH at ~3100 USDC, less the 0.05% pool fee.
+      expect(Number(targetAmount)).toBeCloseTo(3_098_450, -3);
       expect(quote).toMatchObject({
         sourceTokenId: weth.id,
         targetTokenId: usdcId,
         sourceAmount: 10n ** 15n,
-        targetAmount: 3_100_000n,
+        targetAmount,
         uniswapPoolFeeTier: 500,
-        sourceUsdAmount: "3.100000000000000000",
-        targetUsdAmount: "3.100000000000000000",
-        rate: "3100.000000000000000000",
       });
+      expect(Number(quote.sourceUsdAmount)).toBeCloseTo(3.098, 2);
+      expect(quote.sourceUsdAmount).toBe(quote.targetUsdAmount);
     });
 
     it("prices a non-USD settlement through the USD token", async () => {
@@ -117,12 +128,10 @@ describe("QuoteService", () => {
         .set({ settlementTokenId: dai.id })
         .where(eq(chainConfig.chainId, chainId));
 
-      stubQuoter({
-        exactIn: ({ tokenOut, fee }) => {
-          if (fee !== 500) return null;
-          return tokenOut === dai.address ? 2n * 10n ** 18n : 1_990_000n;
-        },
-      });
+      stubPools([
+        { tokens: [WETH, dai.address], fee: 3000, tick: WethDaiTick },
+        { tokens: [WETH, USDC], fee: 500, tick: WethUsdcTick },
+      ]);
 
       const quote = await service.createQuote(appId, {
         chainId,
@@ -130,16 +139,77 @@ describe("QuoteService", () => {
         amount: 10n ** 15n,
       });
 
+      const usd = quoteAtTick(
+        WethUsdcTick,
+        lessFee(10n ** 15n, 500),
+        WETH,
+        USDC,
+      );
+
       expect(quote).toMatchObject({
         targetTokenId: dai.id,
-        targetAmount: 2n * 10n ** 18n,
-        sourceUsdAmount: "1.990000000000000000",
-        targetUsdAmount: "1.990000000000000000",
+        targetAmount: quoteAtTick(
+          WethDaiTick,
+          lessFee(10n ** 15n, 3000),
+          WETH,
+          dai.address,
+        ),
+        uniswapPoolFeeTier: 3000,
       });
+      expect(Number(quote.sourceUsdAmount)).toBeCloseTo(Number(usd) / 1e6, 6);
+      expect(quote.targetUsdAmount).toBe(quote.sourceUsdAmount);
+    });
+
+    it("falls back to a shorter TWAP window for pools with little history", async () => {
+      stubPools([
+        { tokens: [WETH, USDC], fee: 500, tick: WethUsdcTick, history: 300 },
+      ]);
+
+      const quote = await service.createQuote(appId, {
+        chainId,
+        sourceTokenAddress: WETH,
+        amount: 10n ** 15n,
+      });
+
+      expect(quote.uniswapPoolFeeTier).toBe(500);
+      expect(fakeActor.ethCall).toHaveBeenCalled();
+    });
+
+    it("does not price from a pool without enough history for a TWAP", async () => {
+      stubPools([
+        { tokens: [WETH, USDC], fee: 500, tick: WethUsdcTick, history: 30 },
+      ]);
+
+      await expect(
+        service.createQuote(appId, {
+          chainId,
+          sourceTokenAddress: WETH,
+          amount: 10n ** 15n,
+        }),
+      ).rejects.toThrow("No pool can swap this token/amount");
+    });
+
+    it("does not price from a pool without liquidity", async () => {
+      stubPools([
+        {
+          tokens: [WETH, USDC],
+          fee: 500,
+          tick: WethUsdcTick,
+          liquidity: 0n,
+        },
+      ]);
+
+      await expect(
+        service.createQuote(appId, {
+          chainId,
+          sourceTokenAddress: WETH,
+          amount: 10n ** 15n,
+        }),
+      ).rejects.toThrow("No pool can swap this token/amount");
     });
 
     it("fails when no pool can fill the swap", async () => {
-      stubQuoter({ exactIn: () => null });
+      stubPools([]);
 
       await expect(
         service.createQuote(appId, {
@@ -374,31 +444,26 @@ describe("QuoteService", () => {
       });
     });
 
-    it("asks for the cheapest input when paying with another token", async () => {
+    it("asks for the TWAP input of the deepest pool when paying with another token", async () => {
       const link = await createPaymentLink(appId, { amount: "10" });
-      stubQuoter({
-        exactOut: ({ fee, tokenIn, tokenOut, amount }) => {
-          expect(tokenIn).toBe(WETH);
-          expect(tokenOut).toBe(USDC);
-          expect(amount).toBe(10_000_000n);
-          return (
-            {
-              500: 4n * 10n ** 15n,
-              3000: 3n * 10n ** 15n,
-              10000: 5n * 10n ** 15n,
-            }[fee] ?? null
-          );
-        },
-      });
+      stubPools([
+        { tokens: [WETH, USDC], fee: 500, tick: -195000, liquidity: 1n },
+        { tokens: [WETH, USDC], fee: 3000, tick: WethUsdcTick, liquidity: 3n },
+      ]);
 
       const quote = await service.createQuoteFromPaymentLink(appId, link.id, {
         chainId,
         sourceTokenAddress: WETH,
       });
 
+      // The input that swaps for 10 USDC at the TWAP once the fee is taken.
+      const atTwap = quoteAtTick(WethUsdcTick, 10_000_000n, USDC, WETH, true);
+      const sourceAmount = (atTwap * 1_000_000n + 996_999n) / 997_000n;
+
+      expect(Number(sourceAmount) / 1e18).toBeCloseTo(10 / 3100 / 0.997, 6);
       expect(quote).toMatchObject({
         sourceTokenId: weth.id,
-        sourceAmount: 3n * 10n ** 15n,
+        sourceAmount,
         targetAmount: 10_000_000n,
         uniswapPoolFeeTier: 3000,
       });
@@ -445,7 +510,7 @@ describe("QuoteService", () => {
 
     it("fails when nothing can fill the payment", async () => {
       const link = await createPaymentLink(appId);
-      stubQuoter({ exactOut: () => null });
+      stubPools([]);
 
       await expect(
         service.createQuoteFromPaymentLink(appId, link.id, {

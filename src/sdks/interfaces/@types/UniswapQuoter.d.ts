@@ -3,7 +3,6 @@ type UniswapQuoterExactInputArgs = {
   tokenIn: string;
   tokenOut: string;
   amountIn: bigint;
-  feeTier: number;
 };
 
 type UniswapQuoterExactOutputArgs = {
@@ -11,5 +10,10 @@ type UniswapQuoterExactOutputArgs = {
   tokenIn: string;
   tokenOut: string;
   amountOut: bigint;
+};
+
+/** The quoted amount and the fee tier of the pool it was priced from. */
+type UniswapQuote = {
   feeTier: number;
+  amount: bigint;
 };

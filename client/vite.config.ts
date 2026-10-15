@@ -7,13 +7,16 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, resolve(import.meta.dirname, ".."), "");
   const api = `http://localhost:${env.KITE_PORT ?? 3000}`;
+  // Set when the API runs Vite inside itself (`bun run dev`): the spec comes
+  // from a file it writes, and requests reach the API without a proxy.
+  const specPath = process.env.KITE_OPENAPI_SPEC_PATH;
 
   return {
     plugins: [
       heyApiPlugin({
         config: {
           input: {
-            path: `${api}/openapi/json`,
+            path: specPath ?? `${api}/openapi/json`,
             watch: true,
           },
           output: resolve(import.meta.dirname, "src/api"),
@@ -41,11 +44,13 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      proxy: {
-        "/api": api,
-        "/callback": api,
-        "/openapi": api,
-      },
+      proxy: specPath
+        ? undefined
+        : {
+            "/api": api,
+            "/callback": api,
+            "/openapi": api,
+          },
     },
   };
 });

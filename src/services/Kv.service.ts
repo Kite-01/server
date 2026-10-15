@@ -1,4 +1,10 @@
+import {
+  getProviderStatuses,
+  KeyVarDependents,
+  SettableKeyVars,
+} from "../shared/providers/registry";
 import { KeyType, KeyVars } from "../shared/constants";
+import { AppError } from "../shared/errors";
 import { eq, inArray } from "drizzle-orm";
 import { crypt } from "../shared/crypt";
 import { kv } from "../db/schema";
@@ -67,6 +73,30 @@ export class KvService {
 
     return rows.map(this.decode);
   };
+
+  /**
+   * Sets a key an operator owns, such as a provider's API key. Changing a key
+   * drops the state created under the old value (e.g. the provider's webhook
+   * ids), so it is created again under the new one.
+   */
+  setProviderKey = async (key: KeyVars, input: string | null) => {
+    const value = input?.trim() || null;
+    const type = SettableKeyVars[key];
+    if (!type) throw new AppError(`${key} is managed by the server`);
+
+    const previous = await this.getKv(key);
+    await this.upsertKv({ key, type, value });
+
+    const dependents = KeyVarDependents[key] ?? [];
+    if (dependents.length && (previous?.value ?? null) !== value) {
+      await db.delete(kv).where(inArray(kv.key, dependents));
+    }
+
+    return (await this.getKv(key))!;
+  };
+
+  getProviderStatuses = async () =>
+    getProviderStatuses(await this.getSdkOptionVariables());
 
   getSdkOptionVariables = async () => {
     const kvs = await this.getKvs();

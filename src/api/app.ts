@@ -9,7 +9,7 @@ import { env } from "../shared/env";
 
 // routes
 import { paymentLinkRoutes } from "./routes/paymentLinks";
-import { dashboardRoutes } from "./routes/dashboard";
+import { dashboardDevRoutes, dashboardRoutes } from "./routes/dashboard";
 import { priceFeedRoutes } from "./routes/priceFeeds";
 import { callbackRoutes } from "./routes/callbacks";
 import { customerRoutes } from "./routes/customers";
@@ -43,7 +43,7 @@ const api = new Elysia({ prefix: "/api" })
   .use(webhookRoutes)
   .use(x402Routes);
 
-export const createApp = () => {
+export const createApp = (options = { dashboard: true }) => {
   const app = new Elysia({ adapter: node(), normalize: false })
     .onRequest(({ request, set }) => {
       const url = new URL(request.url);
@@ -159,7 +159,23 @@ export const createApp = () => {
 
   app.use(callbackRoutes).use(api);
 
-  if (env.KITE_ENABLE_DASHBOARD) {
+  if (
+    env.KITE_ENABLE_DASHBOARD &&
+    env.KITE_DASHBOARD_DEV &&
+    options.dashboard
+  ) {
+    // Vite runs inside this process in middleware mode and serves the
+    // dashboard with hot reload; requests it doesn't handle reach the API.
+    app.use(
+      dashboardDevRoutes(
+        // Rendered in-process: Vite starts before this server listens.
+        async () =>
+          createApp({ dashboard: false }).handle(
+            new Request("http://localhost/openapi/json"),
+          ),
+      ),
+    );
+  } else if (env.KITE_ENABLE_DASHBOARD && options.dashboard) {
     app.use(dashboardRoutes);
   }
 

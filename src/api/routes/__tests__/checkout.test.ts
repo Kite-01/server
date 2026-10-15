@@ -92,9 +92,9 @@ describe("checkout", () => {
     });
   });
 
-  describe("POST /api/checkout/:id/quotes", () => {
+  describe("POST /api/checkout/:id/quote", () => {
     it("quotes the link", async () => {
-      const res = await post(`/api/checkout/${link.id}/quotes`, {
+      const res = await post(`/api/checkout/${link.id}/quote`, {
         chainId: chain.chain.id,
         sourceTokenAddress: USDC,
       });
@@ -108,7 +108,7 @@ describe("checkout", () => {
     });
 
     it("only takes registered tokens", async () => {
-      const res = await post(`/api/checkout/${link.id}/quotes`, {
+      const res = await post(`/api/checkout/${link.id}/quote`, {
         chainId: chain.chain.id,
         sourceTokenAddress: address(0xdead),
       });
@@ -121,7 +121,7 @@ describe("checkout", () => {
     it("can't be paid through this link", async () => {
       const quote = await quoteFor(otherLink.id);
 
-      const transfer = await post(`/api/checkout/${link.id}/transfers`, {
+      const transfer = await post(`/api/checkout/${link.id}/transfer`, {
         quoteId: quote.id,
         refundAddress: address(0x7e7),
       });
@@ -131,6 +131,10 @@ describe("checkout", () => {
 
       expect(transfer.status).toBe(404);
       expect(x402.status).toBe(404);
+      // Refused for the quote, not because the route doesn't exist.
+      for (const res of [transfer, x402]) {
+        expect(res.json.error.message).not.toBe("Route not found");
+      }
     });
 
     it("can't be tracked or settled through this link", async () => {
@@ -139,7 +143,7 @@ describe("checkout", () => {
         quote: await quoteFor(otherLink.id),
       });
 
-      const tracked = await get(`/api/checkout/${link.id}/transfers/${row.id}`);
+      const tracked = await get(`/api/checkout/${link.id}/transfer/${row.id}`);
       const settled = await post(`/api/checkout/${link.id}/x402/settle`, {
         paymentPayload: {},
         paymentRequirements: {
@@ -155,6 +159,9 @@ describe("checkout", () => {
 
       expect(tracked.status).toBe(404);
       expect(settled.status).toBe(404);
+      for (const res of [tracked, settled]) {
+        expect(res.json.error.message).not.toBe("Route not found");
+      }
     });
   });
 
@@ -164,7 +171,7 @@ describe("checkout", () => {
       quote: await quoteFor(link.id),
     });
 
-    const res = await get(`/api/checkout/${link.id}/transfers/${row.id}`);
+    const res = await get(`/api/checkout/${link.id}/transfer/${row.id}`);
 
     expect(res.status).toBe(200);
     expect(res.json).toMatchObject({
