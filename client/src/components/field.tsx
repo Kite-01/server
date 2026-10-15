@@ -18,7 +18,7 @@ export const Field = ({
       <span>{label}</span>
       {hint && (
         <Tooltip>
-          <TooltipTrigger>
+          <TooltipTrigger type="button">
             <IconInfoCircle className="size-3.5" strokeWidth={1.5} />
           </TooltipTrigger>
           <TooltipContent>
