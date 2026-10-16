@@ -12,9 +12,9 @@ export interface GasSponsor {
     options: SdkOptions,
   ): Promise<OnchainActorCallStatus>;
 
-  canSponsorCalls(
+  getSponsorshipError(
     caip2Id: Caip2Id,
     signer: import("viem").LocalAccount,
     options: SdkOptions,
-  ): Promise<boolean>;
+  ): Promise<string | null>;
 }

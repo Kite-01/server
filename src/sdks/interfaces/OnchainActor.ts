@@ -17,11 +17,11 @@ export interface OnchainActor {
     options: SdkOptions,
   ): Promise<OnchainActorCallStatus>;
 
-  canSponsorCalls(
+  getSponsorshipError(
     caip2Id: Caip2Id,
     provider: import("../../shared/constants").Provider,
     options: SdkOptions,
-  ): Promise<boolean>;
+  ): Promise<string | null>;
 
   waitForTransaction(
     caip2Id: Caip2Id,

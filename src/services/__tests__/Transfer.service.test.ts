@@ -789,30 +789,17 @@ describe("TransferService", () => {
       expect(queued).not.toContain(done.id);
     });
 
-    it("re-queues refunds for failed transfers, except accepted x402 payments", async () => {
+    it("leaves failed transfers to the refund job queued when they failed", async () => {
       const failed = await open({ status: TransferStatus.Failed });
-      const held = await open({
-        status: TransferStatus.Failed,
-        x402SettledAt: new Date(),
-      });
-      const recent = await open({ status: TransferStatus.Failed });
-      const old = new Date(Date.now() - 10 * 60 * 1000);
       await db
         .update(transfer)
-        .set({ updatedAt: old })
+        .set({ updatedAt: new Date(Date.now() - 10 * 60 * 1000) })
         .where(eq(transfer.id, failed.id));
-      await db
-        .update(transfer)
-        .set({ updatedAt: old })
-        .where(eq(transfer.id, held.id));
 
       await service.sweep();
 
-      const queued = schedulerMock.enqueueRefund.mock.calls.map(
-        (c) => (c as unknown[])[0],
-      );
-      expect(queued).toEqual([failed.id]);
-      expect(queued).not.toContain(recent.id);
+      expect(schedulerMock.enqueueRefund).not.toHaveBeenCalled();
+      expect(schedulerMock.enqueueSettle).not.toHaveBeenCalled();
     });
   });
 

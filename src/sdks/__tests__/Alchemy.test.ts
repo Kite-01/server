@@ -2,6 +2,7 @@ import {
   encodeAbiParameters,
   encodeEventTopics,
   erc20Abi,
+  RpcRequestError,
   type Hex,
 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +26,7 @@ vi.mock("../Http", () => ({
 
 const wallet = vi.hoisted(() => ({
   createSmartWalletClient: vi.fn(),
-  prepareCalls: vi.fn(),
+  sendCalls: vi.fn(),
 }));
 
 vi.mock("@alchemy/wallet-apis", () => ({
@@ -343,36 +344,59 @@ describe("Alchemy gas sponsor", () => {
     },
   };
 
+  const refusal = (code: number, message: string) => {
+    return new RpcRequestError({
+      body: {},
+      url: "https://api.g.alchemy.com/v2",
+      error: { code, message },
+    });
+  };
+
   beforeEach(() => {
-    wallet.prepareCalls.mockReset();
+    wallet.sendCalls.mockReset();
     wallet.createSmartWalletClient
       .mockReset()
-      .mockReturnValue({ prepareCalls: wallet.prepareCalls });
+      .mockReturnValue({ sendCalls: wallet.sendCalls });
   });
 
-  it("can sponsor calls when Alchemy prepares a sponsored call on the chain", async () => {
-    wallet.prepareCalls.mockResolvedValue({ type: "user-operation-v070" });
+  it("sends a no-op for the operator, signed by a throwaway key", async () => {
+    wallet.sendCalls.mockRejectedValue(
+      refusal(-32507, "Invalid account signature"),
+    );
 
-    expect(await alchemy.canSponsorCalls("eip155:8453", signer, options)).toBe(
-      true,
-    );
-    expect(wallet.createSmartWalletClient).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chain: expect.objectContaining({ id: 8453 }),
-        signer,
-        paymaster: { policyId: "policy" },
-      }),
-    );
-    expect(wallet.prepareCalls).toHaveBeenCalledWith({
-      calls: [{ to: ZERO }],
+    await alchemy.getSponsorshipError("eip155:8453", signer, options);
+
+    const [params] = wallet.createSmartWalletClient.mock.calls[0];
+    expect(params).toMatchObject({
+      chain: { id: 8453 },
+      account: signer.address,
+      paymaster: { policyId: "policy" },
     });
+
+    expect(params.signer.address).not.toBe(signer.address);
+    expect(wallet.sendCalls).toHaveBeenCalledWith({ calls: [{ to: ZERO }] });
   });
 
-  it("cannot when Alchemy refuses to prepare it", async () => {
-    wallet.prepareCalls.mockRejectedValue(new Error("Unsupported chain"));
-
-    expect(await alchemy.canSponsorCalls("eip155:8453", signer, options)).toBe(
-      false,
+  it("reports Alchemy's reason when it refuses the chain", async () => {
+    wallet.sendCalls.mockRejectedValue(
+      refusal(-32602, "EIP-7702 is not enabled on Monad Testnet."),
     );
+
+    expect(
+      await alchemy.getSponsorshipError("eip155:8453", signer, options),
+    ).toBe("EIP-7702 is not enabled on Monad Testnet.");
+  });
+
+  it("can sponsor when Alchemy only refuses the throwaway signature", async () => {
+    for (const error of [
+      refusal(-32507, "Invalid account signature"),
+      refusal(-32602, "EIP-7702 sender/recovered authority mismatch"),
+    ]) {
+      wallet.sendCalls.mockRejectedValue(error);
+
+      expect(
+        await alchemy.getSponsorshipError("eip155:8453", signer, options),
+      ).toBeNull();
+    }
   });
 });

@@ -158,15 +158,15 @@ export class ChainService {
     );
 
     for (const provider of input.gasSponsorProviders) {
-      const canSponsor = await onchainActor.canSponsorCalls(
+      const reason = await onchainActor.getSponsorshipError(
         chain.caip2Id,
         provider,
         { variables },
       );
 
-      if (!canSponsor) {
+      if (reason) {
         throw new AppError(
-          `${provider} cannot sponsor gas on ${internalChain.name}`,
+          `${provider} cannot sponsor gas on ${internalChain.name}: ${reason}`,
         );
       }
     }

@@ -9,6 +9,7 @@ import {
   providerDescriptorOfChain,
 } from "../shared/chains";
 import { type Address, type Hex, type LocalAccount, zeroAddress } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { KeyType, KeyVars, Provider } from "../shared/constants";
 import { type OnchainNotifier } from "./interfaces/OnchainNotifier";
 import { type GasSponsor } from "./interfaces/GasSponsor";
@@ -30,6 +31,7 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     caip2Id: Caip2Id,
     signer: LocalAccount,
     options: SdkOptions,
+    account?: Address,
   ) => {
     return createSmartWalletClient({
       transport: alchemyWalletTransport({
@@ -37,6 +39,7 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
       }),
       chain: getViemChain(caip2Id),
       signer,
+      account,
       paymaster: {
         policyId: common.requireVar(options, KeyVars.AlchemyGasPolicyId),
       },
@@ -93,17 +96,32 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     };
   };
 
-  canSponsorCalls = async (
+  getSponsorshipError = async (
     caip2Id: Caip2Id,
     signer: LocalAccount,
     options: SdkOptions,
-  ): Promise<boolean> => {
-    const client = this.getClient(caip2Id, signer, options);
+  ): Promise<string | null> => {
+    // signed by a throwaway key so it can never execute;
+    // Alchemy checks the chain, EIP-7702 and the gas policy first, then refuses the signature
+    const client = this.getClient(
+      caip2Id,
+      privateKeyToAccount(generatePrivateKey()),
+      options,
+      signer.address,
+    );
 
-    return await client
-      .prepareCalls({ calls: [{ to: zeroAddress }] })
-      .then(() => true)
-      .catch(() => false);
+    const error = await client.sendCalls({ calls: [{ to: zeroAddress }] }).then(
+      () => null,
+      (error: { code?: number; details?: string; message: string }) => error,
+    );
+
+    if (!error) return null;
+
+    const reason = error.details ?? error.message;
+    const signatureRefused =
+      error.code === -32507 || reason.includes("recovered authority mismatch");
+
+    return signatureRefused ? null : reason;
   };
 
   getNotifyClient = (options: SdkOptions): Http => {

@@ -91,12 +91,12 @@ export class EvmActor implements OnchainActor {
     );
   };
 
-  canSponsorCalls = async (
+  getSponsorshipError = async (
     caip2Id: Caip2Id,
     provider: Provider,
     options: SdkOptions,
-  ): Promise<boolean> => {
-    return getProvider<GasSponsor>(provider).canSponsorCalls(
+  ): Promise<string | null> => {
+    return getProvider<GasSponsor>(provider).getSponsorshipError(
       caip2Id,
       this.account,
       options,

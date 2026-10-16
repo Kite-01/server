@@ -35,7 +35,9 @@ export const fakeActor = {
   getTransactionStatus: vi.fn(
     async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
   ),
-  canSponsorCalls: vi.fn(async (..._args: unknown[]) => true),
+  getSponsorshipError: vi.fn(
+    async (..._args: unknown[]): Promise<string | null> => null,
+  ),
   waitForTransaction: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({
     status: "pending",
   })),

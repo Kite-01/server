@@ -42,7 +42,6 @@ import {
   ilike,
   inArray,
   isNull,
-  lt,
   or,
   sql,
 } from "drizzle-orm";
@@ -849,22 +848,6 @@ export class TransferService {
       ) {
         await Scheduler.enqueueSettle(row.id);
       }
-    }
-
-    const failed = await db.query.transfer.findMany({
-      columns: {
-        id: true,
-      },
-      where: and(
-        eq(transfer.status, TransferStatus.Failed),
-        isNull(transfer.x402SettledAt),
-        lt(transfer.updatedAt, staleBefore),
-      ),
-      limit: 200,
-    });
-
-    for (const row of failed) {
-      await Scheduler.enqueueRefund(row.id);
     }
 
     await new OperatorForwardService().requeueStuck();

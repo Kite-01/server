@@ -215,13 +215,17 @@ describe("ChainService", () => {
     });
 
     it("says so when the gas sponsor cannot sponsor calls on the chain", async () => {
-      fakeActor.canSponsorCalls.mockResolvedValue(false);
+      fakeActor.getSponsorshipError.mockResolvedValue(
+        "EIP-7702 is not enabled on Base.",
+      );
 
       await expect(
         service.upsertChainConfig(chainId, config(tokens)),
-      ).rejects.toThrow("Alchemy cannot sponsor gas on Base");
+      ).rejects.toThrow(
+        "Alchemy cannot sponsor gas on Base: EIP-7702 is not enabled on Base.",
+      );
 
-      expect(fakeActor.canSponsorCalls).toHaveBeenCalledWith(
+      expect(fakeActor.getSponsorshipError).toHaveBeenCalledWith(
         "eip155:8453",
         Provider.Alchemy,
         {
