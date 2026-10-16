@@ -11,7 +11,7 @@ import {
   OperatorTransactionPendingError,
 } from "../shared/errors";
 import { getChain, getRpcsTransport, getViemChain } from "../shared/chains";
-import { OperatorTxTimeoutMs } from "../shared/constants";
+import { OperatorTxTimeoutMs, type Provider } from "../shared/constants";
 import { type OnchainActor } from "./interfaces/OnchainActor";
 import { mnemonicToAccount } from "viem/accounts";
 import { type GasSponsor } from "./interfaces/GasSponsor";
@@ -86,6 +86,18 @@ export class EvmActor implements OnchainActor {
     return sponsor.getSponsoredCallsStatus(
       caip2Id,
       callId,
+      this.account,
+      options,
+    );
+  };
+
+  canSponsorCalls = async (
+    caip2Id: Caip2Id,
+    provider: Provider,
+    options: SdkOptions,
+  ): Promise<boolean> => {
+    return getProvider<GasSponsor>(provider).canSponsorCalls(
+      caip2Id,
       this.account,
       options,
     );

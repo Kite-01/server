@@ -93,6 +93,19 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     };
   };
 
+  canSponsorCalls = async (
+    caip2Id: Caip2Id,
+    signer: LocalAccount,
+    options: SdkOptions,
+  ): Promise<boolean> => {
+    const client = this.getClient(caip2Id, signer, options);
+
+    return await client
+      .prepareCalls({ calls: [{ to: zeroAddress }] })
+      .then(() => true)
+      .catch(() => false);
+  };
+
   getNotifyClient = (options: SdkOptions): Http => {
     const authToken = common.requireVar(options, KeyVars.AlchemyAuthToken);
 

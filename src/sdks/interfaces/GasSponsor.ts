@@ -11,4 +11,10 @@ export interface GasSponsor {
     signer: import("viem").LocalAccount,
     options: SdkOptions,
   ): Promise<OnchainActorCallStatus>;
+
+  canSponsorCalls(
+    caip2Id: Caip2Id,
+    signer: import("viem").LocalAccount,
+    options: SdkOptions,
+  ): Promise<boolean>;
 }

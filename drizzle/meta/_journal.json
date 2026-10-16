@@ -8,6 +8,13 @@
       "when": 1791896002339,
       "tag": "0000_perfect_jackal",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792075997904,
+      "tag": "0001_purple_wolf_cub",
+      "breakpoints": true
     }
   ]
 }

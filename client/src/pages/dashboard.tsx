@@ -41,7 +41,6 @@ import {
   formatCount,
   formatDate,
   formatUsd,
-  initials,
   shortId,
 } from "@/lib/format";
 import { useAppHeaders, useAppScope } from "@/lib/queries";
@@ -320,19 +319,17 @@ const Growth = ({ series }: { series: Stats["series"] }) => {
             const point = payload[0].payload as (typeof points)[number];
 
             return (
-              <div className="rounded-xl border border-line bg-surface p-3 shadow-lg">
-                <p className="text-xs text-muted">
+              <div className="rounded-xl border border-line bg-surface p-3 min-w-30 shadow-lg">
+                <p className="text-[11px] text-muted">
                   {new Date(point.bucket).toLocaleString("en-US", {
                     dateStyle: "medium",
                     ...(hourly ? { timeStyle: "short" } : {}),
                   })}
                 </p>
-                <p className="mt-1 text-sm font-semibold">
+                <p className="mt-2 text-sm font-semibold font-display">
                   {formatUsd(point.amount)}
                 </p>
-                <p className="text-xs text-muted">
-                  {point.count} {point.count === 1 ? "transfer" : "transfers"}
-                </p>
+                <p className="text-[11px] text-muted">Volume: {point.count}</p>
               </div>
             );
           }}
@@ -476,25 +473,22 @@ export const Dashboard = () => {
               {data?.topTokens.map((token) => (
                 <div
                   key={token.id}
-                  className="flex items-center gap-3 px-4.5 py-3"
+                  className="flex items-center gap-2 px-4.5 py-3"
                 >
-                  <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-soft text-[10px] font-semibold">
-                    {token.icon ? (
-                      <img src={token.icon} alt="" className="size-8" />
-                    ) : (
-                      initials(token.symbol)
-                    )}
-                  </span>
+                  <SmartImage url={token.icon} className="size-8" />
+
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
+                    <p className="truncate text-[13px] font-medium">
                       {token.symbol}
                     </p>
-                    <p className="truncate text-xs text-muted">{token.name}</p>
+                    <p className="truncate text-[11px] text-muted">
+                      {token.name}
+                    </p>
                   </div>
-                  <p className="text-sm tabular-nums">
+                  <p className="text-sm tabular-nums font-medium">
                     {rank === "value"
                       ? formatCompactUsd(token.value)
-                      : `${token.volume} ${token.volume === 1 ? "transfer" : "transfers"}`}
+                      : token.volume.toLocaleString()}
                   </p>
                 </div>
               ))}

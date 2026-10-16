@@ -5,7 +5,8 @@ import {
   type Hex,
 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeActor, resetMocks } from "../../test/mocks";
+import { fakeActor, resetMocks, testMnemonic } from "../../test/mocks";
+import { mnemonicToAccount } from "viem/accounts";
 import { address, USDC, ZERO } from "../../test/factories";
 import { KeyType, KeyVars } from "../../shared/constants";
 import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
@@ -20,6 +21,16 @@ vi.mock("../Http", () => ({
     post = http.post;
     patch = http.patch;
   },
+}));
+
+const wallet = vi.hoisted(() => ({
+  createSmartWalletClient: vi.fn(),
+  prepareCalls: vi.fn(),
+}));
+
+vi.mock("@alchemy/wallet-apis", () => ({
+  alchemyWalletTransport: vi.fn(),
+  createSmartWalletClient: wallet.createSmartWalletClient,
 }));
 
 const alchemy = new Alchemy();
@@ -320,5 +331,48 @@ describe("Alchemy notifiers", () => {
       ).toEqual([]);
       expect(getTransaction).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("Alchemy gas sponsor", () => {
+  const signer = mnemonicToAccount(testMnemonic);
+  const options = {
+    variables: {
+      [KeyVars.AlchemyApiKey]: "api-key",
+      [KeyVars.AlchemyGasPolicyId]: "policy",
+    },
+  };
+
+  beforeEach(() => {
+    wallet.prepareCalls.mockReset();
+    wallet.createSmartWalletClient
+      .mockReset()
+      .mockReturnValue({ prepareCalls: wallet.prepareCalls });
+  });
+
+  it("can sponsor calls when Alchemy prepares a sponsored call on the chain", async () => {
+    wallet.prepareCalls.mockResolvedValue({ type: "user-operation-v070" });
+
+    expect(await alchemy.canSponsorCalls("eip155:8453", signer, options)).toBe(
+      true,
+    );
+    expect(wallet.createSmartWalletClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chain: expect.objectContaining({ id: 8453 }),
+        signer,
+        paymaster: { policyId: "policy" },
+      }),
+    );
+    expect(wallet.prepareCalls).toHaveBeenCalledWith({
+      calls: [{ to: ZERO }],
+    });
+  });
+
+  it("cannot when Alchemy refuses to prepare it", async () => {
+    wallet.prepareCalls.mockRejectedValue(new Error("Unsupported chain"));
+
+    expect(await alchemy.canSponsorCalls("eip155:8453", signer, options)).toBe(
+      false,
+    );
   });
 });

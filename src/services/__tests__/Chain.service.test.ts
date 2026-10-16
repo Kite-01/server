@@ -214,6 +214,25 @@ describe("ChainService", () => {
       ).rejects.toBeInstanceOf(ProviderYetToBeConfiguredError);
     });
 
+    it("says so when the gas sponsor cannot sponsor calls on the chain", async () => {
+      fakeActor.canSponsorCalls.mockResolvedValue(false);
+
+      await expect(
+        service.upsertChainConfig(chainId, config(tokens)),
+      ).rejects.toThrow("Alchemy cannot sponsor gas on Base");
+
+      expect(fakeActor.canSponsorCalls).toHaveBeenCalledWith(
+        "eip155:8453",
+        Provider.Alchemy,
+        {
+          variables: expect.objectContaining({
+            [KeyVars.AlchemyGasPolicyId]: "p",
+          }),
+        },
+      );
+      expect((await service.getChainById(chainId))?.config).toBeNull();
+    });
+
     it("does not save anything when validation fails", async () => {
       await expect(
         service.upsertChainConfig(chainId, {

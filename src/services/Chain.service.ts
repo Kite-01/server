@@ -157,6 +157,20 @@ export class ChainService {
       }),
     );
 
+    for (const provider of input.gasSponsorProviders) {
+      const canSponsor = await onchainActor.canSponsorCalls(
+        chain.caip2Id,
+        provider,
+        { variables },
+      );
+
+      if (!canSponsor) {
+        throw new AppError(
+          `${provider} cannot sponsor gas on ${internalChain.name}`,
+        );
+      }
+    }
+
     const values = {
       ...input,
       kiteFactoryAddress: common.normalizeAddress(input.kiteFactoryAddress),
