@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DeleteApiApiKeyByIdData, DeleteApiApiKeyByIdResponses, DeleteApiAppsData, DeleteApiAppsResponses, DeleteApiChainsByIdData, DeleteApiChainsByIdResponses, DeleteApiCustomersByIdData, DeleteApiCustomersByIdResponses, DeleteApiFeesByIdData, DeleteApiFeesByIdResponses, DeleteApiPaymentLinksByIdData, DeleteApiPaymentLinksByIdResponses, DeleteApiPriceFeedsByIdData, DeleteApiPriceFeedsByIdResponses, DeleteApiTokensByIdData, DeleteApiTokensByIdResponses, DeleteApiWebhooksByIdData, DeleteApiWebhooksByIdResponses, GetApiApiKeyByIdData, GetApiApiKeyByIdResponses, GetApiApiKeyData, GetApiApiKeyResponses, GetApiAppsAllData, GetApiAppsAllResponses, GetApiAppsData, GetApiAppsResponses, GetApiChainsData, GetApiChainsFullData, GetApiChainsFullResponses, GetApiChainsResponses, GetApiChainsSupportedData, GetApiChainsSupportedResponses, GetApiCheckoutByIdData, GetApiCheckoutByIdResponses, GetApiCheckoutByIdTransferByTransferIdData, GetApiCheckoutByIdTransferByTransferIdResponses, GetApiCustomersByIdData, GetApiCustomersByIdResponses, GetApiCustomersData, GetApiCustomersResponses, GetApiFeesByIdData, GetApiFeesByIdResponses, GetApiFeesData, GetApiFeesResponses, GetApiKvData, GetApiKvProvidersData, GetApiKvProvidersResponses, GetApiKvResponses, GetApiOverviewEventsData, GetApiOverviewEventsResponses, GetApiOverviewInfoData, GetApiOverviewInfoResponses, GetApiOverviewStatsData, GetApiOverviewStatsResponses, GetApiPaymentLinksByIdData, GetApiPaymentLinksByIdResponses, GetApiPaymentLinksCurrenciesData, GetApiPaymentLinksCurrenciesResponses, GetApiPaymentLinksData, GetApiPaymentLinksResponses, GetApiPriceFeedsData, GetApiPriceFeedsResponses, GetApiQuotesByIdData, GetApiQuotesByIdResponses, GetApiQuotesData, GetApiQuotesResponses, GetApiTokensByChainIdByAddressData, GetApiTokensByChainIdByAddressResponses, GetApiTokensData, GetApiTokensResponses, GetApiTransfersByIdData, GetApiTransfersByIdResponses, GetApiTransfersData, GetApiTransfersResponses, GetApiWebhooksByIdDeliveriesData, GetApiWebhooksByIdDeliveriesResponses, GetApiWebhooksData, GetApiWebhooksResponses, GetApiX402SupportedData, GetApiX402SupportedResponses, GetApiX402TransferByIdRequirementsData, GetApiX402TransferByIdRequirementsResponses, PatchApiApiKeyByIdData, PatchApiApiKeyByIdResponses, PatchApiAppsData, PatchApiAppsResponses, PatchApiChainsByIdData, PatchApiChainsByIdResponses, PatchApiFeesByIdData, PatchApiFeesByIdResponses, PatchApiPaymentLinksByIdData, PatchApiPaymentLinksByIdResponses, PostApiApiKeyByIdRevokeData, PostApiApiKeyByIdRevokeResponses, PostApiApiKeyData, PostApiApiKeyResponses, PostApiAppsData, PostApiAppsResponses, PostApiChainsData, PostApiChainsResponses, PostApiCheckoutByIdQuoteData, PostApiCheckoutByIdQuoteResponses, PostApiCheckoutByIdTransferData, PostApiCheckoutByIdTransferResponses, PostApiCheckoutByIdX402Data, PostApiCheckoutByIdX402Responses, PostApiCheckoutByIdX402SettleData, PostApiCheckoutByIdX402SettleResponses, PostApiCustomersData, PostApiCustomersResponses, PostApiFeesData, PostApiFeesResponses, PostApiPaymentLinksByIdPayData, PostApiPaymentLinksByIdPayResponses, PostApiPaymentLinksData, PostApiPaymentLinksResponses, PostApiPriceFeedsData, PostApiPriceFeedsResponses, PostApiQuotesData, PostApiQuotesResponses, PostApiTransfersData, PostApiTransfersResponses, PostApiWebhooksData, PostApiWebhooksResponses, PostApiX402PayData, PostApiX402PayResponses, PostApiX402SettleData, PostApiX402SettleResponses, PostApiX402VerifyData, PostApiX402VerifyResponses, PutApiChainsByIdConfigData, PutApiChainsByIdConfigResponses, PutApiKvByKeyData, PutApiKvByKeyResponses } from './types.gen';
+import type { DeleteApiApiKeyByIdData, DeleteApiApiKeyByIdResponses, DeleteApiAppsData, DeleteApiAppsResponses, DeleteApiChainsByIdData, DeleteApiChainsByIdResponses, DeleteApiCustomersByIdData, DeleteApiCustomersByIdResponses, DeleteApiFeesByIdData, DeleteApiFeesByIdResponses, DeleteApiPaymentLinksByIdData, DeleteApiPaymentLinksByIdResponses, DeleteApiPriceFeedsByIdData, DeleteApiPriceFeedsByIdResponses, DeleteApiTokensByIdData, DeleteApiTokensByIdResponses, DeleteApiWebhooksByIdData, DeleteApiWebhooksByIdResponses, GetApiApiKeyByIdData, GetApiApiKeyByIdResponses, GetApiApiKeyData, GetApiApiKeyResponses, GetApiAppsAllData, GetApiAppsAllResponses, GetApiAppsData, GetApiAppsResponses, GetApiChainsData, GetApiChainsFullData, GetApiChainsFullResponses, GetApiChainsResponses, GetApiChainsSupportedData, GetApiChainsSupportedResponses, GetApiCheckoutByIdData, GetApiCheckoutByIdResponses, GetApiCheckoutByIdTransferByTransferIdData, GetApiCheckoutByIdTransferByTransferIdResponses, GetApiCustomersByIdData, GetApiCustomersByIdResponses, GetApiCustomersData, GetApiCustomersResponses, GetApiFeesByIdData, GetApiFeesByIdResponses, GetApiFeesData, GetApiFeesResponses, GetApiKvData, GetApiKvProvidersData, GetApiKvProvidersResponses, GetApiKvResponses, GetApiOverviewEventsData, GetApiOverviewEventsResponses, GetApiOverviewInfoData, GetApiOverviewInfoResponses, GetApiOverviewStatsData, GetApiOverviewStatsResponses, GetApiPaymentLinksByIdData, GetApiPaymentLinksByIdResponses, GetApiPaymentLinksCurrenciesData, GetApiPaymentLinksCurrenciesResponses, GetApiPaymentLinksData, GetApiPaymentLinksResponses, GetApiPriceFeedsData, GetApiPriceFeedsResponses, GetApiQuotesByIdData, GetApiQuotesByIdResponses, GetApiQuotesData, GetApiQuotesResponses, GetApiRateData, GetApiRateResponses, GetApiTokensByChainIdByAddressData, GetApiTokensByChainIdByAddressResponses, GetApiTokensData, GetApiTokensResponses, GetApiTransfersByIdData, GetApiTransfersByIdResponses, GetApiTransfersData, GetApiTransfersResponses, GetApiWebhooksByIdDeliveriesData, GetApiWebhooksByIdDeliveriesResponses, GetApiWebhooksData, GetApiWebhooksResponses, GetApiX402SupportedData, GetApiX402SupportedResponses, GetApiX402TransferByIdRequirementsData, GetApiX402TransferByIdRequirementsResponses, PatchApiApiKeyByIdData, PatchApiApiKeyByIdResponses, PatchApiAppsData, PatchApiAppsResponses, PatchApiChainsByIdData, PatchApiChainsByIdResponses, PatchApiFeesByIdData, PatchApiFeesByIdResponses, PatchApiPaymentLinksByIdData, PatchApiPaymentLinksByIdResponses, PostApiApiKeyByIdRevokeData, PostApiApiKeyByIdRevokeResponses, PostApiApiKeyData, PostApiApiKeyResponses, PostApiAppsData, PostApiAppsResponses, PostApiChainsData, PostApiChainsResponses, PostApiCheckoutByIdQuoteData, PostApiCheckoutByIdQuoteResponses, PostApiCheckoutByIdTransferData, PostApiCheckoutByIdTransferResponses, PostApiCheckoutByIdX402Data, PostApiCheckoutByIdX402Responses, PostApiCheckoutByIdX402SettleData, PostApiCheckoutByIdX402SettleResponses, PostApiCustomersData, PostApiCustomersResponses, PostApiFeesData, PostApiFeesResponses, PostApiPaymentLinksByIdPayData, PostApiPaymentLinksByIdPayResponses, PostApiPaymentLinksData, PostApiPaymentLinksResponses, PostApiPriceFeedsData, PostApiPriceFeedsResponses, PostApiQuotesData, PostApiQuotesResponses, PostApiTransfersByIdRecoverBalanceData, PostApiTransfersByIdRecoverBalanceResponses, PostApiTransfersByIdRecoverData, PostApiTransfersByIdRecoverResponses, PostApiTransfersByIdRefundData, PostApiTransfersByIdRefundResponses, PostApiTransfersData, PostApiTransfersResponses, PostApiWebhooksData, PostApiWebhooksResponses, PostApiX402PayData, PostApiX402PayResponses, PostApiX402SettleData, PostApiX402SettleResponses, PostApiX402VerifyData, PostApiX402VerifyResponses, PutApiChainsByIdConfigData, PutApiChainsByIdConfigResponses, PutApiKvByKeyData, PutApiKvByKeyResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -390,6 +390,11 @@ export const postApiPaymentLinksByIdPay = <ThrowOnError extends boolean = true>(
 });
 
 /**
+ * Get live currency rate
+ */
+export const getApiRate = <ThrowOnError extends boolean = true>(options: Options<GetApiRateData, ThrowOnError>): RequestResult<GetApiRateResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiRateResponses, unknown, ThrowOnError>({ url: '/api/rate', ...options });
+
+/**
  * List price feeds
  */
 export const getApiPriceFeeds = <ThrowOnError extends boolean = true>(options?: Options<GetApiPriceFeedsData, ThrowOnError>): RequestResult<GetApiPriceFeedsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiPriceFeedsResponses, unknown, ThrowOnError>({ url: '/api/price-feeds', ...options });
@@ -454,6 +459,42 @@ export const postApiTransfers = <ThrowOnError extends boolean = true>(options: O
  * Get a transfer
  */
 export const getApiTransfersById = <ThrowOnError extends boolean = true>(options: Options<GetApiTransfersByIdData, ThrowOnError>): RequestResult<GetApiTransfersByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiTransfersByIdResponses, unknown, ThrowOnError>({ url: '/api/transfers/{id}', ...options });
+
+/**
+ * Refund a transfer
+ */
+export const postApiTransfersByIdRefund = <ThrowOnError extends boolean = true>(options: Options<PostApiTransfersByIdRefundData, ThrowOnError>): RequestResult<PostApiTransfersByIdRefundResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiTransfersByIdRefundResponses, unknown, ThrowOnError>({
+  url: '/api/transfers/{id}/refund',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Check a transfer pay-in token balance
+ */
+export const postApiTransfersByIdRecoverBalance = <ThrowOnError extends boolean = true>(options: Options<PostApiTransfersByIdRecoverBalanceData, ThrowOnError>): RequestResult<PostApiTransfersByIdRecoverBalanceResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiTransfersByIdRecoverBalanceResponses, unknown, ThrowOnError>({
+  url: '/api/transfers/{id}/recover/balance',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Recover transfer tokens
+ */
+export const postApiTransfersByIdRecover = <ThrowOnError extends boolean = true>(options: Options<PostApiTransfersByIdRecoverData, ThrowOnError>): RequestResult<PostApiTransfersByIdRecoverResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiTransfersByIdRecoverResponses, unknown, ThrowOnError>({
+  url: '/api/transfers/{id}/recover',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * List webhooks

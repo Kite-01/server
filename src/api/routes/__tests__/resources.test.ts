@@ -621,6 +621,44 @@ describe("API resources", () => {
       expect(res2.json.total).toBe(0);
     });
 
+    it("checks recovery balances and runs manual refund and recovery actions", async () => {
+      const quote = await quoteVia();
+      const created = await api.post("/api/transfers", {
+        quoteId: quote.id,
+        refundAddress: REFUND_TO,
+      });
+
+      fakeActor.getBalance.mockResolvedValue(25n);
+
+      const balance = await api.post(
+        `/api/transfers/${created.json.id}/recover/balance`,
+        { tokenAddress: USDC },
+      );
+      expect(balance.status).toBe(200);
+      expect(balance.json).toEqual({ balance: "25" });
+
+      const recovery = await api.post(
+        `/api/transfers/${created.json.id}/recover`,
+        {
+          tokenAddress: USDC,
+          destinationAddress: REFUND_TO,
+          useGasSponsor: false,
+        },
+      );
+      expect(recovery.status).toBe(200);
+
+      const refund = await api.post(
+        `/api/transfers/${created.json.id}/refund`,
+        { useGasSponsor: true },
+      );
+      expect(refund.status).toBe(200);
+      expect(fakeActor.sendTransaction).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { useGasSponsor: false },
+      );
+    });
+
     it("lets a payment-link checkout open and follow a transfer with only the public key", async () => {
       const link = await createPaymentLink(appId);
       const quote = await quoteVia(link.id);

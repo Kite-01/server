@@ -21,6 +21,7 @@ import {
   schedulerMock,
 } from "../../test/mocks";
 import {
+  chain,
   chainConfig,
   deposit,
   event,
@@ -168,6 +169,7 @@ describe("TransferService", () => {
         previousCategoryStatus: TransferStatus.Created,
         currentCategoryStatus: TransferStatus.AwaitingDeposit,
       });
+      expect(JSON.stringify(created_event.data)).not.toContain("rpcUrls");
       expect((await timeline())[0]).toMatchObject({
         transferId: created.id,
         eventId: created_event.id,
@@ -500,6 +502,7 @@ describe("TransferService", () => {
           value: 0n,
         },
         expect.anything(),
+        expect.anything(),
       );
       expect((await reload(row.id)).status).toBe(TransferStatus.Processing);
       expect((await timeline()).map((t) => t.description)).toEqual([
@@ -634,6 +637,7 @@ describe("TransferService", () => {
           data: kite.factory.refund(struct),
         }),
         expect.anything(),
+        expect.anything(),
       );
     });
 
@@ -705,6 +709,7 @@ describe("TransferService", () => {
           ),
         }),
         expect.anything(),
+        expect.anything(),
       );
     });
 
@@ -760,6 +765,32 @@ describe("TransferService", () => {
           data: kite.factory.recover(struct, USDC, address(0xd357)),
         }),
         expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it("checks the selected token balance at the pay-in address", async () => {
+      const row = await open();
+      fakeActor.getBalance.mockResolvedValue(25n);
+
+      await expect(service.getRecoveryBalance(row.id, USDC)).resolves.toBe(25n);
+      expect(fakeActor.getBalance).toHaveBeenCalledWith(
+        CAIP2,
+        USDC,
+        row.payinAddress,
+      );
+    });
+
+    it("uses a direct operator transaction when gas sponsorship is disabled", async () => {
+      const row = await open({ status: TransferStatus.Settled });
+      fakeActor.getBalance.mockResolvedValue(25n);
+
+      await service.recover(row.id, USDC, address(0xd357), false);
+
+      expect(fakeActor.sendTransaction).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { useGasSponsor: false },
       );
     });
   });

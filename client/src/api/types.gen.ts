@@ -1825,6 +1825,34 @@ export type PostApiPaymentLinksByIdPayResponses = {
 
 export type PostApiPaymentLinksByIdPayResponse = PostApiPaymentLinksByIdPayResponses[keyof PostApiPaymentLinksByIdPayResponses];
 
+export type GetApiRateData = {
+  body?: never;
+  path?: never;
+  query: {
+    currency: string;
+    amount: string;
+  };
+  url: '/api/rate';
+};
+
+export type GetApiRateResponses = {
+  /**
+   * Response for status 200
+   */
+  200: {
+    from: {
+      currency: string;
+      amount: string;
+    };
+    to: {
+      currency: string;
+      amount: string;
+    };
+  };
+};
+
+export type GetApiRateResponse = GetApiRateResponses[keyof GetApiRateResponses];
+
 export type GetApiPriceFeedsData = {
   body?: never;
   path?: never;
@@ -2002,6 +2030,74 @@ export type GetApiTransfersByIdResponses = {
 };
 
 export type GetApiTransfersByIdResponse = GetApiTransfersByIdResponses[keyof GetApiTransfersByIdResponses];
+
+export type PostApiTransfersByIdRefundData = {
+  body: {
+    useGasSponsor?: boolean;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/transfers/{id}/refund';
+};
+
+export type PostApiTransfersByIdRefundResponses = {
+  /**
+   * Response for status 200
+   */
+  200: {
+    [key: string]: never;
+  };
+};
+
+export type PostApiTransfersByIdRefundResponse = PostApiTransfersByIdRefundResponses[keyof PostApiTransfersByIdRefundResponses];
+
+export type PostApiTransfersByIdRecoverBalanceData = {
+  body: {
+    tokenAddress: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/transfers/{id}/recover/balance';
+};
+
+export type PostApiTransfersByIdRecoverBalanceResponses = {
+  /**
+   * Response for status 200
+   */
+  200: {
+    balance: string;
+  };
+};
+
+export type PostApiTransfersByIdRecoverBalanceResponse = PostApiTransfersByIdRecoverBalanceResponses[keyof PostApiTransfersByIdRecoverBalanceResponses];
+
+export type PostApiTransfersByIdRecoverData = {
+  body: {
+    tokenAddress: string;
+    destinationAddress: string;
+    useGasSponsor?: boolean;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/transfers/{id}/recover';
+};
+
+export type PostApiTransfersByIdRecoverResponses = {
+  /**
+   * Response for status 200
+   */
+  200: {
+    [key: string]: never;
+  };
+};
+
+export type PostApiTransfersByIdRecoverResponse = PostApiTransfersByIdRecoverResponses[keyof PostApiTransfersByIdRecoverResponses];
 
 export type GetApiWebhooksData = {
   body?: never;

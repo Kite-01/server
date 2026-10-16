@@ -21,6 +21,7 @@ import { apiKeyRoutes } from "./routes/apiKeys";
 import { quoteRoutes } from "./routes/quotes";
 import { tokenRoutes } from "./routes/tokens";
 import { chainRoutes } from "./routes/chains";
+import { rateRoutes } from "./routes/rates";
 import { x402Routes } from "./routes/x402";
 import { feeRoutes } from "./routes/fees";
 import { appRoutes } from "./routes/app";
@@ -37,6 +38,7 @@ const api = new Elysia({ prefix: "/api" })
   .use(kvRoutes)
   .use(overviewRoutes)
   .use(paymentLinkRoutes)
+  .use(rateRoutes)
   .use(priceFeedRoutes)
   .use(quoteRoutes)
   .use(transferRoutes)

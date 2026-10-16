@@ -1,4 +1,4 @@
-import { type Address, formatUnits } from "viem";
+import { type Address, formatUnits, parseUnits } from "viem";
 import { AppError, NotFoundError } from "../shared/errors";
 import { ChainLinkAggregatorV3 } from "../shared/abis/ChainLinkAggregatorV3";
 import { getOnchainActor } from "../shared/onchainActor";
@@ -56,6 +56,10 @@ export class PriceFeedService {
 
     if (!baseCurrency || !quoteCurrency || rest.length) {
       throw new AppError(`Unrecognised price feed description: ${description}`);
+    }
+
+    if (quoteCurrency.toLowerCase() !== "usd") {
+      throw new AppError("Quote currency must be USD");
     }
 
     const [row] = await db
@@ -125,6 +129,13 @@ export class PriceFeedService {
   getPrice = async (baseCurrency: string, quoteCurrency: string) => {
     baseCurrency = baseCurrency.toUpperCase();
     quoteCurrency = quoteCurrency.toUpperCase();
+
+    if (baseCurrency === quoteCurrency) {
+      return {
+        answer: parseUnits("1", 18),
+        decimals: 18,
+      };
+    }
 
     const priceFeed = await this.getPriceFeedByCurrency(
       baseCurrency,

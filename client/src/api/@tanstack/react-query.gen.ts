@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { deleteApiApiKeyById, deleteApiApps, deleteApiChainsById, deleteApiCustomersById, deleteApiFeesById, deleteApiPaymentLinksById, deleteApiPriceFeedsById, deleteApiTokensById, deleteApiWebhooksById, getApiApiKey, getApiApiKeyById, getApiApps, getApiAppsAll, getApiChains, getApiChainsFull, getApiChainsSupported, getApiCheckoutById, getApiCheckoutByIdTransferByTransferId, getApiCustomers, getApiCustomersById, getApiFees, getApiFeesById, getApiKv, getApiKvProviders, getApiOverviewEvents, getApiOverviewInfo, getApiOverviewStats, getApiPaymentLinks, getApiPaymentLinksById, getApiPaymentLinksCurrencies, getApiPriceFeeds, getApiQuotes, getApiQuotesById, getApiTokens, getApiTokensByChainIdByAddress, getApiTransfers, getApiTransfersById, getApiWebhooks, getApiWebhooksByIdDeliveries, getApiX402Supported, getApiX402TransferByIdRequirements, type Options, patchApiApiKeyById, patchApiApps, patchApiChainsById, patchApiFeesById, patchApiPaymentLinksById, postApiApiKey, postApiApiKeyByIdRevoke, postApiApps, postApiChains, postApiCheckoutByIdQuote, postApiCheckoutByIdTransfer, postApiCheckoutByIdX402, postApiCheckoutByIdX402Settle, postApiCustomers, postApiFees, postApiPaymentLinks, postApiPaymentLinksByIdPay, postApiPriceFeeds, postApiQuotes, postApiTransfers, postApiWebhooks, postApiX402Pay, postApiX402Settle, postApiX402Verify, putApiChainsByIdConfig, putApiKvByKey } from '../sdk.gen';
-import type { DeleteApiApiKeyByIdData, DeleteApiApiKeyByIdResponse, DeleteApiAppsData, DeleteApiAppsResponse, DeleteApiChainsByIdData, DeleteApiChainsByIdResponse, DeleteApiCustomersByIdData, DeleteApiCustomersByIdResponse, DeleteApiFeesByIdData, DeleteApiFeesByIdResponse, DeleteApiPaymentLinksByIdData, DeleteApiPaymentLinksByIdResponse, DeleteApiPriceFeedsByIdData, DeleteApiPriceFeedsByIdResponse, DeleteApiTokensByIdData, DeleteApiTokensByIdResponse, DeleteApiWebhooksByIdData, DeleteApiWebhooksByIdResponse, GetApiApiKeyByIdData, GetApiApiKeyByIdResponse, GetApiApiKeyData, GetApiApiKeyResponse, GetApiAppsAllData, GetApiAppsAllResponse, GetApiAppsData, GetApiAppsResponse, GetApiChainsData, GetApiChainsFullData, GetApiChainsFullResponse, GetApiChainsResponse, GetApiChainsSupportedData, GetApiChainsSupportedResponse, GetApiCheckoutByIdData, GetApiCheckoutByIdResponse, GetApiCheckoutByIdTransferByTransferIdData, GetApiCheckoutByIdTransferByTransferIdResponse, GetApiCustomersByIdData, GetApiCustomersByIdResponse, GetApiCustomersData, GetApiCustomersResponse, GetApiFeesByIdData, GetApiFeesByIdResponse, GetApiFeesData, GetApiFeesResponse, GetApiKvData, GetApiKvProvidersData, GetApiKvProvidersResponse, GetApiKvResponse, GetApiOverviewEventsData, GetApiOverviewEventsResponse, GetApiOverviewInfoData, GetApiOverviewInfoResponse, GetApiOverviewStatsData, GetApiOverviewStatsResponse, GetApiPaymentLinksByIdData, GetApiPaymentLinksByIdResponse, GetApiPaymentLinksCurrenciesData, GetApiPaymentLinksCurrenciesResponse, GetApiPaymentLinksData, GetApiPaymentLinksResponse, GetApiPriceFeedsData, GetApiPriceFeedsResponse, GetApiQuotesByIdData, GetApiQuotesByIdResponse, GetApiQuotesData, GetApiQuotesResponse, GetApiTokensByChainIdByAddressData, GetApiTokensByChainIdByAddressResponse, GetApiTokensData, GetApiTokensResponse, GetApiTransfersByIdData, GetApiTransfersByIdResponse, GetApiTransfersData, GetApiTransfersResponse, GetApiWebhooksByIdDeliveriesData, GetApiWebhooksByIdDeliveriesResponse, GetApiWebhooksData, GetApiWebhooksResponse, GetApiX402SupportedData, GetApiX402SupportedResponse, GetApiX402TransferByIdRequirementsData, GetApiX402TransferByIdRequirementsResponse, PatchApiApiKeyByIdData, PatchApiApiKeyByIdResponse, PatchApiAppsData, PatchApiAppsResponse, PatchApiChainsByIdData, PatchApiChainsByIdResponse, PatchApiFeesByIdData, PatchApiFeesByIdResponse, PatchApiPaymentLinksByIdData, PatchApiPaymentLinksByIdResponse, PostApiApiKeyByIdRevokeData, PostApiApiKeyByIdRevokeResponse, PostApiApiKeyData, PostApiApiKeyResponse, PostApiAppsData, PostApiAppsResponse, PostApiChainsData, PostApiChainsResponse, PostApiCheckoutByIdQuoteData, PostApiCheckoutByIdQuoteResponse, PostApiCheckoutByIdTransferData, PostApiCheckoutByIdTransferResponse, PostApiCheckoutByIdX402Data, PostApiCheckoutByIdX402Response, PostApiCheckoutByIdX402SettleData, PostApiCheckoutByIdX402SettleResponse, PostApiCustomersData, PostApiCustomersResponse, PostApiFeesData, PostApiFeesResponse, PostApiPaymentLinksByIdPayData, PostApiPaymentLinksByIdPayResponse, PostApiPaymentLinksData, PostApiPaymentLinksResponse, PostApiPriceFeedsData, PostApiPriceFeedsResponse, PostApiQuotesData, PostApiQuotesResponse, PostApiTransfersData, PostApiTransfersResponse, PostApiWebhooksData, PostApiWebhooksResponse, PostApiX402PayData, PostApiX402PayResponse, PostApiX402SettleData, PostApiX402SettleResponse, PostApiX402VerifyData, PostApiX402VerifyResponse, PutApiChainsByIdConfigData, PutApiChainsByIdConfigResponse, PutApiKvByKeyData, PutApiKvByKeyResponse } from '../types.gen';
+import { deleteApiApiKeyById, deleteApiApps, deleteApiChainsById, deleteApiCustomersById, deleteApiFeesById, deleteApiPaymentLinksById, deleteApiPriceFeedsById, deleteApiTokensById, deleteApiWebhooksById, getApiApiKey, getApiApiKeyById, getApiApps, getApiAppsAll, getApiChains, getApiChainsFull, getApiChainsSupported, getApiCheckoutById, getApiCheckoutByIdTransferByTransferId, getApiCustomers, getApiCustomersById, getApiFees, getApiFeesById, getApiKv, getApiKvProviders, getApiOverviewEvents, getApiOverviewInfo, getApiOverviewStats, getApiPaymentLinks, getApiPaymentLinksById, getApiPaymentLinksCurrencies, getApiPriceFeeds, getApiQuotes, getApiQuotesById, getApiRate, getApiTokens, getApiTokensByChainIdByAddress, getApiTransfers, getApiTransfersById, getApiWebhooks, getApiWebhooksByIdDeliveries, getApiX402Supported, getApiX402TransferByIdRequirements, type Options, patchApiApiKeyById, patchApiApps, patchApiChainsById, patchApiFeesById, patchApiPaymentLinksById, postApiApiKey, postApiApiKeyByIdRevoke, postApiApps, postApiChains, postApiCheckoutByIdQuote, postApiCheckoutByIdTransfer, postApiCheckoutByIdX402, postApiCheckoutByIdX402Settle, postApiCustomers, postApiFees, postApiPaymentLinks, postApiPaymentLinksByIdPay, postApiPriceFeeds, postApiQuotes, postApiTransfers, postApiTransfersByIdRecover, postApiTransfersByIdRecoverBalance, postApiTransfersByIdRefund, postApiWebhooks, postApiX402Pay, postApiX402Settle, postApiX402Verify, putApiChainsByIdConfig, putApiKvByKey } from '../sdk.gen';
+import type { DeleteApiApiKeyByIdData, DeleteApiApiKeyByIdResponse, DeleteApiAppsData, DeleteApiAppsResponse, DeleteApiChainsByIdData, DeleteApiChainsByIdResponse, DeleteApiCustomersByIdData, DeleteApiCustomersByIdResponse, DeleteApiFeesByIdData, DeleteApiFeesByIdResponse, DeleteApiPaymentLinksByIdData, DeleteApiPaymentLinksByIdResponse, DeleteApiPriceFeedsByIdData, DeleteApiPriceFeedsByIdResponse, DeleteApiTokensByIdData, DeleteApiTokensByIdResponse, DeleteApiWebhooksByIdData, DeleteApiWebhooksByIdResponse, GetApiApiKeyByIdData, GetApiApiKeyByIdResponse, GetApiApiKeyData, GetApiApiKeyResponse, GetApiAppsAllData, GetApiAppsAllResponse, GetApiAppsData, GetApiAppsResponse, GetApiChainsData, GetApiChainsFullData, GetApiChainsFullResponse, GetApiChainsResponse, GetApiChainsSupportedData, GetApiChainsSupportedResponse, GetApiCheckoutByIdData, GetApiCheckoutByIdResponse, GetApiCheckoutByIdTransferByTransferIdData, GetApiCheckoutByIdTransferByTransferIdResponse, GetApiCustomersByIdData, GetApiCustomersByIdResponse, GetApiCustomersData, GetApiCustomersResponse, GetApiFeesByIdData, GetApiFeesByIdResponse, GetApiFeesData, GetApiFeesResponse, GetApiKvData, GetApiKvProvidersData, GetApiKvProvidersResponse, GetApiKvResponse, GetApiOverviewEventsData, GetApiOverviewEventsResponse, GetApiOverviewInfoData, GetApiOverviewInfoResponse, GetApiOverviewStatsData, GetApiOverviewStatsResponse, GetApiPaymentLinksByIdData, GetApiPaymentLinksByIdResponse, GetApiPaymentLinksCurrenciesData, GetApiPaymentLinksCurrenciesResponse, GetApiPaymentLinksData, GetApiPaymentLinksResponse, GetApiPriceFeedsData, GetApiPriceFeedsResponse, GetApiQuotesByIdData, GetApiQuotesByIdResponse, GetApiQuotesData, GetApiQuotesResponse, GetApiRateData, GetApiRateResponse, GetApiTokensByChainIdByAddressData, GetApiTokensByChainIdByAddressResponse, GetApiTokensData, GetApiTokensResponse, GetApiTransfersByIdData, GetApiTransfersByIdResponse, GetApiTransfersData, GetApiTransfersResponse, GetApiWebhooksByIdDeliveriesData, GetApiWebhooksByIdDeliveriesResponse, GetApiWebhooksData, GetApiWebhooksResponse, GetApiX402SupportedData, GetApiX402SupportedResponse, GetApiX402TransferByIdRequirementsData, GetApiX402TransferByIdRequirementsResponse, PatchApiApiKeyByIdData, PatchApiApiKeyByIdResponse, PatchApiAppsData, PatchApiAppsResponse, PatchApiChainsByIdData, PatchApiChainsByIdResponse, PatchApiFeesByIdData, PatchApiFeesByIdResponse, PatchApiPaymentLinksByIdData, PatchApiPaymentLinksByIdResponse, PostApiApiKeyByIdRevokeData, PostApiApiKeyByIdRevokeResponse, PostApiApiKeyData, PostApiApiKeyResponse, PostApiAppsData, PostApiAppsResponse, PostApiChainsData, PostApiChainsResponse, PostApiCheckoutByIdQuoteData, PostApiCheckoutByIdQuoteResponse, PostApiCheckoutByIdTransferData, PostApiCheckoutByIdTransferResponse, PostApiCheckoutByIdX402Data, PostApiCheckoutByIdX402Response, PostApiCheckoutByIdX402SettleData, PostApiCheckoutByIdX402SettleResponse, PostApiCustomersData, PostApiCustomersResponse, PostApiFeesData, PostApiFeesResponse, PostApiPaymentLinksByIdPayData, PostApiPaymentLinksByIdPayResponse, PostApiPaymentLinksData, PostApiPaymentLinksResponse, PostApiPriceFeedsData, PostApiPriceFeedsResponse, PostApiQuotesData, PostApiQuotesResponse, PostApiTransfersByIdRecoverBalanceData, PostApiTransfersByIdRecoverBalanceResponse, PostApiTransfersByIdRecoverData, PostApiTransfersByIdRecoverResponse, PostApiTransfersByIdRefundData, PostApiTransfersByIdRefundResponse, PostApiTransfersData, PostApiTransfersResponse, PostApiWebhooksData, PostApiWebhooksResponse, PostApiX402PayData, PostApiX402PayResponse, PostApiX402SettleData, PostApiX402SettleResponse, PostApiX402VerifyData, PostApiX402VerifyResponse, PutApiChainsByIdConfigData, PutApiChainsByIdConfigResponse, PutApiKvByKeyData, PutApiKvByKeyResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -1134,6 +1134,24 @@ export const postApiPaymentLinksByIdPayMutation = (options?: Partial<Options<Pos
   return mutationOptions;
 };
 
+export const getApiRateQueryKey = (options: Options<GetApiRateData>) => createQueryKey('getApiRate', options);
+
+/**
+ * Get live currency rate
+ */
+export const getApiRateOptions = (options: Options<GetApiRateData>) => queryOptions<GetApiRateResponse, DefaultError, GetApiRateResponse, ReturnType<typeof getApiRateQueryKey>>({
+  queryFn: async ({ queryKey, signal }) => {
+    const { data } = await getApiRate({
+      ...options,
+      ...queryKey[0],
+      signal,
+      throwOnError: true
+    });
+    return data;
+  },
+  queryKey: getApiRateQueryKey(options)
+});
+
 export const getApiPriceFeedsQueryKey = (options?: Options<GetApiPriceFeedsData>) => createQueryKey('getApiPriceFeeds', options);
 
 /**
@@ -1351,6 +1369,57 @@ export const getApiTransfersByIdOptions = (options: Options<GetApiTransfersByIdD
   },
   queryKey: getApiTransfersByIdQueryKey(options)
 });
+
+/**
+ * Refund a transfer
+ */
+export const postApiTransfersByIdRefundMutation = (options?: Partial<Options<PostApiTransfersByIdRefundData>>): UseMutationOptions<PostApiTransfersByIdRefundResponse, DefaultError, Options<PostApiTransfersByIdRefundData>> => {
+  const mutationOptions: UseMutationOptions<PostApiTransfersByIdRefundResponse, DefaultError, Options<PostApiTransfersByIdRefundData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await postApiTransfersByIdRefund({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Check a transfer pay-in token balance
+ */
+export const postApiTransfersByIdRecoverBalanceMutation = (options?: Partial<Options<PostApiTransfersByIdRecoverBalanceData>>): UseMutationOptions<PostApiTransfersByIdRecoverBalanceResponse, DefaultError, Options<PostApiTransfersByIdRecoverBalanceData>> => {
+  const mutationOptions: UseMutationOptions<PostApiTransfersByIdRecoverBalanceResponse, DefaultError, Options<PostApiTransfersByIdRecoverBalanceData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await postApiTransfersByIdRecoverBalance({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Recover transfer tokens
+ */
+export const postApiTransfersByIdRecoverMutation = (options?: Partial<Options<PostApiTransfersByIdRecoverData>>): UseMutationOptions<PostApiTransfersByIdRecoverResponse, DefaultError, Options<PostApiTransfersByIdRecoverData>> => {
+  const mutationOptions: UseMutationOptions<PostApiTransfersByIdRecoverResponse, DefaultError, Options<PostApiTransfersByIdRecoverData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await postApiTransfersByIdRecover({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
 
 export const getApiWebhooksQueryKey = (options?: Options<GetApiWebhooksData>) => createQueryKey('getApiWebhooks', options);
 

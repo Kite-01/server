@@ -137,11 +137,13 @@ export class TransferService {
   private sendFactoryCall = async (
     ctx: Awaited<ReturnType<TransferService["getOnchainTransfer"]>>,
     data: Hex,
+    useGasSponsor = true,
   ) => {
     const options = await this.sdkOptions();
     const transactionHash = await ctx.onchainActor.sendTransaction(
       { caip2Id: ctx.caip2Id, to: ctx.factoryAddress, data, value: 0n },
       options,
+      { useGasSponsor },
     );
 
     return ctx.onchainActor.waitForReceipt(ctx.caip2Id, transactionHash);
@@ -306,6 +308,7 @@ export class TransferService {
     transferId: string,
     tokenAddress: string,
     destinationAddress: string,
+    useGasSponsor = true,
   ) => {
     const ctx = await this.getOnchainTransfer(transferId);
     const balance = await ctx.onchainActor.getBalance(
@@ -335,7 +338,7 @@ export class TransferService {
       return simulation;
     }
 
-    const receipt = await this.sendFactoryCall(ctx, data);
+    const receipt = await this.sendFactoryCall(ctx, data, useGasSponsor);
 
     await this.triggerCallbackFromReceipt(
       ctx.caip2Id,
@@ -617,7 +620,17 @@ export class TransferService {
           currentCategoryStatus: TransferStatus.AwaitingDeposit,
           data: common.serializeData({
             ...created,
-            quote: quote_,
+            quote: {
+              ...quote_,
+              chain: {
+                id: quote_.chain.id,
+                caip2Id: quote_.chain.caip2Id,
+                isActive: quote_.chain.isActive,
+                createdAt: quote_.chain.createdAt,
+                updatedAt: quote_.chain.updatedAt,
+                deletedAt: quote_.chain.deletedAt,
+              },
+            },
             paymentInstructions,
           }),
         })
@@ -737,7 +750,7 @@ export class TransferService {
     );
   };
 
-  refundTransfer = async (transferId: string) => {
+  refundTransfer = async (transferId: string, useGasSponsor = true) => {
     const ctx = await this.getOnchainTransfer(transferId);
     const row = ctx.row;
 
@@ -766,7 +779,7 @@ export class TransferService {
       throw new AppError(simulation.errorName ?? simulation.message);
     }
 
-    const receipt = await this.sendFactoryCall(ctx, data);
+    const receipt = await this.sendFactoryCall(ctx, data, useGasSponsor);
 
     await this.triggerCallbackFromReceipt(
       ctx.caip2Id,
@@ -802,11 +815,13 @@ export class TransferService {
     transferId: string,
     tokenAddress: string,
     destinationAddress: string,
+    useGasSponsor = true,
   ) => {
     const failure = await this.recoverToken(
       transferId,
       common.normalizeAddress(tokenAddress),
       common.normalizeAddress(destinationAddress),
+      useGasSponsor,
     );
 
     if (failure && !failure.ok) {
@@ -816,6 +831,15 @@ export class TransferService {
           : failure.message,
       );
     }
+  };
+
+  getRecoveryBalance = async (transferId: string, tokenAddress: string) => {
+    const ctx = await this.getOnchainTransfer(transferId);
+    return ctx.onchainActor.getBalance(
+      ctx.caip2Id,
+      common.normalizeAddress(tokenAddress),
+      ctx.row.payinAddress,
+    );
   };
 
   sweep = async () => {

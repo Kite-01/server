@@ -20,4 +20,5 @@ type OnchainActorCallStatus =
 
 type OnchainActorSendHooks = {
   onSubmitted?(callId: string): Promise<void>;
+  useGasSponsor?: boolean;
 };

@@ -1,5 +1,6 @@
 import {
   createPublicClient,
+  createWalletClient,
   erc20Abi,
   type Address,
   type Hex,
@@ -133,6 +134,24 @@ export class EvmActor implements OnchainActor {
     options: SdkOptions,
     hooks?: OnchainActorSendHooks,
   ): Promise<string> => {
+    if (hooks?.useGasSponsor === false) {
+      const client = createWalletClient({
+        account: this.account,
+        chain: getViemChain(input.caip2Id),
+        transport: getRpcsTransport(await this.rpcUrlsForChain(input.caip2Id)),
+      });
+
+      const transactionHash = await client.sendTransaction({
+        account: this.account,
+        to: input.to as Address,
+        data: (input.data ?? "0x") as Hex,
+        value: input.value,
+      });
+
+      await hooks.onSubmitted?.(transactionHash);
+      return transactionHash;
+    }
+
     const callId = await this.submitTransaction(input, options);
     await hooks?.onSubmitted?.(callId);
 
@@ -143,9 +162,8 @@ export class EvmActor implements OnchainActor {
     );
 
     if (outcome.status === "success") return outcome.transactionHash;
-    if (outcome.status === "failure") {
+    if (outcome.status === "failure")
       throw new OperatorTransactionFailedError(callId, outcome.transactionHash);
-    }
 
     throw new OperatorTransactionPendingError(callId);
   };

@@ -106,4 +106,70 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
         summary: "Get a transfer",
       },
     },
+  )
+  .post(
+    "/transfers/:id/refund",
+    async ({ actor, params, body }) => {
+      await Scope.appFor(actor, "transfer", params.id);
+      await transferService.refundTransfer(
+        params.id,
+        body.useGasSponsor ?? true,
+      );
+      return {};
+    },
+    {
+      parse: "json",
+      params: UuidIdParams,
+      body: t.Object({ useGasSponsor: t.Optional(t.Boolean()) }),
+      response: { 200: t.Object({}) },
+      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferWrite }),
+      detail: { tags: ["Transfers"], summary: "Refund a transfer" },
+    },
+  )
+  .post(
+    "/transfers/:id/recover/balance",
+    async ({ actor, params, body }) => {
+      await Scope.appFor(actor, "transfer", params.id);
+      const balance = await transferService.getRecoveryBalance(
+        params.id,
+        body.tokenAddress,
+      );
+      return { balance: balance.toString() };
+    },
+    {
+      parse: "json",
+      params: UuidIdParams,
+      body: t.Object({ tokenAddress: EvmAddress }),
+      response: { 200: t.Object({ balance: t.String() }) },
+      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferWrite }),
+      detail: {
+        tags: ["Transfers"],
+        summary: "Check a transfer pay-in token balance",
+      },
+    },
+  )
+  .post(
+    "/transfers/:id/recover",
+    async ({ actor, params, body }) => {
+      await Scope.appFor(actor, "transfer", params.id);
+      await transferService.recover(
+        params.id,
+        body.tokenAddress,
+        body.destinationAddress,
+        body.useGasSponsor ?? true,
+      );
+      return {};
+    },
+    {
+      parse: "json",
+      params: UuidIdParams,
+      body: t.Object({
+        tokenAddress: EvmAddress,
+        destinationAddress: EvmAddress,
+        useGasSponsor: t.Optional(t.Boolean()),
+      }),
+      response: { 200: t.Object({}) },
+      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferWrite }),
+      detail: { tags: ["Transfers"], summary: "Recover transfer tokens" },
+    },
   );

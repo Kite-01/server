@@ -1,11 +1,16 @@
 import {
+  IconArrowBackUp,
   IconArrowsExchange,
+  IconCoins,
   IconExternalLink,
   IconPlus,
 } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import {
   getApiTransfersOptions,
+  postApiTransfersByIdRecoverBalanceMutation,
+  postApiTransfersByIdRecoverMutation,
+  postApiTransfersByIdRefundMutation,
   postApiTransfersMutation,
 } from "@/api/@tanstack/react-query.gen";
 import type { TransferListItem } from "@/api/types.gen";
@@ -131,11 +136,19 @@ const Hash = ({ value, explorer }: { value: string; explorer?: string }) => (
 const Detail = ({
   transfer,
   explorer,
+  onRefund,
+  onRecover,
 }: {
   transfer: TransferListItem;
   explorer?: string;
+  onRefund: () => void;
+  onRecover: () => void;
 }) => {
   const { quote } = transfer;
+  const canRefund =
+    !["Settled", "Refunded"].includes(transfer.status) &&
+    !(transfer.status === "Failed" && transfer.x402SettledAt);
+  const canRecover = !(transfer.status === "Failed" && transfer.x402SettledAt);
 
   // Label/value pairs, keyed by label where they're rendered.
   /* oxlint-disable react/jsx-key */
@@ -213,6 +226,23 @@ const Detail = ({
             ))}
         </ol>
       </div>
+
+      {(canRefund || canRecover) && (
+        <div className="flex justify-end gap-2 border-t border-line pt-4">
+          {canRecover && (
+            <Button variant="secondary" onClick={onRecover}>
+              <IconCoins className="size-4" />
+              Recover
+            </Button>
+          )}
+          {canRefund && (
+            <Button variant="danger" onClick={onRefund}>
+              <IconArrowBackUp className="size-4" />
+              Refund
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -221,11 +251,39 @@ export const Transfers = () => {
   const headers = useAppHeaders();
   const [status, setStatus] = useState<Status | "">("");
   const [selected, setSelected] = useState<TransferListItem | null>(null);
+  const [action, setAction] = useState<"refund" | "recover" | null>(null);
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [destinationAddress, setDestinationAddress] = useState("");
+  const [recoveryBalance, setRecoveryBalance] = useState<string | null>(null);
+  const [useGasSponsor, setUseGasSponsor] = useState(true);
   const [opening, setOpening] = useState(false);
+  const refund = useMutate(postApiTransfersByIdRefundMutation({ headers }), {
+    success: "Transfer refunded",
+    onSuccess: () => {
+      setAction(null);
+      setSelected(null);
+    },
+  });
+  const checkBalance = useMutate(
+    postApiTransfersByIdRecoverBalanceMutation({ headers }),
+    { onSuccess: (result) => setRecoveryBalance(result.balance) },
+  );
+  const recover = useMutate(postApiTransfersByIdRecoverMutation({ headers }), {
+    success: "Token recovery submitted",
+    onSuccess: () => {
+      setAction(null);
+      setSelected(null);
+    },
+  });
   const supported = useSupportedChains();
   const explorer = supported.data?.find(
     (chain) => chain.caip2Id === selected?.quote.chain.caip2Id,
   )?.blockExplorer.url;
+  const recoveryToken = selected
+    ? [selected.quote.sourceToken, selected.quote.targetToken].find(
+        (token) => token.address.toLowerCase() === tokenAddress.toLowerCase(),
+      )
+    : undefined;
 
   return (
     <>
@@ -293,12 +351,167 @@ export const Transfers = () => {
       />
 
       <Dialog
-        open={selected !== null}
-        onOpenChange={(open) => !open && setSelected(null)}
+        open={selected !== null && action === null}
+        onOpenChange={(open) => !open && action === null && setSelected(null)}
         title={selected ? `Transfer #${shortId(selected.id)}` : "Transfer"}
         className="max-w-xl"
       >
-        {selected && <Detail transfer={selected} explorer={explorer} />}
+        {selected && (
+          <Detail
+            transfer={selected}
+            explorer={explorer}
+            onRefund={() => {
+              setUseGasSponsor(true);
+              setAction("refund");
+            }}
+            onRecover={() => {
+              setTokenAddress("");
+              setDestinationAddress("");
+              setRecoveryBalance(null);
+              setUseGasSponsor(true);
+              setAction("recover");
+            }}
+          />
+        )}
+      </Dialog>
+
+      <Dialog
+        open={action === "refund"}
+        onOpenChange={(open) => !open && setAction(null)}
+        title="Refund transfer"
+        description="Send the pay-in funds to the transfer's refund address."
+        className="max-w-md"
+      >
+        {selected && (
+          <div className="space-y-5">
+            {selected.quote.chain.isActive && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useGasSponsor}
+                  onChange={(event) => setUseGasSponsor(event.target.checked)}
+                />
+                Use gas sponsor
+              </label>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setAction(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={refund.isPending}
+                onClick={() =>
+                  refund.mutate({
+                    path: { id: selected.id },
+                    body: {
+                      useGasSponsor:
+                        !selected.quote.chain.isActive || useGasSponsor,
+                    },
+                  })
+                }
+              >
+                Refund
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={action === "recover"}
+        onOpenChange={(open) => !open && setAction(null)}
+        title="Recover token"
+        description="Check the pay-in address before choosing where to send the token."
+        className="max-w-md"
+      >
+        {selected && (
+          <div className="space-y-4">
+            <Field label="Token address">
+              <Input
+                required
+                value={tokenAddress}
+                onChange={(event) => {
+                  setTokenAddress(event.target.value);
+                  setRecoveryBalance(null);
+                }}
+              />
+            </Field>
+            <Button
+              variant="secondary"
+              disabled={!tokenAddress.trim() || checkBalance.isPending}
+              onClick={() =>
+                checkBalance.mutate({
+                  path: { id: selected.id },
+                  body: { tokenAddress: tokenAddress.trim() },
+                })
+              }
+            >
+              Check balance
+            </Button>
+            {recoveryBalance !== null && (
+              <p className="text-sm text-muted">
+                Pay-in balance:{" "}
+                {recoveryToken
+                  ? `${formatTokenAmount(recoveryBalance, recoveryToken.decimals)} ${recoveryToken.symbol}`
+                  : recoveryBalance}
+              </p>
+            )}
+            {recoveryBalance !== null && BigInt(recoveryBalance) > 0n && (
+              <>
+                <Field label="Destination address">
+                  <Input
+                    required
+                    value={destinationAddress}
+                    onChange={(event) =>
+                      setDestinationAddress(event.target.value)
+                    }
+                  />
+                </Field>
+                {selected.quote.chain.isActive && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={useGasSponsor}
+                      onChange={(event) =>
+                        setUseGasSponsor(event.target.checked)
+                      }
+                    />
+                    Use gas sponsor
+                  </label>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="secondary" onClick={() => setAction(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={!destinationAddress.trim() || recover.isPending}
+                    onClick={() =>
+                      recover.mutate({
+                        path: { id: selected.id },
+                        body: {
+                          tokenAddress: tokenAddress.trim(),
+                          destinationAddress: destinationAddress.trim(),
+                          useGasSponsor:
+                            !selected.quote.chain.isActive || useGasSponsor,
+                        },
+                      })
+                    }
+                  >
+                    Recover
+                  </Button>
+                </div>
+              </>
+            )}
+            {(recoveryBalance === null || BigInt(recoveryBalance) === 0n) && (
+              <div className="flex justify-end pt-1">
+                <Button variant="secondary" onClick={() => setAction(null)}>
+                  Close
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </Dialog>
 
       <NewTransferDialog
