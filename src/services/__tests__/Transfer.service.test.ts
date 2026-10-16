@@ -21,7 +21,6 @@ import {
   schedulerMock,
 } from "../../test/mocks";
 import {
-  chain,
   chainConfig,
   deposit,
   event,
