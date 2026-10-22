@@ -1,0 +1,2 @@
+ALTER TABLE "kite_payment_link" ADD COLUMN "usage" text DEFAULT 'OneTime' NOT NULL;--> statement-breakpoint
+ALTER TABLE "kite_payment_link" ADD CONSTRAINT "kite_payment_link_usage_check" CHECK ("kite_payment_link"."usage" IN ('OneTime', 'Reusable'));

@@ -1,0 +1,1 @@
+ALTER TABLE "kite_kv" DROP CONSTRAINT "kite_kv_key_check";

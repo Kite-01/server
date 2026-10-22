@@ -1,0 +1,1 @@
+ALTER TABLE "kite_transfer" ADD COLUMN "x402_offer" boolean DEFAULT false NOT NULL;

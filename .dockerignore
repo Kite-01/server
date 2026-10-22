@@ -1,0 +1,13 @@
+.git
+.github
+**/node_modules
+client/dist
+.env
+.env.*
+!.env.example
+src/**/__tests__
+src/test
+*.md
+!NOTICE.md
+Dockerfile
+.dockerignore

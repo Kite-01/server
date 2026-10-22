@@ -1,0 +1,1 @@
+ALTER TABLE "kite_api_key" DROP COLUMN "allowed_origins";

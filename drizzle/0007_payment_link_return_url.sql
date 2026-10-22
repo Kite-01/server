@@ -1,0 +1,1 @@
+ALTER TABLE "kite_payment_link" ADD COLUMN "return_url" text;

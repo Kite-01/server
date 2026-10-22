@@ -1,0 +1,2 @@
+ALTER TABLE "kite_kv" DROP CONSTRAINT "kite_kv_key_check";--> statement-breakpoint
+ALTER TABLE "kite_kv" ADD CONSTRAINT "kite_kv_key_check" CHECK ("kite_kv"."key" IN ('AlchemyApiKey', 'AlchemyGasPolicyId', 'AlchemyAuthToken', 'AlchemyAddressActivity_Webhooks', 'AlchemyContractEvents_Webhooks', 'QuickNodeApiKey', 'QuickNodeEvmWalletFilter_WalletsListName', 'QuickNodeEvmWalletFilter_WebhookId', 'QuickNodeEvmContractEvents_WebhookId', 'QuickNodeEvmContractEvents_ContractsListName', 'QuickNodeEvmContractEvents_EventHashesListName', 'QuickNodeWebhookSecurityToken'));
