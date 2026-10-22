@@ -8,7 +8,7 @@ interface SmartImageProps extends React.ComponentProps<"img"> {
   fallbackComponent?: (props: { className: string }) => React.ReactNode;
 }
 
-const BROKEN_IMAGE = "/broken-img.svg";
+const BROKEN_IMAGE = "/broken-img.png";
 
 export default function SmartImage({
   url,
@@ -72,7 +72,7 @@ export default function SmartImage({
       <img
         ref={imgRef}
         className={cn(
-          "size-9 rounded-full object-contain",
+          "size-9 rounded-full object-contain border border-line",
           status === "loading" ||
             (currentSrc == BROKEN_IMAGE && !!FallbackComponent)
             ? "hidden"
