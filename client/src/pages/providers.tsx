@@ -25,6 +25,7 @@ const keyLabels: Partial<Record<Key["key"], string>> = {
   AlchemyGasPolicyId: "Gas policy ID",
   AlchemyAuthToken: "Auth token",
   QuickNodeApiKey: "API key",
+  ThirdwebSecretKey: "Secret key",
 };
 
 const KeyField = ({ item, entry }: { item: Key; entry?: KvEntry }) => {

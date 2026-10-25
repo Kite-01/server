@@ -45,6 +45,15 @@ export const ProviderKeyVars: Record<
       },
     ],
   },
+  [Provider.Thirdweb]: {
+    [ProviderAction.GasSponsor]: [
+      {
+        key: KeyVars.ThirdwebSecretKey,
+        type: KeyType.SecureString,
+        required: true,
+      },
+    ],
+  },
   [Provider.TrustWallet]: null,
 };
 

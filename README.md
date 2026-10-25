@@ -50,7 +50,7 @@ You need [Bun](https://bun.sh) 1.4+ and PostgreSQL.
    The API and dashboard run together on `KITE_PORT` with hot reload.
 
 5. **Set it up in the dashboard**: open `http://localhost:3000`, sign in with your root key, then:
-   1. under **Providers**, add the keys for a deposit notifier (QuickNode or Alchemy) and, optionally, a gas sponsor;
+   1. under **Providers**, add the keys for a deposit notifier (QuickNode or Alchemy) and, optionally, a gas sponsor (Alchemy or thirdweb);
    2. under **Chains**, add a chain and configure it with your Kite factory address and settlement token;
    3. create an **App**, then an **API key** for your backend;
    4. create a **Payment link** and open it to pay.
@@ -120,7 +120,7 @@ All settings come from environment variables, checked at startup:
 | `KITE_ENABLE_OPENAPI_UI_PROVIDER` |          | `scalar` (default) or `swagger`                                                  |
 | `KITE_IS_TESTNET`                 |          | Run on testnets instead of mainnets. Default `false`                             |
 
-Provider keys (QuickNode, Alchemy) aren't environment variables: set them from the dashboard's **Providers** page, where they're stored encrypted.
+Provider keys (QuickNode, Alchemy, thirdweb) aren't environment variables: set them from the dashboard's **Providers** page, where they're stored encrypted.
 
 ### Testnets
 
