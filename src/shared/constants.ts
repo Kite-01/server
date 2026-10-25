@@ -102,6 +102,7 @@ export enum OperatorForwardKind {
 export enum Provider {
   Alchemy = "Alchemy",
   QuickNode = "QuickNode",
+  Thirdweb = "Thirdweb",
   TrustWallet = "TrustWallet",
 }
 
@@ -124,6 +125,7 @@ export enum KeyVars {
   QuickNodeEvmContractEvents_ContractsListName = "QuickNodeEvmContractEvents_ContractsListName",
   QuickNodeEvmContractEvents_EventHashesListName = "QuickNodeEvmContractEvents_EventHashesListName",
   QuickNodeWebhookSecurityToken = "QuickNodeWebhookSecurityToken",
+  ThirdwebSecretKey = "ThirdwebSecretKey",
 }
 
 export enum KeyVarPrefix {

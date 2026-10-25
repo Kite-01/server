@@ -60,8 +60,8 @@ export type ChainConfig = {
   usdPeggedTokenId: string;
   settlementTokenId: string;
   settlementAddress: string | null;
-  onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'TrustWallet'>;
-  gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'TrustWallet'>;
+  onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
+  gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
   maxGasPrice: string | null;
   createdAt: string;
   updatedAt: string;
@@ -621,11 +621,11 @@ export type KvEntry = {
 export type KvEntryList = Array<KvEntry>;
 
 export type ProviderStatus = {
-  provider: 'Alchemy' | 'QuickNode' | 'TrustWallet';
+  provider: 'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet';
   action: 'GasSponsor' | 'OnchainNotifier';
   configured: boolean;
   keys: Array<{
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey';
     type: 'String' | 'SecureString';
     required: boolean;
     set: boolean;
@@ -1139,8 +1139,8 @@ export type ChainsConfigureData = {
     usdPeggedTokenId: string;
     settlementTokenId: string;
     settlementAddress?: string | null;
-    onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'TrustWallet'>;
-    gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'TrustWallet'>;
+    onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
+    gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
     maxGasPrice?: string | null;
   };
   path: {
@@ -1591,7 +1591,7 @@ export type KvSetData = {
     value: string | null;
   };
   path: {
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey';
   };
   query?: never;
   url: '/api/kv/{key}';

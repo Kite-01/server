@@ -84,6 +84,17 @@ describe("configuration values", () => {
       keys: [{ key: KeyVars.QuickNodeApiKey, set: false }],
     });
 
+    expect(byProvider["Thirdweb:GasSponsor"]).toMatchObject({
+      configured: false,
+      keys: [
+        {
+          key: KeyVars.ThirdwebSecretKey,
+          type: KeyType.SecureString,
+          set: false,
+        },
+      ],
+    });
+
     expect(JSON.stringify(res.json)).not.toContain("alchemy-secret");
   });
 
