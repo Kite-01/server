@@ -40,6 +40,7 @@ export type Kite_ITransfer = {
   expiresAt: bigint;
   routerAddress: Address;
   poolFeeTier: number;
+  implementation: Address;
 };
 
 export type SerializedKite_ITransfer = Omit<
@@ -128,6 +129,7 @@ class KiteContract {
     expiresAt: Date;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   }) => {
     return {
       id: common.uuidToBytes32(input.transferId),
@@ -151,6 +153,7 @@ class KiteContract {
       expiresAt: BigInt(Math.floor(input.expiresAt.getTime() / 1000)),
       routerAddress: common.normalizeAddress(input.routerAddress),
       poolFeeTier: input.poolFeeTier,
+      implementation: common.normalizeAddress(input.implementation),
     };
   };
 
@@ -212,6 +215,16 @@ class KiteContract {
     });
 
     return common.normalizeAddress(address);
+  };
+
+  getImplementation = async (client: PublicClient, factoryAddress: string) => {
+    const implementation = await client.readContract({
+      address: common.normalizeAddress(factoryAddress),
+      abi: KiteFactory__factory.abi,
+      functionName: "implementation",
+    });
+
+    return common.normalizeAddress(implementation);
   };
 
   readStatus = async (client: PublicClient, cloneAddress: string) => {

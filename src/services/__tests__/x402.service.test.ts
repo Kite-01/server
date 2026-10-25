@@ -6,6 +6,7 @@ import {
   type Hex,
 } from "viem";
 import {
+  IMPLEMENTATION,
   createApp,
   createConfiguredChain,
   createToken,
@@ -323,6 +324,7 @@ describe("x402Service", () => {
           payinFor(common.bytes32ToUuid(struct.id)!),
       );
       vi.spyOn(kite, "simulateFactoryCall").mockResolvedValue({ ok: true });
+      vi.spyOn(kite, "getImplementation").mockResolvedValue(IMPLEMENTATION);
       const q = await createQuoteRow({
         appId,
         chainId,

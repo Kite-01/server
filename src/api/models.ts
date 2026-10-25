@@ -156,10 +156,12 @@ const SupportedChain = t.Object(
       symbol: t.String(),
       decimals: Int,
     }),
-    blockExplorer: t.Object({
-      name: t.String(),
-      url: t.String(),
-    }),
+    blockExplorer: t.Optional(
+      t.Object({
+        name: t.String(),
+        url: t.String(),
+      }),
+    ),
     confirmations: Int,
   },
   named("SupportedChain"),
@@ -331,6 +333,7 @@ const Transfer = t.Object(
       expiresAt: Digits,
       routerAddress: EvmAddress,
       poolFeeTier: Int,
+      implementation: EvmAddress,
     }),
     status: t.Enum(TransferStatus),
     settlementBlockchainHash: Nullable(t.String()),
@@ -501,7 +504,7 @@ const SystemInfo = t.Object(
         isActive: t.Boolean(),
         isConfigured: t.Boolean(),
         operatorAddress: EvmAddress,
-        explorerUrl: t.String(),
+        explorerUrl: t.Union([t.String(), t.Null()]),
       }),
     ),
   },

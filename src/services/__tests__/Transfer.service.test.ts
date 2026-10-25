@@ -1,4 +1,5 @@
 import {
+  IMPLEMENTATION,
   createApp,
   createConfiguredChain,
   createCustomer,
@@ -79,6 +80,7 @@ describe("TransferService", () => {
     predict: vi.spyOn(kite, "predictAddress"),
     simulate: vi.spyOn(kite, "simulateFactoryCall"),
     status: vi.spyOn(kite, "readStatus"),
+    implementation: vi.spyOn(kite, "getImplementation"),
   };
 
   beforeEach(async () => {
@@ -89,6 +91,7 @@ describe("TransferService", () => {
     );
     spies.simulate.mockResolvedValue({ ok: true });
     spies.status.mockResolvedValue("Open");
+    spies.implementation.mockResolvedValue(IMPLEMENTATION);
     fakeActor.publicClient.mockResolvedValue({});
 
     appId = (await createApp()).id;
@@ -222,6 +225,31 @@ describe("TransferService", () => {
       });
     });
 
+    it("routes a Uniswap V2 quote through the V2 router", async () => {
+      const quote = await newQuote({
+        sourceTokenId: wethId,
+        sourceAmount: 10n ** 15n,
+        targetAmount: 3_000_000n,
+      });
+
+      await db
+        .update(quoteTable)
+        .set({ uniswapPoolFeeTier: 0 })
+        .where(eq(quoteTable.id, quote.id));
+
+      const created = await service.createTransfer(appId, quote.id, REFUND_TO);
+
+      expect(created.kiteTransferInput).toMatchObject({
+        poolFeeTier: 0,
+        routerAddress: getChain(CAIP2).contracts.Uniswap?.UniswapV2Router02,
+        implementation: IMPLEMENTATION,
+      });
+      expect(spies.implementation).toHaveBeenCalledWith(
+        expect.anything(),
+        FACTORY,
+      );
+    });
+
     it("routes a different pay-in token through the Uniswap router and carries the fees", async () => {
       const quote = await newQuote({
         sourceTokenId: wethId,
@@ -248,7 +276,8 @@ describe("TransferService", () => {
         payInTokenAddress: WETH,
         settlementTokenAddress: USDC,
         poolFeeTier: 500,
-        routerAddress: getChain(CAIP2).contracts.UniswapSwapRouter02,
+        routerAddress: getChain(CAIP2).contracts.Uniswap?.SwapRouter02,
+        implementation: IMPLEMENTATION,
         fees: [
           {
             id: common.uuidToBytes32(fee.id),

@@ -93,7 +93,7 @@ describe("testnets", () => {
 
     it("has no swap quotes where Uniswap isn't deployed", async () => {
       const quote = await new Uniswap().quoteExactInput({
-        caip2Id: "eip155:10143",
+        caip2Id: "eip155:31337",
         tokenIn: address(0x1),
         tokenOut: address(0x2),
         amountIn: 1_000_000n,

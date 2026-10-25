@@ -77,7 +77,7 @@ export class TokenService {
       "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains";
     const http = new Http(TWAssetsUrl);
     const chain_ = getChain(chain.caip2Id);
-    const descriptor = chain_.descriptors[Provider.TrustWallet] as
+    const descriptor = chain_.descriptors?.[Provider.TrustWallet] as
       string | undefined;
 
     if (common.isZeroAddress(address)) {

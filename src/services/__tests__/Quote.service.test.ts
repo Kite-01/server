@@ -15,14 +15,15 @@ import {
   operatorAddress,
   resetMocks,
   stubPools,
+  stubV2Pairs,
 } from "../../test/mocks";
 import { FeeType, KiteMaxFees, QuoteTTLSeconds } from "../../shared/constants";
+import { quoteAtTick, v2AmountIn, v2AmountOut } from "../../sdks/Uniswap";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError, NotFoundError } from "../../shared/errors";
 import { chainConfig, quoteFee } from "../../db/schema";
 import { PriceFeedService } from "../PriceFeed.service";
 import { QuoteService } from "../Quote.service";
-import { quoteAtTick } from "../../sdks/Uniswap";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 
@@ -516,6 +517,104 @@ describe("QuoteService", () => {
           sourceTokenAddress: WETH,
         }),
       ).rejects.toBeInstanceOf(AppError);
+    });
+  });
+
+  describe("Uniswap V2 fallback", () => {
+    const WethReserve = 100n * 10n ** 18n;
+    const UsdcReserve = 300_000n * 10n ** 6n;
+    const steady = [
+      {
+        fromBlock: 0n,
+        amounts: [WethReserve, UsdcReserve] as [bigint, bigint],
+      },
+    ];
+
+    const quoteOneWeth = () => {
+      return service.createQuote(appId, {
+        chainId,
+        sourceTokenAddress: WETH,
+        amount: 10n ** 18n,
+      });
+    };
+
+    it("swaps through a V2 pair when no V3 pool exists", async () => {
+      stubV2Pairs([
+        {
+          tokens: [WETH, USDC],
+          reserves: steady,
+        },
+      ]);
+
+      expect(await quoteOneWeth()).toMatchObject({
+        targetAmount: v2AmountOut(10n ** 18n, WethReserve, UsdcReserve),
+        uniswapPoolFeeTier: 0,
+      });
+    });
+
+    it("doesn't let a pair moved moments ago set the price", async () => {
+      stubV2Pairs([
+        {
+          tokens: [WETH, USDC],
+          reserves: [
+            ...steady,
+            {
+              fromBlock: 9_999n,
+              amounts: [50n * 10n ** 18n, 600_000n * 10n ** 6n],
+            },
+          ],
+        },
+      ]);
+
+      const quote = await quoteOneWeth();
+
+      // 598s at 3,000 and the last 2s at 12,000 average to 3,030, less the 0.3% fee
+      expect(Number(quote.targetAmount) / 1e6).toBeCloseTo(3_030 * 0.997, 1);
+      expect(quote.uniswapPoolFeeTier).toBe(0);
+    });
+
+    it("averages over a shorter window when the RPC can't reach back ten minutes", async () => {
+      stubV2Pairs([{ tokens: [WETH, USDC], reserves: steady }], {
+        oldestBlock: 9_800n,
+      });
+
+      const quote = await quoteOneWeth();
+
+      expect(quote.targetAmount).toBe(
+        v2AmountOut(10n ** 18n, WethReserve, UsdcReserve),
+      );
+      expect(fakeActor.ethCall).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        9_850n,
+      );
+    });
+
+    it("won't price a pair whose history the RPC can't read", async () => {
+      stubV2Pairs([{ tokens: [WETH, USDC], reserves: steady }], {
+        oldestBlock: 10_000n,
+      });
+
+      await expect(quoteOneWeth()).rejects.toThrow(
+        "No pool can swap this token/amount at the moment",
+      );
+    });
+
+    it("asks a payment link's payer to cover the V2 price impact", async () => {
+      const link = await createPaymentLink(appId, { amount: "2000" });
+      stubV2Pairs([{ tokens: [WETH, USDC], reserves: steady }]);
+
+      const quote = await service.createQuoteFromPaymentLink(appId, link.id, {
+        chainId,
+        sourceTokenAddress: WETH,
+      });
+
+      expect(quote).toMatchObject({
+        targetAmount: 2_000_000_000n,
+        sourceAmount: v2AmountIn(2_000_000_000n, WethReserve, UsdcReserve)!,
+        uniswapPoolFeeTier: 0,
+      });
     });
   });
 

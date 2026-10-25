@@ -542,9 +542,17 @@ export class TransferService {
 
     const transferId = common.uuidv4();
     const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
-    const router = chain.contracts.UniswapSwapRouter02;
+    const router =
+      quote_.uniswapPoolFeeTier === 0
+        ? chain.contracts.Uniswap?.UniswapV2Router02
+        : chain.contracts.Uniswap?.SwapRouter02;
     if (!isSameToken && !router)
       throw new AppError("This chain has no swap router");
+
+    const client = await onchainActor.publicClient(
+      caip2Id,
+      config.rpcUrls ?? [],
+    );
 
     const struct = kite.buildTransferInput({
       transferId,
@@ -562,15 +570,14 @@ export class TransferService {
       expiresAt: quote_.expiresAt,
       routerAddress: isSameToken || !router ? zeroAddress : router,
       poolFeeTier: quote_.uniswapPoolFeeTier ?? 0,
+      implementation: await kite.getImplementation(
+        client,
+        config.kiteFactoryAddress,
+      ),
     });
 
     const error = kite.validateTransferInput(struct);
     if (error) throw new AppError(error);
-
-    const client = await onchainActor.publicClient(
-      caip2Id,
-      config.rpcUrls ?? [],
-    );
 
     const deployment = await kite.simulateFactoryCall(
       client,

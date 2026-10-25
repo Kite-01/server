@@ -209,11 +209,13 @@ export class EvmActor implements OnchainActor {
     caip2Id: Caip2Id,
     contractAddress: string,
     data: string,
+    blockNumber?: bigint,
   ): Promise<string> => {
     const client = await this.publicClient(caip2Id);
     const result = await client.call({
       to: contractAddress as Address,
       data: data as Hex,
+      blockNumber,
     });
 
     return result.data ?? "0x";
@@ -253,6 +255,15 @@ export class EvmActor implements OnchainActor {
   getBlockNumber = async (caip2Id: Caip2Id): Promise<bigint> => {
     const client = await this.publicClient(caip2Id);
     return client.getBlockNumber();
+  };
+
+  getBlockTimestamp = async (
+    caip2Id: Caip2Id,
+    blockNumber: bigint,
+  ): Promise<bigint> => {
+    const client = await this.publicClient(caip2Id);
+    const block = await client.getBlock({ blockNumber });
+    return block.timestamp;
   };
 
   getGasPrice = async (caip2Id: Caip2Id): Promise<bigint> => {

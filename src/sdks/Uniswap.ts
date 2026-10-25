@@ -15,19 +15,85 @@ import { getOnchainActor } from "../shared/onchainActor";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 
+const Q112 = 1n << 112n;
 const Q192 = 1n << 192n;
 const FeeDenominator = 1_000_000n;
 const MaxUint256 = (1n << 256n) - 1n;
+const Uint256 = 1n << 256n;
+const Uint32 = 1n << 32n;
+
+const V2FeeNumerator = 997n;
+const V2FeeDenominator = 1000n;
+
+// UniswapV2Library.getAmountOut
+export const v2AmountOut = (
+  amountIn: bigint,
+  reserveIn: bigint,
+  reserveOut: bigint,
+) => {
+  const amountInWithFee = amountIn * V2FeeNumerator;
+  return (
+    (amountInWithFee * reserveOut) /
+    (reserveIn * V2FeeDenominator + amountInWithFee)
+  );
+};
+
+// UniswapV2Library.getAmountIn
+export const v2AmountIn = (
+  amountOut: bigint,
+  reserveIn: bigint,
+  reserveOut: bigint,
+) => {
+  if (amountOut >= reserveOut) {
+    return null;
+  }
+
+  return (
+    (reserveIn * amountOut * V2FeeDenominator) /
+      ((reserveOut - amountOut) * V2FeeNumerator) +
+    1n
+  );
+};
+
+// a pair's price accumulator as of `timestamp`, adding the time since its last trade
+export const v2CumulativeAt = (
+  observation: {
+    cumulative: bigint;
+    reserveIn: bigint;
+    reserveOut: bigint;
+    blockTimestampLast: bigint;
+  },
+  timestamp: bigint,
+) => {
+  const elapsed =
+    ((timestamp % Uint32) - observation.blockTimestampLast + Uint32) % Uint32;
+
+  return (
+    (observation.cumulative +
+      ((observation.reserveOut * Q112) / observation.reserveIn) * elapsed) %
+    Uint256
+  );
+};
+
+export const v2MeanPriceX112 = (
+  cumulativePast: bigint,
+  cumulativeNow: bigint,
+  elapsedSeconds: bigint,
+) => {
+  return (
+    ((cumulativeNow - cumulativePast + Uint256) % Uint256) / elapsedSeconds
+  );
+};
 
 export const MinTick = -887272;
 export const MaxTick = 887272;
 
 export const sqrtRatioAtTick = (tick: number) => {
-  if (!Number.isInteger(tick) || tick < MinTick || tick > MaxTick)
+  if (!Number.isInteger(tick) || tick < MinTick || tick > MaxTick) {
     throw new RangeError(`Tick ${tick} is out of range`);
+  }
 
   const absTick = Math.abs(tick);
-
   let ratio =
     absTick & 0x1
       ? 0xfffcb933bd6fad37aa2d162d1a594001n
@@ -114,31 +180,46 @@ export class Uniswap implements UniswapQuoter {
     "function observe(uint32[] secondsAgos) external view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)",
   ]);
 
-  private static readonly factories = new Map<Caip2Id, Address>();
+  static readonly V2FactoryAbi = parseAbi([
+    "function getPair(address tokenA, address tokenB) external view returns (address pair)",
+  ]);
+
+  static readonly V2PairAbi = parseAbi([
+    "function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+    "function price0CumulativeLast() external view returns (uint256)",
+    "function price1CumulativeLast() external view returns (uint256)",
+  ]);
+
+  private static readonly factories = new Map<string, Address>();
 
   private getToken = (caip2Id: Caip2Id, tokenAddress: string) => {
     if (!common.isZeroAddress(tokenAddress)) return getAddress(tokenAddress);
     return getAddress(getChain(caip2Id).contracts.WETH9);
   };
 
-  private ethCall = async (caip2Id: Caip2Id, to: string, data: Hex) => {
+  private ethCall = async (
+    caip2Id: Caip2Id,
+    to: string,
+    data: Hex,
+    blockNumber?: bigint,
+  ) => {
     const onchainActor = getOnchainActor(getChain(caip2Id).type);
     const result = await onchainActor
-      .ethCall(caip2Id, to, data)
+      .ethCall(caip2Id, to, data, blockNumber)
       .catch(() => null);
 
     return !result || result === "0x" ? null : (result as Hex);
   };
 
-  private getFactory = async (caip2Id: Caip2Id) => {
-    const cached = Uniswap.factories.get(caip2Id);
-    if (cached) {
-      return cached;
-    }
-
-    const router = getChain(caip2Id).contracts.UniswapSwapRouter02;
+  private getFactory = async (caip2Id: Caip2Id, router?: string) => {
     if (!router) {
       return null;
+    }
+
+    const key = `${caip2Id}:${router}`;
+    const cached = Uniswap.factories.get(key);
+    if (cached) {
+      return cached;
     }
 
     const result = await this.ethCall(
@@ -164,7 +245,7 @@ export class Uniswap implements UniswapQuoter {
       return null;
     }
 
-    Uniswap.factories.set(caip2Id, factory);
+    Uniswap.factories.set(key, factory);
 
     return factory;
   };
@@ -263,7 +344,11 @@ export class Uniswap implements UniswapQuoter {
   };
 
   getTwap = async (caip2Id: Caip2Id, tokenIn: string, tokenOut: string) => {
-    const factory = await this.getFactory(caip2Id);
+    const factory = await this.getFactory(
+      caip2Id,
+      getChain(caip2Id).contracts.Uniswap?.SwapRouter02,
+    );
+
     if (!factory) {
       return null;
     }
@@ -296,6 +381,241 @@ export class Uniswap implements UniswapQuoter {
       : null;
   };
 
+  private getV2Observation = async (
+    caip2Id: Caip2Id,
+    pair: Address,
+    tokenInIsToken0: boolean,
+    blockNumber: bigint,
+  ) => {
+    const cumulativeFunction = tokenInIsToken0
+      ? "price0CumulativeLast"
+      : "price1CumulativeLast";
+
+    const [reservesResult, cumulativeResult, timestamp] = await Promise.all([
+      this.ethCall(
+        caip2Id,
+        pair,
+        encodeFunctionData({
+          abi: Uniswap.V2PairAbi,
+          functionName: "getReserves",
+        }),
+        blockNumber,
+      ),
+      this.ethCall(
+        caip2Id,
+        pair,
+        encodeFunctionData({
+          abi: Uniswap.V2PairAbi,
+          functionName: cumulativeFunction,
+        }),
+        blockNumber,
+      ),
+      getOnchainActor(getChain(caip2Id).type)
+        .getBlockTimestamp(caip2Id, blockNumber)
+        .catch(() => null),
+    ]);
+
+    if (!reservesResult || !cumulativeResult || timestamp === null) {
+      return null;
+    }
+
+    const [reserve0, reserve1, blockTimestampLast] = decodeFunctionResult({
+      abi: Uniswap.V2PairAbi,
+      functionName: "getReserves",
+      data: reservesResult,
+    });
+
+    const reserveIn = tokenInIsToken0 ? reserve0 : reserve1;
+    const reserveOut = tokenInIsToken0 ? reserve1 : reserve0;
+    if (reserveIn === 0n || reserveOut === 0n) {
+      return null;
+    }
+
+    const cumulative = decodeFunctionResult({
+      abi: Uniswap.V2PairAbi,
+      functionName: cumulativeFunction,
+      data: cumulativeResult,
+    });
+
+    return {
+      reserveIn,
+      reserveOut,
+      timestamp,
+      cumulative: v2CumulativeAt(
+        {
+          cumulative,
+          reserveIn,
+          reserveOut,
+          blockTimestampLast: BigInt(blockTimestampLast),
+        },
+        timestamp,
+      ),
+    };
+  };
+
+  getV2Twap = async (caip2Id: Caip2Id, tokenIn: string, tokenOut: string) => {
+    const factory = await this.getFactory(
+      caip2Id,
+      getChain(caip2Id).contracts.Uniswap?.UniswapV2Router02,
+    );
+
+    if (!factory) {
+      return null;
+    }
+
+    const tokenA = this.getToken(caip2Id, tokenIn);
+    const tokenB = this.getToken(caip2Id, tokenOut);
+    if (tokenA === tokenB) {
+      return null;
+    }
+
+    const pairResult = await this.ethCall(
+      caip2Id,
+      factory,
+      encodeFunctionData({
+        abi: Uniswap.V2FactoryAbi,
+        functionName: "getPair",
+        args: [tokenA, tokenB],
+      }),
+    );
+
+    if (!pairResult) {
+      return null;
+    }
+
+    const pair = decodeFunctionResult({
+      abi: Uniswap.V2FactoryAbi,
+      functionName: "getPair",
+      data: pairResult,
+    });
+
+    if (common.isZeroAddress(pair)) {
+      return null;
+    }
+
+    const onchainActor = getOnchainActor(getChain(caip2Id).type);
+    const latest = await onchainActor.getBlockNumber(caip2Id).catch(() => null);
+
+    if (latest === null) {
+      return null;
+    }
+
+    const tokenInIsToken0 = BigInt(tokenA) < BigInt(tokenB);
+    const now = await this.getV2Observation(
+      caip2Id,
+      pair,
+      tokenInIsToken0,
+      latest,
+    );
+
+    if (!now) {
+      return null;
+    }
+
+    // recent blocks tell how many blocks each window spans on this chain
+    const sampleBlock = latest > 100n ? latest - 100n : 0n;
+    const sampleTimestamp = await onchainActor
+      .getBlockTimestamp(caip2Id, sampleBlock)
+      .catch(() => null);
+
+    if (sampleTimestamp === null || sampleTimestamp >= now.timestamp) {
+      return null;
+    }
+
+    // RPCs only keep so much history, so fall back to shorter windows
+    for (const window of UniswapTwapWindowsSeconds) {
+      const blocksBack = common.ceilDiv(
+        BigInt(window) * (latest - sampleBlock),
+        now.timestamp - sampleTimestamp,
+      );
+
+      const past = await this.getV2Observation(
+        caip2Id,
+        pair,
+        tokenInIsToken0,
+        latest > blocksBack ? latest - blocksBack : 0n,
+      );
+
+      if (!past || past.timestamp >= now.timestamp) {
+        continue;
+      }
+
+      const priceX112 = v2MeanPriceX112(
+        past.cumulative,
+        now.cumulative,
+        now.timestamp - past.timestamp,
+      );
+
+      if (priceX112 > 0n) {
+        return {
+          priceX112,
+          reserveIn: now.reserveIn,
+          reserveOut: now.reserveOut,
+          window,
+        };
+      }
+    }
+
+    return null;
+  };
+
+  // the average keeps a briefly moved pair from setting the price,
+  // the current reserves add the price impact the average leaves out
+  private quoteV2ExactInput = async (input: UniswapQuoterExactInputArgs) => {
+    const twap = await this.getV2Twap(
+      input.caip2Id,
+      input.tokenIn,
+      input.tokenOut,
+    );
+
+    if (!twap) {
+      return null;
+    }
+
+    const atAverage =
+      (input.amountIn * V2FeeNumerator * twap.priceX112) /
+      (V2FeeDenominator * Q112);
+    const atReserves = v2AmountOut(
+      input.amountIn,
+      twap.reserveIn,
+      twap.reserveOut,
+    );
+
+    const amountOut = atAverage < atReserves ? atAverage : atReserves;
+
+    return amountOut > 0n ? { feeTier: 0, amount: amountOut } : null;
+  };
+
+  private quoteV2ExactOutput = async (input: UniswapQuoterExactOutputArgs) => {
+    const twap = await this.getV2Twap(
+      input.caip2Id,
+      input.tokenIn,
+      input.tokenOut,
+    );
+
+    if (!twap) {
+      return null;
+    }
+
+    const atReserves = v2AmountIn(
+      input.amountOut,
+      twap.reserveIn,
+      twap.reserveOut,
+    );
+
+    if (atReserves === null) {
+      return null;
+    }
+
+    const atAverage = common.ceilDiv(
+      input.amountOut * Q112 * V2FeeDenominator,
+      twap.priceX112 * V2FeeNumerator,
+    );
+    const amountIn = atAverage > atReserves ? atAverage : atReserves;
+
+    return { feeTier: 0, amount: amountIn };
+  };
+
   quoteExactInput = async (
     input: UniswapQuoterExactInputArgs,
   ): Promise<UniswapQuote | null> => {
@@ -305,9 +625,7 @@ export class Uniswap implements UniswapQuoter {
       input.tokenOut,
     );
 
-    if (!twap) {
-      return null;
-    }
+    if (!twap) return this.quoteV2ExactInput(input);
 
     const amountInLessFee =
       (input.amountIn * (FeeDenominator - BigInt(twap.feeTier))) /
@@ -337,9 +655,7 @@ export class Uniswap implements UniswapQuoter {
       input.tokenOut,
     );
 
-    if (!twap) {
-      return null;
-    }
+    if (!twap) return this.quoteV2ExactOutput(input);
 
     const amountInLessFee = quoteAtTick(
       twap.tick,

@@ -362,6 +362,7 @@ export type Transfer = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -410,6 +411,7 @@ export type TransferDetails = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -452,6 +454,7 @@ export type TransferListItem = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -506,6 +509,7 @@ export type CreatedTransfer = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;

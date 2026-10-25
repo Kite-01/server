@@ -1,4 +1,5 @@
 import {
+  IMPLEMENTATION,
   createApiKey,
   createApp,
   createChain,
@@ -55,6 +56,7 @@ describe("API resources", () => {
     vi.spyOn(kite, "simulateFactoryCall").mockResolvedValue({
       ok: true,
     });
+    vi.spyOn(kite, "getImplementation").mockResolvedValue(IMPLEMENTATION);
 
     fakeActor.publicClient.mockResolvedValue({});
 

@@ -298,7 +298,8 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     const result: OnchainNotifierCallbackResult = [];
 
     const caip2Id = getSupportedChains().find(
-      (chain) => chain.descriptors[Provider.Alchemy] === payload.event.network,
+      (chain) =>
+        chain.descriptors?.[Provider.Alchemy] === payload.event.network,
     )?.caip2Id;
 
     if (!caip2Id) {

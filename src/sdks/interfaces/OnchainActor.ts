@@ -48,6 +48,7 @@ export interface OnchainActor {
     caip2Id: Caip2Id,
     contractAddress: string,
     data: string,
+    blockNumber?: bigint,
   ): Promise<string>;
 
   getBalance(
@@ -59,6 +60,8 @@ export interface OnchainActor {
   getContractCode(caip2Id: Caip2Id, contractAddress: string): Promise<string>;
 
   getBlockNumber(caip2Id: Caip2Id): Promise<bigint>;
+
+  getBlockTimestamp(caip2Id: Caip2Id, blockNumber: bigint): Promise<bigint>;
 
   getGasPrice(caip2Id: Caip2Id): Promise<bigint>;
 }

@@ -1,4 +1,5 @@
 import {
+  IMPLEMENTATION,
   address,
   createApp,
   createConfiguredChain,
@@ -91,6 +92,7 @@ describe("checkout", () => {
         payinFor(common.bytes32ToUuid(struct.id)!),
     );
     vi.spyOn(kite, "simulateFactoryCall").mockResolvedValue({ ok: true });
+    vi.spyOn(kite, "getImplementation").mockResolvedValue(IMPLEMENTATION);
     facilitator.verify.mockReset().mockResolvedValue({
       isValid: true,
       payer: PAYER,
