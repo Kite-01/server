@@ -28,14 +28,9 @@ type SettlementToken = {
 };
 
 export class CheckoutService {
-  private takesX402 = (config: {
-    gasSponsorProviders: unknown[];
-    settlementToken: SettlementToken;
-  }) => {
+  private takesX402 = (config: { settlementToken: SettlementToken }) => {
     return (
-      config.gasSponsorProviders.length > 0 &&
-      config.settlementToken.supportsEIP3009 &&
-      !!config.settlementToken.version
+      config.settlementToken.supportsEIP3009 && !!config.settlementToken.version
     );
   };
 

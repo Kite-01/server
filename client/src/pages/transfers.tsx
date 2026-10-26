@@ -8,6 +8,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import {
+  chainsListFullOptions,
   transfersListOptions,
   transfersRecoverBalanceMutation,
   transfersRecoverMutation,
@@ -35,6 +36,7 @@ import { useAppHeaders, useMutate } from "@/lib/queries";
 import { useSupportedChains } from "./chains";
 import None from "@/components/none";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Status = TransferListItem["status"];
@@ -304,7 +306,11 @@ export const Transfers = () => {
   const supported = useSupportedChains();
   const explorer = supported.data?.find(
     (chain) => chain.caip2Id === selected?.quote.chain.caip2Id,
-  )?.blockExplorer.url;
+  )?.blockExplorer?.url;
+  const chains = useQuery(chainsListFullOptions());
+  const noGasSponsor =
+    chains.data?.find((chain) => chain.id === selected?.quote.chain.id)?.config
+      ?.gasSponsorProviders.length === 0;
 
   return (
     <>
@@ -406,9 +412,15 @@ export const Transfers = () => {
         {selected && (
           <div className="space-y-5">
             {selected.quote.chain.isActive && (
-              <label className="flex items-center gap-2 text-sm font-display">
+              <label
+                className={cn(
+                  "flex items-center gap-2 text-sm font-display",
+                  noGasSponsor && "text-muted",
+                )}
+              >
                 <Switch
-                  checked={useGasSponsor}
+                  checked={!noGasSponsor && useGasSponsor}
+                  disabled={noGasSponsor}
                   onCheckedChange={(checked) => setUseGasSponsor(checked)}
                 />
                 With Gas Sponsor?
@@ -427,7 +439,8 @@ export const Transfers = () => {
                     path: { id: selected.id },
                     body: {
                       useGasSponsor:
-                        !selected.quote.chain.isActive || useGasSponsor,
+                        !noGasSponsor &&
+                        (!selected.quote.chain.isActive || useGasSponsor),
                     },
                   })
                 }
@@ -478,9 +491,15 @@ export const Transfers = () => {
                 </Field>
 
                 {selected.quote.chain.isActive && (
-                  <label className="flex items-center gap-2 text-sm font-display mt-5">
+                  <label
+                    className={cn(
+                      "flex items-center gap-2 text-sm font-display mt-5",
+                      noGasSponsor && "text-muted",
+                    )}
+                  >
                     <Switch
-                      checked={useGasSponsor}
+                      checked={!noGasSponsor && useGasSponsor}
+                      disabled={noGasSponsor}
                       onCheckedChange={(checked) => setUseGasSponsor(checked)}
                     />
                     With Gas Sponsor?
@@ -511,7 +530,8 @@ export const Transfers = () => {
                           tokenAddress: tokenAddress.trim(),
                           destinationAddress: destinationAddress.trim(),
                           useGasSponsor:
-                            !selected.quote.chain.isActive || useGasSponsor,
+                            !noGasSponsor &&
+                            (!selected.quote.chain.isActive || useGasSponsor),
                         },
                       })
                 }

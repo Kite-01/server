@@ -144,6 +144,15 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     return `${env.KITE_PUBLIC_BASE_URL}/callback/${Provider.Alchemy}/${activity}`;
   };
 
+  private webhookKey = (activity: Activity, network: string) => {
+    return networkKeyVar(
+      activity === "addressActivity"
+        ? KeyVarPrefix.AlchemyAddressActivity_Webhook
+        : KeyVarPrefix.AlchemyContractEvents_Webhook,
+      network,
+    );
+  };
+
   upsertNotifier = async (
     activity: Activity,
     address: string,
@@ -152,12 +161,7 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
   ) => {
     const client = this.getNotifyClient(options);
     const kvService = new KvService();
-    const key = networkKeyVar(
-      activity === "addressActivity"
-        ? KeyVarPrefix.AlchemyAddressActivity_Webhook
-        : KeyVarPrefix.AlchemyContractEvents_Webhook,
-      network,
-    );
+    const key = this.webhookKey(activity, network);
 
     const addAddress = async (webhook: Webhook) => {
       const url = "/update-webhook-addresses";
@@ -254,6 +258,61 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     );
   };
 
+  private removeAddress = async (
+    activity: Activity,
+    caip2Id: Caip2Id,
+    address: string,
+    options: SdkOptions,
+  ) => {
+    const network = getChain(caip2Id).descriptors?.[Provider.Alchemy];
+    if (typeof network !== "string") {
+      return;
+    }
+
+    const webhook = this.webhook(
+      common.getVar(options, this.webhookKey(activity, network)),
+    );
+
+    if (!webhook) {
+      return;
+    }
+
+    const url = "/update-webhook-addresses";
+    const response = await this.getNotifyClient(options).patch(url, {
+      webhook_id: webhook.id,
+      addresses_to_add: [],
+      addresses_to_remove: [common.normalizeAddress(address).toLowerCase()],
+    });
+
+    if (!response.isOk) {
+      throw new SdkRequestError(Provider.Alchemy, url, response);
+    }
+  };
+
+  untrackAddressActivity = async (
+    input: OnchainNotifierTrackAddressActivityInput,
+    options: SdkOptions,
+  ): Promise<void> => {
+    return await this.removeAddress(
+      "addressActivity",
+      input.caip2Id,
+      input.address,
+      options,
+    );
+  };
+
+  untrackKiteContractEvent = async (
+    input: OnchainNotifierTrackContractEventInput,
+    options: SdkOptions,
+  ): Promise<void> => {
+    return await this.removeAddress(
+      "contractEvent",
+      input.caip2Id,
+      input.contractAddress,
+      options,
+    );
+  };
+
   isValidCallback = async (
     input: OnchainNotifierVerifyCallbackInput,
     options: SdkOptions,
@@ -298,7 +357,8 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     const result: OnchainNotifierCallbackResult = [];
 
     const caip2Id = getSupportedChains().find(
-      (chain) => chain.descriptors[Provider.Alchemy] === payload.event.network,
+      (chain) =>
+        chain.descriptors?.[Provider.Alchemy] === payload.event.network,
     )?.caip2Id;
 
     if (!caip2Id) {

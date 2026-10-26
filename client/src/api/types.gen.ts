@@ -11,6 +11,7 @@ export type App = {
   websiteUrl: string | null;
   termsOfServiceUrl: string | null;
   privacyPolicyUrl: string | null;
+  settlementAddress: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -59,7 +60,6 @@ export type ChainConfig = {
   kiteFactoryAddress: string;
   usdPeggedTokenId: string;
   settlementTokenId: string;
-  settlementAddress: string | null;
   onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
   gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
   maxGasPrice: string | null;
@@ -103,7 +103,7 @@ export type SupportedChain = {
     symbol: string;
     decimals: number;
   };
-  blockExplorer: {
+  blockExplorer?: {
     name: string;
     url: string;
   };
@@ -362,6 +362,7 @@ export type Transfer = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -410,6 +411,7 @@ export type TransferDetails = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -452,6 +454,7 @@ export type TransferListItem = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -506,6 +509,7 @@ export type CreatedTransfer = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -647,7 +651,7 @@ export type SystemInfo = {
     isActive: boolean;
     isConfigured: boolean;
     operatorAddress: string;
-    explorerUrl: string;
+    explorerUrl: string | null;
   }>;
 };
 
@@ -781,7 +785,7 @@ export type Checkout = {
       symbol: string;
       decimals: number;
     };
-    blockExplorer: {
+    blockExplorer?: {
       name: string;
       url: string;
     };
@@ -875,6 +879,7 @@ export type AppsUpdateData = {
     websiteUrl?: string | null;
     termsOfServiceUrl?: string | null;
     privacyPolicyUrl?: string | null;
+    settlementAddress?: string | null;
   };
   path?: never;
   query?: never;
@@ -897,6 +902,7 @@ export type AppsCreateData = {
     websiteUrl?: string | null;
     termsOfServiceUrl?: string | null;
     privacyPolicyUrl?: string | null;
+    settlementAddress?: string | null;
   };
   path?: never;
   query?: never;
@@ -1138,7 +1144,6 @@ export type ChainsConfigureData = {
     kiteFactoryAddress: string;
     usdPeggedTokenId: string;
     settlementTokenId: string;
-    settlementAddress?: string | null;
     onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
     gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
     maxGasPrice?: string | null;
@@ -1216,6 +1221,26 @@ export type TokensDeleteResponses = {
 };
 
 export type TokensDeleteResponse = TokensDeleteResponses[keyof TokensDeleteResponses];
+
+export type TokensUpdateData = {
+  body: {
+    icon: string | null;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/api/tokens/{id}';
+};
+
+export type TokensUpdateResponses = {
+  /**
+   * Response for status 200
+   */
+  200: Token;
+};
+
+export type TokensUpdateResponse = TokensUpdateResponses[keyof TokensUpdateResponses];
 
 export type CheckoutGetData = {
   body?: never;

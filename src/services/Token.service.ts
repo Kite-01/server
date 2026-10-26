@@ -77,7 +77,7 @@ export class TokenService {
       "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains";
     const http = new Http(TWAssetsUrl);
     const chain_ = getChain(chain.caip2Id);
-    const descriptor = chain_.descriptors[Provider.TrustWallet] as
+    const descriptor = chain_.descriptors?.[Provider.TrustWallet] as
       string | undefined;
 
     if (common.isZeroAddress(address)) {
@@ -211,6 +211,16 @@ export class TokenService {
         return row.value;
       },
     );
+  };
+
+  updateTokenIcon = async (tokenId: string, icon: string | null) => {
+    const [row] = await db
+      .update(token)
+      .set({ icon })
+      .where(and(eq(token.id, tokenId), isNull(token.deletedAt)))
+      .returning();
+
+    return row;
   };
 
   deleteToken = async (tokenId: string) => {

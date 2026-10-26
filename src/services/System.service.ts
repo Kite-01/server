@@ -24,7 +24,9 @@ export class SystemService {
           isActive: chain.isActive,
           isConfigured: !!chain.config,
           operatorAddress,
-          explorerUrl: `${registry.blockExplorer.url}/address/${operatorAddress}`,
+          explorerUrl: registry.blockExplorer
+            ? `${registry.blockExplorer.url}/address/${operatorAddress}`
+            : null,
         };
       }),
     };

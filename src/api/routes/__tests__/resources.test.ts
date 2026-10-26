@@ -1,4 +1,5 @@
 import {
+  IMPLEMENTATION,
   createApiKey,
   createApp,
   createChain,
@@ -55,6 +56,7 @@ describe("API resources", () => {
     vi.spyOn(kite, "simulateFactoryCall").mockResolvedValue({
       ok: true,
     });
+    vi.spyOn(kite, "getImplementation").mockResolvedValue(IMPLEMENTATION);
 
     fakeActor.publicClient.mockResolvedValue({});
 
@@ -130,6 +132,57 @@ describe("API resources", () => {
       });
     });
 
+    it("lets the root key change a token's icon", async () => {
+      const weth = await createToken(chainId, {
+        address: WETH,
+        symbol: "WETH",
+      });
+      const root = client(rootCredentials());
+
+      const changed = await root.patch(`/api/tokens/${weth.id}`, {
+        icon: "https://cdn.example/weth.png",
+      });
+      expect(changed.status).toBe(200);
+      expect(changed.json.icon).toBe("https://cdn.example/weth.png");
+
+      const cleared = await root.patch(`/api/tokens/${weth.id}`, {
+        icon: null,
+      });
+      expect(cleared.json.icon).toBeNull();
+    });
+
+    it("keeps changing token icons to the root key", async () => {
+      const weth = await createToken(chainId, {
+        address: WETH,
+        symbol: "WETH",
+      });
+
+      const res = await api.patch(`/api/tokens/${weth.id}`, {
+        icon: "https://cdn.example/weth.png",
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("refuses an icon that isn't a web URL, and unknown tokens", async () => {
+      const weth = await createToken(chainId, {
+        address: WETH,
+        symbol: "WETH",
+      });
+      const root = client(rootCredentials());
+
+      expect(
+        (
+          await root.patch(`/api/tokens/${weth.id}`, {
+            icon: "javascript:alert(1)",
+          })
+        ).status,
+      ).toBe(422);
+      expect(
+        (await root.patch(`/api/tokens/${crypto.randomUUID()}`, { icon: null }))
+          .status,
+      ).toBe(404);
+    });
+
     it("finds a token by address without credentials", async () => {
       await createToken(chainId, {
         address: WETH,
@@ -180,6 +233,61 @@ describe("API resources", () => {
     it("rejects a malformed token address", async () => {
       const res = await api.get(`/api/tokens/${chainId}/0x123`);
       expect(res.status).toBe(422);
+    });
+  });
+
+  describe("apps", () => {
+    it("lets the root key create an app with a settlement address", async () => {
+      const res = await client(rootCredentials()).post("/api/apps", {
+        name: "Shop",
+        settlementAddress: address(0x5e77).toLowerCase(),
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.json.settlementAddress).toBe(address(0x5e77));
+    });
+
+    it("lets an App:Write key set and clear its settlement address", async () => {
+      const set = await api.patch("/api/apps", {
+        settlementAddress: address(0x5e77),
+      });
+
+      expect(set.status).toBe(200);
+      expect(set.json.settlementAddress).toBe(address(0x5e77));
+      expect((await api.get("/api/apps")).json.settlementAddress).toBe(
+        address(0x5e77),
+      );
+
+      const cleared = await api.patch("/api/apps", {
+        settlementAddress: null,
+      });
+      expect(cleared.json.settlementAddress).toBeNull();
+    });
+
+    it("refuses a malformed settlement address", async () => {
+      const res = await api.patch("/api/apps", { settlementAddress: "0x123" });
+      expect(res.status).toBe(422);
+    });
+
+    it("settles new transfers to the address the app set", async () => {
+      await api.patch("/api/apps", {
+        settlementAddress: address(0x5e77),
+      });
+
+      const quote = await createQuoteRow({
+        appId,
+        chainId,
+        sourceTokenId: usdcId,
+        targetTokenId: usdcId,
+      });
+
+      const res = await api.post("/api/transfers", {
+        quoteId: quote.id,
+        refundAddress: REFUND_TO,
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.json.settlementRecipient).toBe(address(0x5e77));
     });
   });
 

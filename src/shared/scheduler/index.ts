@@ -57,6 +57,18 @@ export class Scheduler {
     );
   };
 
+  static enqueueUntrack = (
+    transferId: string,
+    startAfter: number,
+    db?: PgBossDb,
+  ) => {
+    return Scheduler.send(
+      Queue.UntrackTransfer,
+      { transferId },
+      { singletonKey: transferId, startAfter, db },
+    );
+  };
+
   static enqueueForward = (forwardId: string, db?: PgBossDb) => {
     return Scheduler.send(
       Queue.OperatorForward,
@@ -98,6 +110,7 @@ export class Scheduler {
     await boss.createQueue(Queue.RefundTransfer, OnchainJobQueue);
     await boss.createQueue(Queue.RecoverTransfer, OnchainJobQueue);
     await boss.createQueue(Queue.OperatorForward, OnchainJobQueue);
+    await boss.createQueue(Queue.UntrackTransfer, OnchainJobQueue);
     await boss.createQueue(Queue.TransferSweep, {
       policy: "stately",
       retryLimit: 0,

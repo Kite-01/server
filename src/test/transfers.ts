@@ -1,6 +1,6 @@
+import { IMPLEMENTATION, USDC, ZERO, address } from "./factories";
 import { getAddress, keccak256, toHex } from "viem";
 import { deposit, quote, transfer } from "../db/schema";
-import { USDC, ZERO, address } from "./factories";
 import { operatorAddress } from "./mocks";
 import { TransferStatus } from "../shared/constants";
 import { kite } from "../shared/kiteContract";
@@ -67,6 +67,7 @@ export const createTransferRow = async (input: {
     expiresAt: input.quote.expiresAt,
     routerAddress: ZERO,
     poolFeeTier: 0,
+    implementation: IMPLEMENTATION,
   });
 
   const [row] = await db

@@ -1,4 +1,4 @@
-import { PageQuery, t } from "../schema";
+import { EvmAddress, PageQuery, t } from "../schema";
 import { ApiKeyScope } from "../../shared/constants";
 import { AppService } from "../../services/App.service";
 import { HttpError } from "../../shared/errors";
@@ -31,6 +31,7 @@ const Fields = {
   websiteUrl: Url,
   termsOfServiceUrl: Url,
   privacyPolicyUrl: Url,
+  settlementAddress: t.Union([EvmAddress, t.Null()]),
 };
 
 export const appRoutes = new Elysia({ name: "AppsRoute" })

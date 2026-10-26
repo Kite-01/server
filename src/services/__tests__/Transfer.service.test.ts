@@ -1,4 +1,5 @@
 import {
+  IMPLEMENTATION,
   createApp,
   createConfiguredChain,
   createCustomer,
@@ -22,6 +23,7 @@ import {
   schedulerMock,
 } from "../../test/mocks";
 import {
+  app,
   chainConfig,
   deposit,
   event,
@@ -38,7 +40,12 @@ import {
 } from "../../shared/errors";
 import { encodeAbiParameters, encodeEventTopics } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TransferStatus, WebhookCategory } from "../../shared/constants";
+import {
+  OneHour,
+  Provider,
+  TransferStatus,
+  WebhookCategory,
+} from "../../shared/constants";
 import { runProviderMethod } from "../../shared/providers";
 import { TransferService } from "../Transfer.service";
 import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
@@ -79,16 +86,20 @@ describe("TransferService", () => {
     predict: vi.spyOn(kite, "predictAddress"),
     simulate: vi.spyOn(kite, "simulateFactoryCall"),
     status: vi.spyOn(kite, "readStatus"),
+    implementation: vi.spyOn(kite, "getImplementation"),
   };
 
   beforeEach(async () => {
     resetMocks();
-    vi.mocked(runProviderMethod).mockClear();
+    vi.mocked(runProviderMethod)
+      .mockReset()
+      .mockImplementation(async () => undefined as never);
     spies.predict.mockImplementation(async (_client, _factory, struct) =>
       payinFor(common.bytes32ToUuid(struct.id)!),
     );
     spies.simulate.mockResolvedValue({ ok: true });
     spies.status.mockResolvedValue("Open");
+    spies.implementation.mockResolvedValue(IMPLEMENTATION);
     fakeActor.publicClient.mockResolvedValue({});
 
     appId = (await createApp()).id;
@@ -191,6 +202,7 @@ describe("TransferService", () => {
         currentCategoryStatus: TransferStatus.AwaitingDeposit,
       });
       expect(JSON.stringify(created_event.data)).not.toContain("rpcUrls");
+      expect(JSON.stringify(created_event.data)).not.toContain("trackedBy");
       expect((await timeline())[0]).toMatchObject({
         transferId: created.id,
         eventId: created_event.id,
@@ -220,6 +232,71 @@ describe("TransferService", () => {
         caip2Id: CAIP2,
         address: created.payinAddress,
       });
+      expect((await reload(created.id)).trackedBy).toEqual([
+        Provider.QuickNode,
+      ]);
+      expect(created).not.toHaveProperty("trackedBy");
+    });
+
+    it("records the provider that took the address when an earlier one refuses", async () => {
+      await db
+        .update(chainConfig)
+        .set({
+          onchainNotifierProviders: [Provider.QuickNode, Provider.Alchemy],
+        })
+        .where(eq(chainConfig.chainId, chainId));
+      vi.mocked(runProviderMethod).mockImplementation(async (providers) => {
+        if (providers.includes(Provider.QuickNode)) throw new Error("403");
+      });
+
+      const created = await service.createTransfer(
+        appId,
+        (await newQuote()).id,
+        REFUND_TO,
+      );
+
+      expect((await reload(created.id)).trackedBy).toEqual([Provider.Alchemy]);
+    });
+
+    it("records nobody on a chain without a notifier", async () => {
+      await db
+        .update(chainConfig)
+        .set({ onchainNotifierProviders: [] })
+        .where(eq(chainConfig.chainId, chainId));
+
+      const created = await service.createTransfer(
+        appId,
+        (await newQuote()).id,
+        REFUND_TO,
+      );
+
+      expect((await reload(created.id)).trackedBy).toEqual([]);
+      expect(runProviderMethod).not.toHaveBeenCalled();
+    });
+
+    it("routes a Uniswap V2 quote through the V2 router", async () => {
+      const quote = await newQuote({
+        sourceTokenId: wethId,
+        sourceAmount: 10n ** 15n,
+        targetAmount: 3_000_000n,
+      });
+
+      await db
+        .update(quoteTable)
+        .set({ uniswapPoolFeeTier: 0 })
+        .where(eq(quoteTable.id, quote.id));
+
+      const created = await service.createTransfer(appId, quote.id, REFUND_TO);
+
+      expect(created.kiteTransferInput).toMatchObject({
+        poolFeeTier: 0,
+        routerAddress: getChain(CAIP2).contracts.Uniswap?.UniswapV2Router02,
+        implementation: IMPLEMENTATION,
+      });
+      expect(spies.implementation).toHaveBeenCalledWith(
+        expect.anything(),
+        FACTORY,
+      );
     });
 
     it("routes a different pay-in token through the Uniswap router and carries the fees", async () => {
@@ -248,7 +325,8 @@ describe("TransferService", () => {
         payInTokenAddress: WETH,
         settlementTokenAddress: USDC,
         poolFeeTier: 500,
-        routerAddress: getChain(CAIP2).contracts.UniswapSwapRouter02,
+        routerAddress: getChain(CAIP2).contracts.Uniswap?.SwapRouter02,
+        implementation: IMPLEMENTATION,
         fees: [
           {
             id: common.uuidToBytes32(fee.id),
@@ -259,11 +337,11 @@ describe("TransferService", () => {
       });
     });
 
-    it("pays out to the configured settlement address", async () => {
+    it("pays out to the app's settlement address", async () => {
       await db
-        .update(chainConfig)
+        .update(app)
         .set({ settlementAddress: address(0x5e77) })
-        .where(eq(chainConfig.chainId, chainId));
+        .where(eq(app.id, appId));
 
       const created = await service.createTransfer(
         appId,
@@ -271,6 +349,20 @@ describe("TransferService", () => {
         REFUND_TO,
       );
       expect(created.settlementRecipient).toBe(address(0x5e77));
+      expect(created.kiteTransferInput).toMatchObject({
+        settlementRecipient: address(0x5e77),
+      });
+    });
+
+    it("pays out to the operator wallet when the app has no settlement address", async () => {
+      await createApp({ settlementAddress: address(0x07e4) });
+
+      const created = await service.createTransfer(
+        appId,
+        (await newQuote()).id,
+        REFUND_TO,
+      );
+      expect(created.settlementRecipient).toBe(operatorAddress);
     });
 
     it("uses a quote only once", async () => {
@@ -425,6 +517,130 @@ describe("TransferService", () => {
         settlementBlockchainHash: "0xabc",
         refundBlockchainHash: null,
       });
+    });
+  });
+
+  describe("watching the pay-in address", () => {
+    it.each([
+      [TransferStatus.Settled, 0],
+      [TransferStatus.Refunded, 0],
+      [TransferStatus.Failed, 0],
+      [TransferStatus.Cancelled, 12 * OneHour],
+    ])(
+      "stops once the transfer is %s, %i seconds later",
+      async (status, delay) => {
+        const row = await open();
+
+        await service.transitionTransferStatus(
+          row.id,
+          TransferStatus.AwaitingDeposit,
+          status,
+          "Closed",
+        );
+
+        expect(schedulerMock.enqueueUntrack).toHaveBeenCalledWith(
+          row.id,
+          delay,
+          expect.anything(),
+        );
+      },
+    );
+
+    it("keeps watching an open transfer", async () => {
+      const row = await open();
+
+      await service.transitionTransferStatus(
+        row.id,
+        TransferStatus.AwaitingDeposit,
+        TransferStatus.DepositReceived,
+        "Expected deposit received",
+      );
+      await service.transitionTransferStatus(
+        row.id,
+        TransferStatus.AwaitingDeposit,
+        TransferStatus.Settled,
+        "Not from this status",
+      );
+
+      expect(schedulerMock.enqueueUntrack).not.toHaveBeenCalled();
+    });
+
+    it("stops once the settlement lands", async () => {
+      const row = await open({ status: TransferStatus.Processing });
+
+      await service.handleOnchainNotifierCallback([
+        {
+          type: "Settled",
+          caip2Id: CAIP2,
+          payinAddress: row.payinAddress,
+          transferId: row.id,
+          blockchainHash: "0xsettled",
+          logIndex: "1",
+        },
+      ]);
+
+      expect(schedulerMock.enqueueUntrack).toHaveBeenCalledWith(
+        row.id,
+        0,
+        expect.anything(),
+      );
+    });
+
+    const trackedBy = async (id: string, providers: Provider[]) => {
+      await db
+        .update(transfer)
+        .set({ trackedBy: providers })
+        .where(eq(transfer.id, id));
+    };
+
+    it("asks only the providers watching the address, and crosses each off", async () => {
+      await db
+        .update(chainConfig)
+        .set({
+          onchainNotifierProviders: [Provider.QuickNode, Provider.Alchemy],
+        })
+        .where(eq(chainConfig.chainId, chainId));
+      const row = await open({ status: TransferStatus.Settled });
+      await trackedBy(row.id, [Provider.Alchemy]);
+
+      await service.untrackTransfer(row.id);
+
+      const calls = vi.mocked(runProviderMethod).mock
+        .calls as unknown as unknown[][];
+      const address = row.payinAddress;
+      expect(calls.map((call) => call.slice(0, 3))).toEqual([
+        [
+          [Provider.Alchemy],
+          "untrackAddressActivity",
+          { caip2Id: CAIP2, address },
+        ],
+        [
+          [Provider.Alchemy],
+          "untrackKiteContractEvent",
+          { caip2Id: CAIP2, contractAddress: address },
+        ],
+      ]);
+      expect((await reload(row.id)).trackedBy).toEqual([]);
+    });
+
+    it("keeps a provider on record until it has forgotten the address", async () => {
+      const row = await open({ status: TransferStatus.Settled });
+      await trackedBy(row.id, [Provider.QuickNode, Provider.Alchemy]);
+      vi.mocked(runProviderMethod).mockImplementation(async (providers) => {
+        if (providers.includes(Provider.Alchemy)) throw new Error("500");
+      });
+
+      await expect(service.untrackTransfer(row.id)).rejects.toThrow("500");
+
+      expect((await reload(row.id)).trackedBy).toEqual([Provider.Alchemy]);
+    });
+
+    it("calls nobody once nothing watches the address", async () => {
+      const row = await open({ status: TransferStatus.Settled });
+
+      await service.untrackTransfer(row.id);
+
+      expect(runProviderMethod).not.toHaveBeenCalled();
     });
   });
 

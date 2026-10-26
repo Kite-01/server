@@ -1016,7 +1016,9 @@ const StatusStep = ({
   const hash =
     data?.settlementBlockchainHash ?? data?.x402BlockchainHash ?? txHash;
   const explorer =
-    chain && hash ? `${chain.blockExplorer.url}/tx/${hash}` : undefined;
+    chain?.blockExplorer && hash
+      ? `${chain.blockExplorer.url}/tx/${hash}`
+      : undefined;
 
   const view = statusView(data, expired, checkout.app.name);
   const canRestart =

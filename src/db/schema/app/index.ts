@@ -16,6 +16,7 @@ export const app = pgTable("kite_app", {
   websiteUrl: text("website_url"),
   termsOfServiceUrl: text("terms_of_service_url"),
   privacyPolicyUrl: text("privacy_policy_url"),
+  settlementAddress: text("settlement_address"), // defaults to the operator address (handled in the app layer)
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

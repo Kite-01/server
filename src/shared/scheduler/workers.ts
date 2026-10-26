@@ -193,6 +193,12 @@ export const startWorkers = async (boss: PgBoss) => {
     async ([job]) => operatorForwardService.processForward(job.data.forwardId),
   );
 
+  await boss.work<{ transferId: string }>(
+    Queue.UntrackTransfer,
+    { localConcurrency: 5 },
+    async ([job]) => transferService.untrackTransfer(job.data.transferId),
+  );
+
   await boss.work(Queue.TransferSweep, async () => transferService.sweep());
 
   await boss.work(Queue.ApiNonceCleanup, async () => {

@@ -46,7 +46,7 @@ export class x402Service {
 
   private facilitatorFor = async (caip2Id: Caip2Id) => {
     const chain = await new ChainService().getChainByCaip2Id(caip2Id);
-    if (!chain?.isActive || !chain.config?.gasSponsorProviders.length) {
+    if (!chain?.isActive || !chain.config) {
       throw new ChainNotConfiguredForx402Error(caip2Id);
     }
 
@@ -579,7 +579,7 @@ export class x402Service {
     const chains = await new ChainService().getActiveChains();
 
     for (const chain of chains) {
-      if (!chain.config?.gasSponsorProviders.length) {
+      if (!chain.config) {
         continue;
       }
 

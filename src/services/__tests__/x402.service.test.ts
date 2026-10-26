@@ -6,6 +6,7 @@ import {
   type Hex,
 } from "viem";
 import {
+  IMPLEMENTATION,
   createApp,
   createConfiguredChain,
   createToken,
@@ -33,6 +34,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chainConfig, quote, transfer } from "../../db/schema";
 import { TransferStatus } from "../../shared/constants";
+import { ChainService } from "../Chain.service";
 import { x402Service } from "../x402.service";
 import { common } from "../../shared/common";
 import { kite } from "../../shared/kiteContract";
@@ -202,7 +204,7 @@ describe("x402Service", () => {
   };
 
   describe("getSupported", () => {
-    it("lists EIP-3009 tokens on chains that can sponsor gas", async () => {
+    it("lists EIP-3009 tokens on configured chains", async () => {
       await createToken(chainId, {
         symbol: "NOPE",
         supportsEIP3009: false,
@@ -227,11 +229,19 @@ describe("x402Service", () => {
       expect(supported.signers).toEqual({ "eip155:*": [operatorAddress] });
     });
 
-    it("leaves out chains without a gas sponsor", async () => {
+    it("includes chains without a gas sponsor, where the operator pays gas", async () => {
       await db
         .update(chainConfig)
         .set({ gasSponsorProviders: [] })
         .where(eq(chainConfig.chainId, chainId));
+
+      expect((await service.getSupported()).kinds).toEqual([
+        expect.objectContaining({ network: CAIP2 }),
+      ]);
+    });
+
+    it("leaves out inactive chains", async () => {
+      await new ChainService().updateChainActiveStatus(chainId, false);
 
       expect((await service.getSupported()).kinds).toEqual([]);
     });
@@ -290,12 +300,21 @@ describe("x402Service", () => {
       ).rejects.toThrow("expires too soon");
     });
 
-    it("needs a chain that can sponsor gas", async () => {
+    it("takes payments on a chain without a gas sponsor", async () => {
       const row = await open();
       await db
         .update(chainConfig)
         .set({ gasSponsorProviders: [] })
         .where(eq(chainConfig.chainId, chainId));
+
+      expect(await service.getPaymentRequirements(appId, row.id)).toMatchObject(
+        { network: CAIP2, payTo: row.payinAddress },
+      );
+    });
+
+    it("needs an active chain", async () => {
+      const row = await open();
+      await new ChainService().updateChainActiveStatus(chainId, false);
 
       await expect(
         service.getPaymentRequirements(appId, row.id),
@@ -323,6 +342,7 @@ describe("x402Service", () => {
           payinFor(common.bytes32ToUuid(struct.id)!),
       );
       vi.spyOn(kite, "simulateFactoryCall").mockResolvedValue({ ok: true });
+      vi.spyOn(kite, "getImplementation").mockResolvedValue(IMPLEMENTATION);
       const q = await createQuoteRow({
         appId,
         chainId,

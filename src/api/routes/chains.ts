@@ -146,7 +146,6 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       await chainService.upsertChainConfig(params.id, {
         ...body,
         rpcUrls: body.rpcUrls ?? null,
-        settlementAddress: body.settlementAddress ?? null,
         maxGasPrice:
           body.maxGasPrice === undefined || body.maxGasPrice === null
             ? null
@@ -180,7 +179,6 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
         kiteFactoryAddress: EvmAddress,
         usdPeggedTokenId: Uuid,
         settlementTokenId: Uuid,
-        settlementAddress: t.Optional(t.Union([EvmAddress, t.Null()])),
         onchainNotifierProviders: Providers,
         gasSponsorProviders: Providers,
         maxGasPrice: t.Optional(t.Union([Digits, t.Null()])),

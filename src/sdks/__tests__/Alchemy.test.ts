@@ -187,6 +187,91 @@ describe("Alchemy notifiers", () => {
     expect(await kv.getKv(addressActivityKey("BASE_MAINNET"))).toBeNull();
   });
 
+  describe("untracking", () => {
+    const removals = () =>
+      http.patch.mock.calls
+        .map(([, body]) => body)
+        .filter((body) => body.addresses_to_remove.length);
+
+    beforeEach(() => {
+      http.post.mockImplementation(async (_url: string, body: any) => ({
+        isOk: true,
+        data: {
+          data: {
+            id: `${body.webhook_url.split("/").pop()}:${body.network}`,
+            signing_key: "key",
+          },
+        },
+      }));
+    });
+
+    it("removes an address from both of the network's webhooks", async () => {
+      await alchemy.trackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        await sdkOptions(),
+      );
+      await alchemy.trackKiteContractEvent(
+        { caip2Id: "eip155:8453", contractAddress: PAYIN },
+        await sdkOptions(),
+      );
+
+      await alchemy.untrackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        await sdkOptions(),
+      );
+      await alchemy.untrackKiteContractEvent(
+        { caip2Id: "eip155:8453", contractAddress: PAYIN },
+        await sdkOptions(),
+      );
+
+      expect(removals()).toEqual([
+        {
+          webhook_id: "addressActivity:BASE_MAINNET",
+          addresses_to_add: [],
+          addresses_to_remove: [PAYIN.toLowerCase()],
+        },
+        {
+          webhook_id: "contractEvent:BASE_MAINNET",
+          addresses_to_add: [],
+          addresses_to_remove: [PAYIN.toLowerCase()],
+        },
+      ]);
+    });
+
+    it("has nothing to remove on a network without a webhook", async () => {
+      await alchemy.trackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        await sdkOptions(),
+      );
+
+      await alchemy.untrackAddressActivity(
+        { caip2Id: "eip155:1", address: PAYIN },
+        await sdkOptions(),
+      );
+      await alchemy.untrackKiteContractEvent(
+        { caip2Id: "eip155:8453", contractAddress: PAYIN },
+        await sdkOptions(),
+      );
+
+      expect(removals()).toEqual([]);
+    });
+
+    it("reports Alchemy's refusal so the removal is retried", async () => {
+      await alchemy.trackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        await sdkOptions(),
+      );
+      http.patch.mockResolvedValue({ isOk: false, statusCode: 500 });
+
+      await expect(
+        alchemy.untrackAddressActivity(
+          { caip2Id: "eip155:8453", address: PAYIN },
+          await sdkOptions(),
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
   describe("isValidCallback", () => {
     const rawBody = JSON.stringify({ webhookId: "wh-1", event: {} });
     const options = {

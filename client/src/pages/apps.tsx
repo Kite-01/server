@@ -34,6 +34,7 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
     websiteUrl: app?.websiteUrl ?? "",
     termsOfServiceUrl: app?.termsOfServiceUrl ?? "",
     privacyPolicyUrl: app?.privacyPolicyUrl ?? "",
+    settlementAddress: app?.settlementAddress ?? "",
   });
 
   const create = useMutate(appsCreateMutation(), {
@@ -56,6 +57,7 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
       websiteUrl: nullable(values.websiteUrl),
       termsOfServiceUrl: nullable(values.termsOfServiceUrl),
       privacyPolicyUrl: nullable(values.privacyPolicyUrl),
+      settlementAddress: nullable(values.settlementAddress),
     };
 
     if (app) update.mutate({ body, headers: { "x-kite-app-id": app.id } });
@@ -93,6 +95,15 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
           type="url"
           value={values.privacyPolicyUrl}
           onChange={set("privacyPolicyUrl")}
+        />
+      </Field>
+      <Field
+        label="Settlement address (optional)"
+        hint="Where settled funds go. Leave empty to use the operator wallet."
+      >
+        <Input
+          value={values.settlementAddress}
+          onChange={set("settlementAddress")}
         />
       </Field>
       <div className="flex justify-end gap-2 pt-2">

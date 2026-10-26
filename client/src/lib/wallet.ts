@@ -72,7 +72,9 @@ const toViemChain = (chain: CheckoutChain) =>
     name: chain.name,
     nativeCurrency: chain.nativeCurrency,
     rpcUrls: { default: { http: chain.rpcUrls } },
-    blockExplorers: { default: chain.blockExplorer },
+    ...(chain.blockExplorer
+      ? { blockExplorers: { default: chain.blockExplorer } }
+      : {}),
   });
 
 export const walletMessage = (error: unknown) => {
@@ -112,7 +114,9 @@ export const switchChain = async (wallet: Wallet, chain: CheckoutChain) => {
           chainName: chain.name,
           nativeCurrency: chain.nativeCurrency,
           rpcUrls: chain.rpcUrls,
-          blockExplorerUrls: [chain.blockExplorer.url],
+          blockExplorerUrls: chain.blockExplorer
+            ? [chain.blockExplorer.url]
+            : undefined,
         },
       ],
     });

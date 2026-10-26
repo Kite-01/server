@@ -52,6 +52,34 @@ export const tokenRoutes = new Elysia({ name: "TokensRoute" })
       summary: "List tokens",
     },
   })
+  .patch(
+    "/tokens/:id",
+    async ({ params, body }) => {
+      const token = await tokenService.updateTokenIcon(params.id, body.icon);
+      if (!token) throw new HttpError(404, "NotFound", "Token not found");
+      return token;
+    },
+    {
+      parse: "json",
+      params: UuidIdParams,
+      body: t.Object({
+        icon: t.Union([
+          t.String({ format: "uri", pattern: "^https?://", maxLength: 2048 }),
+          t.Null(),
+        ]),
+      }),
+      response: {
+        200: "Token",
+      },
+      beforeHandle: Auth.access({ root: true }),
+      detail: {
+        operationId: "tokens.update",
+        security: [{ rootKey: [] }],
+        tags: ["Tokens"],
+        summary: "Change a token's icon",
+      },
+    },
+  )
   .delete(
     "/tokens/:id",
     async ({ params }) => {

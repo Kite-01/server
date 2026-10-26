@@ -24,6 +24,7 @@ export const address = (n: number) => {
 };
 
 export const FACTORY = address(0xfac);
+export const IMPLEMENTATION = address(0x1e7e);
 export const USDC = address(0xa11ce);
 export const WETH = address(0xb0b);
 export const ZERO = address(0);

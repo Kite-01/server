@@ -57,7 +57,7 @@ export const providerDescriptorOfChain = <T = unknown>(
   provider: Provider,
 ): T => {
   const chain = getChain(caip2Id);
-  const descriptor = chain.descriptors[provider];
+  const descriptor = chain.descriptors?.[provider];
   if (!descriptor)
     throw new ChainNotSupportedByProviderError(caip2Id, provider);
 

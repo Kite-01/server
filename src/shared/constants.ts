@@ -9,6 +9,7 @@ export enum Queue {
   RefundTransfer = "RefundTransfer",
   RecoverTransfer = "RecoverTransfer",
   OperatorForward = "OperatorForward",
+  UntrackTransfer = "UntrackTransfer",
   TransferSweep = "TransferSweep",
   ApiNonceCleanup = "ApiNonceCleanup",
 }
@@ -145,6 +146,7 @@ export const OneHour = 60 * OneMinute;
 export const OneDay = 24 * OneHour;
 
 export const QuoteTTLSeconds = 5 * OneMinute;
+export const CancelledTransferWatchSeconds = 12 * OneHour;
 export const UniswapFeeTiers = [100, 500, 3000, 10000] as const;
 export const UniswapTwapWindowsSeconds = [
   10 * OneMinute,

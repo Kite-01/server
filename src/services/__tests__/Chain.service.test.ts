@@ -4,7 +4,6 @@ import {
   createToken,
   FACTORY,
   USDC,
-  address,
 } from "../../test/factories";
 import {
   ChainNotSupportedError,
@@ -47,7 +46,6 @@ const config = (tokens: { settlement: string; usd: string }) => ({
   kiteFactoryAddress: FACTORY.toLowerCase(),
   usdPeggedTokenId: tokens.usd,
   settlementTokenId: tokens.settlement,
-  settlementAddress: null,
   onchainNotifierProviders: [Provider.QuickNode],
   gasSponsorProviders: [Provider.Alchemy],
 });
@@ -139,7 +137,6 @@ describe("ChainService", () => {
       expect(saved?.config).toMatchObject({
         kiteFactoryAddress: FACTORY,
         slippageBps: 100,
-        settlementAddress: null,
       });
       expect(readContract).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -152,12 +149,11 @@ describe("ChainService", () => {
       await service.upsertChainConfig(chainId, {
         ...config(tokens),
         slippageBps: 250,
-        settlementAddress: address(0x5e77).toLowerCase(),
       });
 
       const updated = await service.getChainById(chainId);
       expect(updated?.config?.slippageBps).toBe(250);
-      expect(updated?.config?.settlementAddress).toBe(address(0x5e77));
+      expect(updated?.config).not.toHaveProperty("settlementAddress");
     });
 
     it("rejects an unknown chain", async () => {
@@ -172,20 +168,13 @@ describe("ChainService", () => {
       ).rejects.toThrow("Slippage must be between 0 and 9900 Bps");
     });
 
-    it("rejects malformed addresses", async () => {
+    it("rejects a malformed factory address", async () => {
       await expect(
         service.upsertChainConfig(chainId, {
           ...config(tokens),
           kiteFactoryAddress: "0x123",
         }),
       ).rejects.toThrow("KiteFactory address is not a valid address");
-
-      await expect(
-        service.upsertChainConfig(chainId, {
-          ...config(tokens),
-          settlementAddress: "nope",
-        }),
-      ).rejects.toThrow("settlement address is not a valid address");
     });
 
     it("says so when the server wallet is not an operator", async () => {
