@@ -213,6 +213,16 @@ export class TokenService {
     );
   };
 
+  updateTokenIcon = async (tokenId: string, icon: string | null) => {
+    const [row] = await db
+      .update(token)
+      .set({ icon })
+      .where(and(eq(token.id, tokenId), isNull(token.deletedAt)))
+      .returning();
+
+    return row;
+  };
+
   deleteToken = async (tokenId: string) => {
     const result = await db
       .select({ count: count() })

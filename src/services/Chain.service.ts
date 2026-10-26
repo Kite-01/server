@@ -121,10 +121,6 @@ export class ChainService {
       throw new AppError("The KiteFactory address is not a valid address");
     }
 
-    if (input.settlementAddress && !isAddress(input.settlementAddress)) {
-      throw new AppError("The settlement address is not a valid address");
-    }
-
     const operatorAddress = onchainActor.getAddress();
     const hasRole = await client
       .readContract({
@@ -174,9 +170,6 @@ export class ChainService {
     const values = {
       ...input,
       kiteFactoryAddress: common.normalizeAddress(input.kiteFactoryAddress),
-      settlementAddress: input.settlementAddress
-        ? common.normalizeAddress(input.settlementAddress)
-        : null,
     };
 
     await db

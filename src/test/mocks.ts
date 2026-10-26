@@ -20,6 +20,7 @@ export const schedulerMock = {
   enqueueRefund: vi.fn(async () => undefined),
   enqueueRecover: vi.fn(async () => undefined),
   enqueueForward: vi.fn(async () => undefined),
+  enqueueUntrack: vi.fn(async () => undefined),
   send: vi.fn(async () => undefined),
 };
 

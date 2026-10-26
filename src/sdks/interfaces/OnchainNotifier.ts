@@ -9,6 +9,16 @@ export interface OnchainNotifier {
     options: SdkOptions,
   ): Promise<void>;
 
+  untrackAddressActivity(
+    input: OnchainNotifierTrackAddressActivityInput,
+    options: SdkOptions,
+  ): Promise<void>;
+
+  untrackKiteContractEvent(
+    input: OnchainNotifierTrackContractEventInput,
+    options: SdkOptions,
+  ): Promise<void>;
+
   getCallbackUrl(activity: "addressActivity" | "contractEvent"): string;
 
   isValidCallback(

@@ -2,6 +2,8 @@ import {
   createPublicClient,
   createWalletClient,
   erc20Abi,
+  isHash,
+  nonceManager,
   type Address,
   type Hex,
   type PublicClient,
@@ -23,7 +25,9 @@ import { env } from "../shared/env";
 
 export class EvmActor implements OnchainActor {
   private readonly clients = new Map<string, PublicClient>();
-  private readonly account = mnemonicToAccount(env.KITE_OPERATOR_MNEMONIC);
+  private readonly account = mnemonicToAccount(env.KITE_OPERATOR_MNEMONIC, {
+    nonceManager,
+  });
 
   private rpcUrlsForChain = async (caip2Id: Caip2Id) => {
     const chain = await new ChainService().getChainByCaip2Id(caip2Id);
@@ -36,10 +40,15 @@ export class EvmActor implements OnchainActor {
   private gasSponsor = async (caip2Id: Caip2Id) => {
     const chain = await new ChainService().getChainByCaip2Id(caip2Id);
     const provider = chain?.config?.gasSponsorProviders?.[0];
-    if (!provider)
+    return provider ? getProvider<GasSponsor>(provider) : null;
+  };
+
+  private requireGasSponsor = async (caip2Id: Caip2Id) => {
+    const sponsor = await this.gasSponsor(caip2Id);
+    if (!sponsor)
       throw new AppError(`${caip2Id} does not have a gas sponsor set up`);
 
-    return getProvider<GasSponsor>(provider);
+    return sponsor;
   };
 
   publicClient = async (caip2Id: Caip2Id, rpcUrls?: string[]) => {
@@ -68,7 +77,7 @@ export class EvmActor implements OnchainActor {
     input: OnchainActorTransactionInput,
     options: SdkOptions,
   ): Promise<string> => {
-    const sponsor = await this.gasSponsor(input.caip2Id);
+    const sponsor = await this.requireGasSponsor(input.caip2Id);
     const result = await sponsor.submitSponsoredCalls(
       input,
       this.account,
@@ -83,7 +92,25 @@ export class EvmActor implements OnchainActor {
     callId: string,
     options: SdkOptions,
   ): Promise<OnchainActorCallStatus> => {
-    const sponsor = await this.gasSponsor(caip2Id);
+    // a transaction sent without a sponsor is tracked by its own hash
+    if (isHash(callId)) {
+      const client = await this.publicClient(caip2Id);
+      const receipt = await client
+        .getTransactionReceipt({ hash: callId })
+        .catch(() => null);
+
+      if (!receipt) {
+        return {
+          status: "pending",
+        };
+      }
+
+      return receipt.status === "success"
+        ? { status: "success", transactionHash: callId }
+        : { status: "failure", transactionHash: callId };
+    }
+
+    const sponsor = await this.requireGasSponsor(caip2Id);
     return sponsor.getSponsoredCallsStatus(
       caip2Id,
       callId,
@@ -110,7 +137,7 @@ export class EvmActor implements OnchainActor {
     options: SdkOptions,
     timeoutMs = OperatorTxTimeoutMs,
   ): Promise<OnchainActorCallStatus> => {
-    const sponsor = await this.gasSponsor(caip2Id);
+    const sponsor = await this.requireGasSponsor(caip2Id);
     const deadline = Date.now() + timeoutMs;
 
     for (;;) {
@@ -134,7 +161,11 @@ export class EvmActor implements OnchainActor {
     options: SdkOptions,
     hooks?: OnchainActorSendHooks,
   ): Promise<string> => {
-    if (hooks?.useGasSponsor === false) {
+    const sponsored =
+      hooks?.useGasSponsor !== false &&
+      !!(await this.gasSponsor(input.caip2Id));
+
+    if (!sponsored) {
       const client = createWalletClient({
         account: this.account,
         chain: getViemChain(input.caip2Id),
@@ -148,7 +179,21 @@ export class EvmActor implements OnchainActor {
         value: input.value,
       });
 
-      await hooks.onSubmitted?.(transactionHash);
+      await hooks?.onSubmitted?.(transactionHash);
+
+      const receipt = await this.waitForReceipt(
+        input.caip2Id,
+        transactionHash,
+      ).catch(() => null);
+
+      if (!receipt) throw new OperatorTransactionPendingError(transactionHash);
+      if (receipt.status !== "success") {
+        throw new OperatorTransactionFailedError(
+          transactionHash,
+          transactionHash,
+        );
+      }
+
       return transactionHash;
     }
 

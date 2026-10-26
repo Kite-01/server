@@ -47,6 +47,7 @@ const FeeForm = ({
   onClose: () => void;
 }) => {
   const headers = useAppHeaders();
+  const { appId } = useAppScope();
   const supported = useSupportedChains();
   const settlementToken = (chainId: string) =>
     chains.find((chain) => chain.id === chainId)?.config?.settlementToken;
@@ -218,7 +219,11 @@ const FeeForm = ({
       {amountError && <p className="text-xs text-danger">{amountError}</p>}
       <Field
         label="Fee address (optional)"
-        hint="Defaults to the settlement address."
+        hint={
+          appId
+            ? "Defaults to the app's settlement address, then the operator wallet."
+            : "Defaults to the operator wallet."
+        }
       >
         <Input value={values.feeAddress} onChange={set("feeAddress")} />
       </Field>

@@ -13,12 +13,17 @@ import { KvService } from "../../services/Kv.service";
 import { QuickNode } from "../QuickNode";
 import { common } from "../../shared/common";
 
-const http = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+const http = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  delete: vi.fn(),
+}));
 
 vi.mock("../Http", () => ({
   Http: class {
     get = http.get;
     post = http.post;
+    delete = http.delete;
   },
 }));
 
@@ -304,6 +309,20 @@ describe("QuickNode notifiers", () => {
     lists = new Map();
     http.get.mockReset();
     http.post.mockReset();
+    http.delete.mockReset();
+
+    http.delete.mockImplementation(async (url: string) => {
+      const [, key, item] =
+        url.match(/^\/kv\/rest\/v1\/lists\/(.+)\/items\/(.+)$/) ?? [];
+      const items = lists.get(key);
+      if (!items?.includes(item)) return { isOk: false, statusCode: 404 };
+
+      lists.set(
+        key,
+        items.filter((value) => value !== item),
+      );
+      return { isOk: true, data: {} };
+    });
 
     http.get.mockImplementation(async (url: string) => {
       const items = lists.get(url.replace("/kv/rest/v1/lists/", ""));
@@ -451,5 +470,85 @@ describe("QuickNode notifiers", () => {
     expect(await storedWebhookId("ethereum-mainnet")).toBe(
       "evmWalletFilter:ethereum-mainnet",
     );
+  });
+
+  it("takes an address off the wallet and contract lists", async () => {
+    for (const address of [PAYIN, OTHER]) {
+      await quickNode.trackAddressActivity(
+        { caip2Id: "eip155:8453", address },
+        await sdkOptions(),
+      );
+      await quickNode.trackKiteContractEvent(
+        { caip2Id: "eip155:8453", contractAddress: address },
+        await sdkOptions(),
+      );
+    }
+
+    await quickNode.untrackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      await sdkOptions(),
+    );
+    await quickNode.untrackKiteContractEvent(
+      { caip2Id: "eip155:8453", contractAddress: PAYIN },
+      await sdkOptions(),
+    );
+
+    expect(http.delete.mock.calls.map(([url]) => url)).toEqual([
+      `/kv/rest/v1/lists/evmWalletFilterWalletsList/items/${PAYIN.toLowerCase()}`,
+      `/kv/rest/v1/lists/evmContractEventsContractsListName/items/${PAYIN.toLowerCase()}`,
+    ]);
+    expect(lists.get("evmWalletFilterWalletsList")).toEqual([
+      OTHER.toLowerCase(),
+    ]);
+    expect(lists.get("evmContractEventsContractsListName")).toEqual([
+      OTHER.toLowerCase(),
+    ]);
+  });
+
+  it("treats an address that is already off the list as removed", async () => {
+    await quickNode.trackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      await sdkOptions(),
+    );
+    const options = await sdkOptions();
+
+    await quickNode.untrackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      options,
+    );
+    await expect(
+      quickNode.untrackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        options,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("reports any other failure so the removal is retried", async () => {
+    await quickNode.trackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      await sdkOptions(),
+    );
+    http.delete.mockResolvedValue({ isOk: false, statusCode: 500 });
+
+    await expect(
+      quickNode.untrackAddressActivity(
+        { caip2Id: "eip155:8453", address: PAYIN },
+        await sdkOptions(),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("has nothing to remove before any list exists", async () => {
+    await quickNode.untrackAddressActivity(
+      { caip2Id: "eip155:8453", address: PAYIN },
+      await sdkOptions(),
+    );
+    await quickNode.untrackKiteContractEvent(
+      { caip2Id: "eip155:8453", contractAddress: PAYIN },
+      await sdkOptions(),
+    );
+
+    expect(http.delete).not.toHaveBeenCalled();
   });
 });

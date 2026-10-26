@@ -15,6 +15,7 @@ import { CustomerService } from "./Customer.service";
 import { TokenService } from "./Token.service";
 import { ChainService } from "./Chain.service";
 import { FeeService } from "./Fee.service";
+import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
 import { Uniswap } from "../sdks/Uniswap";
 import { common } from "../shared/common";
@@ -64,14 +65,17 @@ export class QuoteService {
     targetAmount: bigint,
     slippageBps: number,
     operatorAddress: string,
-    settlementAddress: Maybe<string>,
+    appSettlementAddress: Maybe<string>,
   ) => {
     const fees_ = fees
       .map((f) => ({
         fee: f,
         amount: new FeeService().computeFeeAmount(f, targetAmount),
+        // system fees are the operator's; an app's own fees go where the app settles
         feeAddress: common.normalizeAddress(
-          f.feeAddress ?? settlementAddress ?? operatorAddress,
+          f.feeAddress ??
+            (f.appId ? appSettlementAddress : null) ??
+            operatorAddress,
         ),
       }))
       .filter(
@@ -199,7 +203,7 @@ export class QuoteService {
         targetAmount,
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
-        chain.config.settlementAddress,
+        await new AppService().getSettlementAddress(appId),
       ),
       quote: {
         appId,
@@ -329,7 +333,7 @@ export class QuoteService {
         targetAmount,
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
-        chain.config.settlementAddress,
+        await new AppService().getSettlementAddress(appId),
       ),
       quote: {
         appId,

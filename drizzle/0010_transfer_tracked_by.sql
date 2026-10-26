@@ -1,0 +1,1 @@
+ALTER TABLE "kite_transfer" ADD COLUMN "tracked_by" text[] DEFAULT '{}' NOT NULL;

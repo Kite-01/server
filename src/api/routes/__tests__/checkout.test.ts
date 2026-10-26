@@ -10,6 +10,7 @@ import {
 } from "../../../test/factories";
 import {
   app as appTable,
+  chainConfig as chainConfigTable,
   paymentLink as paymentLinkTable,
   priceFeed,
   token as tokenTable,
@@ -466,6 +467,20 @@ describe("checkout", () => {
       expect(
         required.accepts.map((accepted) => accepted.network).sort(),
       ).toEqual([chain.chain.caip2Id, optimism.chain.caip2Id].sort());
+    });
+
+    it("offers networks without a gas sponsor, where the operator pays gas", async () => {
+      const optimism = await createConfiguredChain("eip155:10");
+      await db
+        .update(chainConfigTable)
+        .set({ gasSponsorProviders: [] })
+        .where(eq(chainConfigTable.chainId, optimism.chain.id));
+
+      const required = await challengeFor(link.id);
+
+      expect(required.accepts.map((accepted) => accepted.network)).toContain(
+        optimism.chain.caip2Id,
+      );
     });
 
     it("reuses an open offer instead of opening a transfer per request", async () => {

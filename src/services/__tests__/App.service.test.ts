@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AppService } from "../App.service";
+import { address } from "../../test/factories";
 
 const service = new AppService();
 
@@ -35,6 +36,49 @@ describe("AppService", () => {
     expect(updated!.updatedAt.getTime()).toBeGreaterThanOrEqual(
       created.updatedAt.getTime(),
     );
+  });
+
+  it("stores the settlement address checksummed, and clears it with null", async () => {
+    const created = await service.createApp({
+      name: "Shop",
+      settlementAddress: address(0x5e77).toLowerCase(),
+    });
+    expect(created.settlementAddress).toBe(address(0x5e77));
+    expect(await service.getSettlementAddress(created.id)).toBe(
+      address(0x5e77),
+    );
+
+    const moved = await service.updateApp(created.id, {
+      settlementAddress: address(0x5e78).toLowerCase(),
+    });
+    expect(moved?.settlementAddress).toBe(address(0x5e78));
+
+    const cleared = await service.updateApp(created.id, {
+      settlementAddress: null,
+    });
+    expect(cleared?.settlementAddress).toBeNull();
+    expect(await service.getSettlementAddress(created.id)).toBeNull();
+  });
+
+  it("keeps the settlement address when other fields change", async () => {
+    const created = await service.createApp({
+      name: "Shop",
+      settlementAddress: address(0x5e77),
+    });
+
+    const updated = await service.updateApp(created.id, { name: "Renamed" });
+    expect(updated?.settlementAddress).toBe(address(0x5e77));
+  });
+
+  it("rejects a malformed settlement address", async () => {
+    await expect(
+      service.createApp({ name: "Shop", settlementAddress: "0x123" }),
+    ).rejects.toThrow("The settlement address is not a valid address");
+
+    const created = await service.createApp({ name: "Shop" });
+    await expect(
+      service.updateApp(created.id, { settlementAddress: "" }),
+    ).rejects.toThrow("The settlement address is not a valid address");
   });
 
   it("soft deletes once and hides the app everywhere", async () => {

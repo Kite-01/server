@@ -12,10 +12,10 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { type SerializedKite_ITransfer } from "../../../shared/kiteContract";
+import { Provider, TransferStatus } from "../../../shared/constants";
 import { toEnum, toSqlList } from "../utils";
 import { transferTimeline } from "../transferTimeline";
 import { operatorForward } from "../operatorForward";
-import { TransferStatus } from "../../../shared/constants";
 import { sql, relations } from "drizzle-orm";
 import { deposit } from "../deposit";
 import { quote } from "../quote";
@@ -37,6 +37,10 @@ export const transfer = pgTable(
     }).notNull(),
     refundAddress: text("refund_address").notNull(),
     payinAddress: text("payin_address").notNull(),
+    trackedBy: text("tracked_by", { enum: toEnum(Provider) })
+      .array()
+      .notNull()
+      .default([]),
     kiteTransferInput: jsonb("kite_transfer_input")
       .$type<SerializedKite_ITransfer>()
       .notNull(),

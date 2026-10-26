@@ -22,9 +22,11 @@ import {
   TransferStructMismatchError,
 } from "../shared/errors";
 import {
+  CancelledTransferWatchSeconds,
   OneMinute,
   Provider,
   SettleableTransferStatuses,
+  TerminalTransferStatuses,
   TransferStatus,
   WebhookCategory,
 } from "../shared/constants";
@@ -52,6 +54,7 @@ import { PaymentLinkService } from "./PaymentLink.service";
 import { runProviderMethod } from "../shared/providers";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ChainService } from "./Chain.service";
+import { AppService } from "./App.service";
 import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
 import { KvService } from "./Kv.service";
@@ -59,6 +62,7 @@ import { Scheduler } from "../shared/scheduler";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { kite } from "../shared/kiteContract";
+import { omit } from "lodash";
 
 export class TransferService {
   private sdkOptions = async (): Promise<SdkOptions> => {
@@ -174,27 +178,51 @@ export class TransferService {
     caip2Id: Caip2Id,
     address: string,
     providers: Provider[],
-  ) => {
+  ): Promise<Provider[]> => {
     if (!providers.length) {
-      return;
+      return [];
     }
 
     const options = await this.sdkOptions();
 
-    await Promise.all([
-      runProviderMethod<OnchainNotifier, "trackAddressActivity">(
-        providers,
-        "trackAddressActivity",
-        { caip2Id, address },
-        options,
+    // each activity is watched by the first provider that accepts it
+    const firstAccepting = async (
+      track: (provider: Provider) => Promise<unknown>,
+    ) => {
+      let error: unknown;
+
+      for (const provider of providers) {
+        try {
+          await track(provider);
+          return provider;
+        } catch (e) {
+          error = e;
+        }
+      }
+
+      throw error;
+    };
+
+    const trackedBy = await Promise.all([
+      firstAccepting((provider) =>
+        runProviderMethod<OnchainNotifier, "trackAddressActivity">(
+          [provider],
+          "trackAddressActivity",
+          { caip2Id, address },
+          options,
+        ),
       ),
-      runProviderMethod<OnchainNotifier, "trackKiteContractEvent">(
-        providers,
-        "trackKiteContractEvent",
-        { caip2Id, contractAddress: address },
-        options,
+      firstAccepting((provider) =>
+        runProviderMethod<OnchainNotifier, "trackKiteContractEvent">(
+          [provider],
+          "trackKiteContractEvent",
+          { caip2Id, contractAddress: address },
+          options,
+        ),
       ),
     ]);
+
+    return [...new Set(trackedBy)];
   };
 
   private abandonSettlement = async (
@@ -398,6 +426,7 @@ export class TransferService {
 
       const transfer_ = await transaction.query.transfer.findFirst({
         where: eq(transfer.id, transferId),
+        columns: { trackedBy: false },
         with: {
           quote: {
             with: {
@@ -435,8 +464,49 @@ export class TransferService {
         dbWithTransaction(transaction),
       );
 
+      if (TerminalTransferStatuses.includes(currentStatus)) {
+        await Scheduler.enqueueUntrack(
+          transferId,
+          currentStatus === TransferStatus.Cancelled
+            ? CancelledTransferWatchSeconds
+            : 0,
+          dbWithTransaction(transaction),
+        );
+      }
+
       return true;
     });
+  };
+
+  untrackTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    if (!row) return;
+
+    const caip2Id = row.quote.chain.caip2Id;
+    const address = row.payinAddress;
+    const options = await this.sdkOptions();
+
+    for (const provider of row.trackedBy) {
+      await runProviderMethod<OnchainNotifier, "untrackAddressActivity">(
+        [provider],
+        "untrackAddressActivity",
+        { caip2Id, address },
+        options,
+      );
+      await runProviderMethod<OnchainNotifier, "untrackKiteContractEvent">(
+        [provider],
+        "untrackKiteContractEvent",
+        { caip2Id, contractAddress: address },
+        options,
+      );
+
+      await db
+        .update(transfer)
+        .set({
+          trackedBy: sql`array_remove(${transfer.trackedBy}, ${provider})`,
+        })
+        .where(eq(transfer.id, transferId));
+    }
   };
 
   createDeposit = async (
@@ -534,7 +604,8 @@ export class TransferService {
     const onchainActor = getOnchainActor(chain.type);
 
     const settlementRecipient = getAddress(
-      config.settlementAddress ?? onchainActor.getAddress(),
+      (await new AppService().getSettlementAddress(appId)) ??
+        onchainActor.getAddress(),
     );
 
     const minAmountOut =
@@ -600,7 +671,7 @@ export class TransferService {
       struct,
     );
 
-    await this.trackAddress(
+    const trackedBy = await this.trackAddress(
       caip2Id,
       payinAddress,
       config.onchainNotifierProviders ?? [],
@@ -615,7 +686,7 @@ export class TransferService {
     };
 
     const saved = await db.transaction(async (transaction) => {
-      const [created] = await transaction
+      const [inserted] = await transaction
         .insert(transfer)
         .values({
           id: transferId,
@@ -625,10 +696,12 @@ export class TransferService {
           minAmountOut,
           refundAddress: struct.refundAddress,
           payinAddress,
+          trackedBy,
           kiteTransferInput: kite.serializeTransferInput(struct),
           status: TransferStatus.AwaitingDeposit,
         })
         .returning();
+      const created = omit(inserted, ["trackedBy"]);
 
       const [createdEvent] = await transaction
         .insert(event)
@@ -1250,6 +1323,7 @@ export class TransferService {
   getTransfer = async (appId: string, transferId: string) => {
     return await db.query.transfer.findFirst({
       where: and(eq(transfer.appId, appId), eq(transfer.id, transferId)),
+      columns: { trackedBy: false },
       with: {
         timeline: true,
         quote: {
@@ -1272,6 +1346,7 @@ export class TransferService {
         eq(transfer.appId, appId),
         eq(transfer.payinAddress, common.normalizeAddress(payinAddress)),
       ),
+      columns: { trackedBy: false },
       with: {
         timeline: true,
         quote: {
@@ -1335,6 +1410,7 @@ export class TransferService {
           orderBy: desc(transfer.createdAt),
           limit,
           offset,
+          columns: { trackedBy: false },
           with: {
             app: {
               columns: {

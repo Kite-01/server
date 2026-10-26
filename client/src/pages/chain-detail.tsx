@@ -1,5 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { IconBlocks, IconCoins, IconTrash } from "@tabler/icons-react";
+import {
+  IconBlocks,
+  IconCoins,
+  IconPencil,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -8,6 +13,7 @@ import {
   chainsListFullOptions,
   kvListProvidersOptions,
   tokensListOptions,
+  tokensUpdateMutation,
   chainsConfigureMutation,
 } from "@/api/@tanstack/react-query.gen";
 import { tokensGetByAddress } from "@/api/sdk.gen";
@@ -26,6 +32,7 @@ import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
@@ -74,7 +81,6 @@ const ConfigurationForm = ({
     kiteFactoryAddress: config?.kiteFactoryAddress ?? "",
     settlementTokenId: config?.settlementTokenId ?? "",
     usdPeggedTokenId: config?.usdPeggedTokenId ?? "",
-    settlementAddress: config?.settlementAddress ?? "",
     maxGasPrice: config?.maxGasPrice ?? "",
     // A new configuration starts with every provider that is ready.
     onchainNotifierProviders:
@@ -118,7 +124,6 @@ const ConfigurationForm = ({
         kiteFactoryAddress: values.kiteFactoryAddress.trim(),
         settlementTokenId: values.settlementTokenId,
         usdPeggedTokenId: values.usdPeggedTokenId,
-        settlementAddress: values.settlementAddress.trim() || null,
         maxGasPrice: values.maxGasPrice.trim() || null,
         onchainNotifierProviders: values.onchainNotifierProviders,
         gasSponsorProviders: values.gasSponsorProviders,
@@ -197,16 +202,6 @@ const ConfigurationForm = ({
         </div>
 
         <Field
-          label="Settlement address (optional)"
-          hint="Where settled funds go. Leave empty to use the operator wallet."
-        >
-          <Input
-            value={values.settlementAddress}
-            onChange={set("settlementAddress")}
-          />
-        </Field>
-
-        <Field
           label="RPC URLs"
           hint="One per line. Optional; public RPCs are used as a fallback."
         >
@@ -249,6 +244,48 @@ const ConfigurationForm = ({
   );
 };
 
+const IconForm = ({
+  token,
+  onClose,
+}: {
+  token: TokenWithChain;
+  onClose: () => void;
+}) => {
+  const [icon, setIcon] = useState(token.icon ?? "");
+  const save = useMutate(tokensUpdateMutation(), {
+    success: "Icon updated",
+    onSuccess: onClose,
+  });
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    save.mutate({
+      path: { id: token.id },
+      body: { icon: icon.trim() || null },
+    });
+  };
+
+  return (
+    <form className="space-y-4" onSubmit={submit}>
+      <Field label="Icon URL">
+        <Input
+          type="url"
+          value={icon}
+          onChange={(event) => setIcon(event.target.value)}
+        />
+      </Field>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={save.isPending}>
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+};
+
 const TokensTab = ({
   chainId,
   tokens,
@@ -260,6 +297,7 @@ const TokensTab = ({
 }) => {
   const [address, setAddress] = useState("");
   const [deleting, setDeleting] = useState<TokenWithChain | null>(null);
+  const [editing, setEditing] = useState<TokenWithChain | null>(null);
 
   const add = useMutate(
     {
@@ -358,6 +396,11 @@ const TokensTab = ({
               <RowActions
                 actions={[
                   {
+                    label: "Edit icon",
+                    icon: <IconPencil className="size-4" />,
+                    onSelect: () => setEditing(row),
+                  },
+                  {
                     label: "Remove",
                     icon: <IconTrash className="size-4" />,
                     danger: true,
@@ -369,6 +412,16 @@ const TokensTab = ({
           },
         ]}
       />
+
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+        title={editing ? `Edit ${editing.symbol} icon` : "Edit icon"}
+      >
+        {editing && (
+          <IconForm token={editing} onClose={() => setEditing(null)} />
+        )}
+      </Dialog>
 
       <ConfirmDialog
         open={deleting !== null}

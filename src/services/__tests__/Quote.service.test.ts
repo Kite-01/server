@@ -20,8 +20,8 @@ import {
 import { FeeType, KiteMaxFees, QuoteTTLSeconds } from "../../shared/constants";
 import { quoteAtTick, v2AmountIn, v2AmountOut } from "../../sdks/Uniswap";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { app, chainConfig, quoteFee } from "../../db/schema";
 import { AppError, NotFoundError } from "../../shared/errors";
-import { chainConfig, quoteFee } from "../../db/schema";
 import { PriceFeedService } from "../PriceFeed.service";
 import { QuoteService } from "../Quote.service";
 import { eq } from "drizzle-orm";
@@ -327,13 +327,13 @@ describe("QuoteService", () => {
         expect(rows.every((r) => r.feeAddress === operatorAddress)).toBe(true);
       });
 
-      it("sends fees to the fee address, then the settlement address, then the operator", async () => {
+      it("sends fees to the fee address, else app fees to the app's settlement address and system fees to the operator", async () => {
         const feeAddress = address(0xfee1);
         const settlement = address(0x5e77);
         await db
-          .update(chainConfig)
+          .update(app)
           .set({ settlementAddress: settlement })
-          .where(eq(chainConfig.chainId, chainId));
+          .where(eq(app.id, appId));
 
         await createFee(chainId, {
           appId,
@@ -342,6 +342,7 @@ describe("QuoteService", () => {
           feeAddress,
         });
         await createFee(chainId, { appId, label: "default", value: 2n });
+        await createFee(chainId, { appId: null, label: "system", value: 3n });
 
         await quoteWith();
         const rows = await db.select().from(quoteFee);
@@ -349,7 +350,32 @@ describe("QuoteService", () => {
           rows.map((r) => [r.label, r.feeAddress]),
         );
 
-        expect(byLabel).toEqual({ explicit: feeAddress, default: settlement });
+        expect(byLabel).toEqual({
+          explicit: feeAddress,
+          default: settlement,
+          system: operatorAddress,
+        });
+      });
+
+      it("sends an app's fees to its own settlement address, not another app's", async () => {
+        const other = await createApp({ settlementAddress: address(0x07e4) });
+        await db
+          .update(app)
+          .set({ settlementAddress: address(0x5e77) })
+          .where(eq(app.id, appId));
+        await createFee(chainId, { appId, label: "mine", value: 2n });
+        await createFee(chainId, {
+          appId: other.id,
+          label: "theirs",
+          value: 2n,
+        });
+
+        await quoteWith();
+        const rows = await db.select().from(quoteFee);
+
+        expect(rows.map((r) => [r.label, r.feeAddress])).toEqual([
+          ["mine", address(0x5e77)],
+        ]);
       });
 
       it("skips fees that come to nothing", async () => {
@@ -423,6 +449,23 @@ describe("QuoteService", () => {
   });
 
   describe("createQuoteFromPaymentLink", () => {
+    it("sends the app's fees to its settlement address", async () => {
+      await db
+        .update(app)
+        .set({ settlementAddress: address(0x5e77) })
+        .where(eq(app.id, appId));
+      await createFee(chainId, { appId, label: "default", value: 2n });
+      const link = await createPaymentLink(appId, { amount: "10" });
+
+      await service.createQuoteFromPaymentLink(appId, link.id, {
+        chainId,
+        sourceTokenAddress: USDC,
+      });
+
+      const [row] = await db.select().from(quoteFee);
+      expect(row.feeAddress).toBe(address(0x5e77));
+    });
+
     it("prices a USD link in the USD token", async () => {
       const link = await createPaymentLink(appId, {
         amount: "10",

@@ -25,7 +25,6 @@ export const chainConfig = pgTable(
     kiteFactoryAddress: text("kite_factory_address").notNull(),
     usdPeggedTokenId: uuid("usd_pegged_token_id").notNull(),
     settlementTokenId: uuid("settlement_token_id").notNull(),
-    settlementAddress: text("settlement_address"), // defaults to the admin address (handled in the app layer)
     onchainNotifierProviders: text("onchain_notifier_providers", {
       enum: toEnum(Provider),
     })

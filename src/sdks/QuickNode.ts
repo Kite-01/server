@@ -234,6 +234,45 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
     );
   };
 
+  private removeListItem = async (
+    listNameVar: KeyVars,
+    item: string,
+    options: SdkOptions,
+  ) => {
+    const listName = common.getVar(options, listNameVar);
+    if (!listName) return;
+
+    const url = `/kv/rest/v1/lists/${listName}/items/${item}`;
+    const response = await this.getClient(options).delete(url);
+
+    // 404: it is no longer on the list
+    if (!response.isOk && response.statusCode !== 404) {
+      throw new SdkRequestError(Provider.QuickNode, url, response);
+    }
+  };
+
+  untrackAddressActivity = async (
+    input: OnchainNotifierTrackAddressActivityInput,
+    options: SdkOptions,
+  ): Promise<void> => {
+    return await this.removeListItem(
+      KeyVars.QuickNodeEvmWalletFilter_WalletsListName,
+      common.normalizeAddress(input.address).toLowerCase(),
+      options,
+    );
+  };
+
+  untrackKiteContractEvent = async (
+    input: OnchainNotifierTrackContractEventInput,
+    options: SdkOptions,
+  ): Promise<void> => {
+    return await this.removeListItem(
+      KeyVars.QuickNodeEvmContractEvents_ContractsListName,
+      common.normalizeAddress(input.contractAddress).toLowerCase(),
+      options,
+    );
+  };
+
   isValidCallback = async (
     input: OnchainNotifierVerifyCallbackInput,
     options: SdkOptions,
