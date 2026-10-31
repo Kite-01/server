@@ -1,10 +1,14 @@
+import {
+  getProvider,
+  isProviderConfiguredForAction,
+} from "../shared/providers";
 import { type Address, isAddress, keccak256, toHex } from "viem";
 import { and, eq, inArray, isNull, desc } from "drizzle-orm";
-import { isProviderConfiguredForAction } from "../shared/providers";
 import { getChain, getSupportedChains } from "../shared/chains";
 import { chain, chainConfig, token } from "../db/schema";
 import { AppError, NotFoundError } from "../shared/errors";
 import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
+import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ProviderAction } from "../shared/constants";
 import { NearIntents } from "../sdks/NearIntents";
@@ -153,6 +157,18 @@ export class ChainService {
         variables,
       }),
     );
+
+    for (const provider of input.onchainNotifierProviders) {
+      const reason = await getProvider<OnchainNotifier>(
+        provider,
+      ).getTrackingError(chain.caip2Id, { variables });
+
+      if (reason) {
+        throw new AppError(
+          `${provider} cannot track activity on ${internalChain.name}: ${reason}`,
+        );
+      }
+    }
 
     for (const provider of input.gasSponsorProviders) {
       const reason = await onchainActor.getSponsorshipError(

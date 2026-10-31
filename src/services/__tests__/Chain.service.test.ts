@@ -247,6 +247,29 @@ describe("ChainService", () => {
       expect((await service.getChainById(chainId))?.config).toBeNull();
     });
 
+    it("says so when the notifier cannot track activity on the chain", async () => {
+      const aurora = await service.createChain({
+        caip2Id: "eip155:1313161554",
+      });
+      const usdc = await createToken(aurora.id, {
+        address: USDC,
+        symbol: "USDC",
+        decimals: 6,
+      });
+
+      await expect(
+        service.upsertChainConfig(
+          aurora.id,
+          config({ settlement: usdc.id, usd: usdc.id }),
+        ),
+      ).rejects.toThrow(
+        "QuickNode cannot track activity on Aurora: not one of its supported networks",
+      );
+
+      expect(fakeActor.getSponsorshipError).not.toHaveBeenCalled();
+      expect((await service.getChainById(aurora.id))?.config).toBeNull();
+    });
+
     it("does not save anything when validation fails", async () => {
       await expect(
         service.upsertChainConfig(chainId, {

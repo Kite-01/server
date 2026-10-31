@@ -1,4 +1,6 @@
 export interface OnchainNotifier {
+  getTrackingError(caip2Id: Caip2Id, options: SdkOptions): string | null;
+
   trackAddressActivity(
     input: OnchainNotifierTrackAddressActivityInput,
     options: SdkOptions,

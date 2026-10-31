@@ -532,3 +532,12 @@ describe("Alchemy gas sponsor", () => {
     }
   });
 });
+
+describe("Alchemy chain support", () => {
+  it("tracks chains that have an Alchemy network and refuses the rest", async () => {
+    expect(alchemy.getTrackingError("eip155:8453")).toBeNull();
+    expect(alchemy.getTrackingError("eip155:1313161554")).toBe(
+      "not one of its supported networks",
+    );
+  });
+});
