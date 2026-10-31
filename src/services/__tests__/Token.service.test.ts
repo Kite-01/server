@@ -233,6 +233,42 @@ describe("TokenService", () => {
       }
     });
 
+    it("reads the token one call at a time on a chain without Multicall3", async () => {
+      env.KITE_IS_TESTNET = true;
+
+      try {
+        const auroraTestnet = (await createConfiguredChain("eip155:1313161555"))
+          .chain.id;
+        const values: Record<string, unknown> = {
+          name: "Wrapped Ether",
+          symbol: "WETH",
+          decimals: 18,
+        };
+        const readContract = vi.fn(
+          async ({ functionName }: { functionName: string }) => {
+            if (!(functionName in values)) {
+              throw new Error("execution reverted");
+            }
+            return values[functionName];
+          },
+        );
+        fakeActor.publicClient.mockResolvedValue({ multicall, readContract });
+
+        const saved = await service.getTokenByAddress(auroraTestnet, TOKEN);
+
+        expect(saved).toMatchObject({
+          symbol: "WETH",
+          decimals: 18,
+          name: "Wrapped Ether",
+          version: null,
+          supportsEIP3009: false,
+        });
+        expect(multicall).not.toHaveBeenCalled();
+      } finally {
+        env.KITE_IS_TESTNET = false;
+      }
+    });
+
     it("keeps an imported token off the lists until it is listed", async () => {
       multicall.mockResolvedValue([
         { result: "N" },

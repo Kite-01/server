@@ -13,6 +13,8 @@ import {
   arbitrumSepolia,
   optimismSepolia,
   hardhat,
+  aurora,
+  auroraTestnet,
 } from "viem/chains";
 import { ChainType } from "../constants";
 import { Address, zeroAddress } from "viem";
@@ -120,7 +122,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: bsc.name,
     icon: icon("binance"),
     publicRpcUrls: bsc.rpcUrls.default.http,
-    confirmations: 24,
+    confirmations: 6,
     blockExplorer: {
       name: bsc.blockExplorers.default.name,
       url: bsc.blockExplorers.default.url,
@@ -148,7 +150,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: polygon.name,
     icon: icon("polygon"),
     publicRpcUrls: polygon.rpcUrls.default.http,
-    confirmations: 32,
+    confirmations: 10,
     blockExplorer: {
       name: polygon.blockExplorers.default.name,
       url: polygon.blockExplorers.default.url,
@@ -176,7 +178,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: robinhood.name,
     icon: icon("robinhoodchain"),
     publicRpcUrls: robinhood.rpcUrls.default.http,
-    confirmations: 12,
+    confirmations: 120,
     blockExplorer: {
       name: robinhood.blockExplorers.default.name,
       url: robinhood.blockExplorers.default.url,
@@ -232,7 +234,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: arbitrum.name,
     icon: icon("arbitrum"),
     publicRpcUrls: arbitrum.rpcUrls.default.http,
-    confirmations: 6,
+    confirmations: 45,
     blockExplorer: {
       name: arbitrum.blockExplorers.default.name,
       url: arbitrum.blockExplorers.default.url,
@@ -260,7 +262,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: monad.name,
     icon: icon("monad"),
     publicRpcUrls: monad.rpcUrls.default.http,
-    confirmations: 12,
+    confirmations: 6,
     blockExplorer: {
       name: monad.blockExplorers.default.name,
       url: monad.blockExplorers.default.url,
@@ -278,6 +280,33 @@ export const Chains: Record<Caip2Id, Chain> = {
       Uniswap: {
         SwapRouter02: "0xfE31F71C1b106EAc32F1A19239c9a9A72ddfb900",
         UniswapV2Router02: "0x4B2ab38DBF28D31D467aA8993f6c2585981D6804",
+      },
+    },
+  },
+  "eip155:1313161554": {
+    caip2Id: "eip155:1313161554",
+    type: ChainType.Evm,
+    chainId: aurora.id,
+    name: aurora.name,
+    icon: icon("aurora"),
+    publicRpcUrls: aurora.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: aurora.blockExplorers.default.name,
+      url: aurora.blockExplorers.default.url,
+    },
+    nativeCurrency: aurora.nativeCurrency,
+    descriptors: {
+      TrustWallet: "aurora",
+    },
+    contracts: {
+      multicall3: aurora.contracts.multicall3,
+      WETH9: "0xC9BdeEd33CD01541e1eeD10f90519d2C06Fe3feB",
+      Uniswap: {
+        /**
+         * @see https://trisolaris-labs.github.io/docs/contracts/#core-dex-contracts
+         */
+        UniswapV2Router02: "0x2CB45Edb4517d5947aFdE3BEAbF95A582506858B",
       },
     },
   },
@@ -316,7 +345,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     icon: icon("monad"),
     testnet: monadTestnet.testnet,
     publicRpcUrls: monadTestnet.rpcUrls.default.http,
-    confirmations: 12,
+    confirmations: 6,
     blockExplorer: {
       name: monadTestnet.blockExplorers.default.name,
       url: monadTestnet.blockExplorers.default.url,
@@ -347,7 +376,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     icon: icon("base"),
     testnet: baseSepolia.testnet,
     publicRpcUrls: baseSepolia.rpcUrls.default.http,
-    confirmations: 12,
+    confirmations: 60,
     blockExplorer: {
       name: baseSepolia.blockExplorers.default.name,
       url: baseSepolia.blockExplorers.default.url,
@@ -373,7 +402,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     icon: icon("arbitrum"),
     testnet: arbitrumSepolia.testnet,
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http,
-    confirmations: 12,
+    confirmations: 45,
     blockExplorer: {
       name: arbitrumSepolia.blockExplorers.default.name,
       url: arbitrumSepolia.blockExplorers.default.url,
@@ -399,7 +428,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     icon: icon("optimism"),
     testnet: optimismSepolia.testnet,
     publicRpcUrls: optimismSepolia.rpcUrls.default.http,
-    confirmations: 12,
+    confirmations: 6,
     blockExplorer: {
       name: optimismSepolia.blockExplorers.default.name,
       url: optimismSepolia.blockExplorers.default.url,
@@ -417,6 +446,30 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
   },
+  "eip155:1313161555": {
+    caip2Id: "eip155:1313161555",
+    type: ChainType.Evm,
+    chainId: auroraTestnet.id,
+    name: auroraTestnet.name,
+    icon: icon("aurora"),
+    testnet: auroraTestnet.testnet,
+    publicRpcUrls: auroraTestnet.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: auroraTestnet.blockExplorers.default.name,
+      url: auroraTestnet.blockExplorers.default.url,
+    },
+    nativeCurrency: auroraTestnet.nativeCurrency,
+    contracts: {
+      WETH9: "0x1b6A3d5B5DCdF7a37CFE35CeBC0C4bD28eA7e946",
+      Uniswap: {
+        /**
+         * @see https://trisolaris-labs.github.io/docs/contracts/#testnet-deployments
+         */
+        UniswapV2Router02: "0x26ec2aFBDFdFB972F106100A3deaE5887353d9B9",
+      },
+    },
+  },
   "eip155:31337": {
     caip2Id: "eip155:31337",
     type: ChainType.Evm,
@@ -425,7 +478,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     icon: icon("hardhat"),
     testnet: true,
     publicRpcUrls: hardhat.rpcUrls.default.http,
-    confirmations: 6,
+    confirmations: 1,
     nativeCurrency: hardhat.nativeCurrency,
     contracts: {
       WETH9: zeroAddress,

@@ -3,7 +3,15 @@ import {
   ChainNotSupportedByProviderError,
   ChainNotSupportedError,
 } from "../errors";
-import { defineChain, fallback, http } from "viem";
+import {
+  defineChain,
+  fallback,
+  http,
+  type MulticallParameters,
+  type MulticallReturnType,
+  type PublicClient,
+  type ReadContractParameters,
+} from "viem";
 import { ChainType, Provider } from "../constants";
 import { Chains } from "./registry";
 import { env } from "../env";
@@ -50,6 +58,30 @@ export const getViemChain = (caip2Id: Caip2Id) => {
       ? { contracts: { multicall3: chain.contracts.multicall3 } }
       : {}),
   });
+};
+
+export const readContracts = async <const contracts extends readonly unknown[]>(
+  caip2Id: Caip2Id,
+  client: PublicClient,
+  contracts: MulticallParameters<contracts>["contracts"],
+): Promise<MulticallReturnType<contracts>> => {
+  if (getChain(caip2Id).contracts.multicall3) {
+    return client.multicall<contracts, true>({
+      allowFailure: true,
+      contracts,
+    });
+  }
+
+  const results = await Promise.all(
+    (contracts as readonly unknown[]).map((contract) =>
+      client.readContract(contract as ReadContractParameters).then(
+        (result) => ({ status: "success", result }),
+        (error: Error) => ({ status: "failure", error }),
+      ),
+    ),
+  );
+
+  return results as MulticallReturnType<contracts>;
 };
 
 export const providerDescriptorOfChain = <T = unknown>(
