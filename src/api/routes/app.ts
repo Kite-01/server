@@ -1,4 +1,4 @@
-import { EvmAddress, PageQuery, t } from "../schema";
+import { EvmAddress, PageQuery, t, Uuid } from "../schema";
 import { ApiKeyScope } from "../../shared/constants";
 import { AppService } from "../../services/App.service";
 import { HttpError } from "../../shared/errors";
@@ -31,8 +31,14 @@ const Fields = {
   websiteUrl: Url,
   termsOfServiceUrl: Url,
   privacyPolicyUrl: Url,
-  settlementAddress: t.Union([EvmAddress, t.Null()]),
+  payoutAsset: t.Union([t.String({ minLength: 1, maxLength: 256 }), t.Null()]),
+  payoutAddress: t.Union([
+    t.String({ minLength: 1, maxLength: 256 }),
+    t.Null(),
+  ]),
 };
+
+const ChainParams = t.Object({ chainId: Uuid });
 
 export const appRoutes = new Elysia({ name: "AppsRoute" })
   .use(Auth.plugin)
@@ -139,6 +145,79 @@ export const appRoutes = new Elysia({ name: "AppsRoute" })
         operationId: "apps.delete",
         tags: ["Apps"],
         summary: "Delete app",
+      },
+    },
+  )
+  .get(
+    "/apps/chains",
+    async ({ actor }) => {
+      const appId = Auth.requireAppId(actor);
+      const data = await appService.getChains(appId);
+      return { data };
+    },
+    {
+      response: {
+        200: "AppChainList",
+      },
+      detail: {
+        operationId: "apps.listChains",
+        tags: ["Apps"],
+        summary: "Chains the app takes payments on",
+      },
+    },
+  )
+  .put(
+    "/apps/chains/:chainId",
+    ({ actor, params, body }) => {
+      return appService.setChain(
+        Auth.requireAppId(actor),
+        params.chainId,
+        body.address,
+      );
+    },
+    {
+      parse: "json",
+      params: ChainParams,
+      body: t.Object({ address: EvmAddress }),
+      response: {
+        200: "AppChain",
+      },
+      beforeHandle: Auth.access({ scope: ApiKeyScope.AppWrite }),
+      detail: {
+        operationId: "apps.setChain",
+        tags: ["Apps"],
+        summary: "Take payments on a chain, paid to an address there",
+      },
+    },
+  )
+  .delete(
+    "/apps/chains/:chainId",
+    async ({ actor, params }) => {
+      const row = await appService.removeChain(
+        Auth.requireAppId(actor),
+        params.chainId,
+      );
+
+      if (!row) {
+        throw new HttpError(
+          404,
+          "NotFound",
+          "The app doesn't take payments on this chain",
+        );
+      }
+
+      return row;
+    },
+    {
+      params: ChainParams,
+      response: {
+        200: "AppChain",
+      },
+      beforeHandle: Auth.access({ scope: ApiKeyScope.AppWrite }),
+      detail: {
+        operationId: "apps.removeChain",
+        tags: ["Apps"],
+        summary: "Stop taking payments on a chain",
       },
     },
   );

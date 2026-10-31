@@ -4,9 +4,9 @@ import {
   address,
   ZERO,
 } from "../../test/factories";
+import { fakeActor, nearIntentsMock, resetMocks } from "../../test/mocks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError, NotFoundError } from "../../shared/errors";
-import { fakeActor, resetMocks } from "../../test/mocks";
 import { TokenService } from "../Token.service";
 import { env } from "../../shared/env";
 
@@ -135,6 +135,55 @@ describe("TokenService", () => {
       });
     });
 
+    it("stores the token's NEAR Intents asset id when it is added", async () => {
+      multicall
+        .mockResolvedValueOnce([
+          { result: undefined },
+          { result: undefined },
+          { result: undefined },
+        ])
+        .mockResolvedValueOnce([
+          { result: "Plain Token" },
+          { result: "PLN" },
+          { result: 12 },
+        ]);
+      httpGet.mockResolvedValue({ isOk: false });
+      nearIntentsMock.getAssetId.mockResolvedValue(
+        `nep141:base-${TOKEN.toLowerCase()}.omft.near`,
+      );
+
+      const saved = await service.getTokenByAddress(chainId, TOKEN);
+
+      expect(saved.nearIntentsAssetId).toBe(
+        `nep141:base-${TOKEN.toLowerCase()}.omft.near`,
+      );
+      expect(nearIntentsMock.getAssetId).toHaveBeenCalledWith(
+        "eip155:8453",
+        TOKEN,
+        expect.anything(),
+      );
+    });
+
+    it("adds the token anyway when NEAR Intents can't be reached", async () => {
+      multicall
+        .mockResolvedValueOnce([
+          { result: undefined },
+          { result: undefined },
+          { result: undefined },
+        ])
+        .mockResolvedValueOnce([
+          { result: "Plain Token" },
+          { result: "PLN" },
+          { result: 12 },
+        ]);
+      httpGet.mockResolvedValue({ isOk: false });
+      nearIntentsMock.getAssetId.mockRejectedValue(new Error("down"));
+
+      const saved = await service.getTokenByAddress(chainId, TOKEN);
+
+      expect(saved).toMatchObject({ symbol: "PLN", nearIntentsAssetId: null });
+    });
+
     it("fails when the contract is not a token", async () => {
       multicall.mockResolvedValue([
         { result: undefined },
@@ -179,6 +228,42 @@ describe("TokenService", () => {
 
         expect(native).toMatchObject({ symbol: "ETH", icon: null });
         expect(httpGet).not.toHaveBeenCalled();
+      } finally {
+        env.KITE_IS_TESTNET = false;
+      }
+    });
+
+    it("reads the token one call at a time on a chain without Multicall3", async () => {
+      env.KITE_IS_TESTNET = true;
+
+      try {
+        const auroraTestnet = (await createConfiguredChain("eip155:1313161555"))
+          .chain.id;
+        const values: Record<string, unknown> = {
+          name: "Wrapped Ether",
+          symbol: "WETH",
+          decimals: 18,
+        };
+        const readContract = vi.fn(
+          async ({ functionName }: { functionName: string }) => {
+            if (!(functionName in values)) {
+              throw new Error("execution reverted");
+            }
+            return values[functionName];
+          },
+        );
+        fakeActor.publicClient.mockResolvedValue({ multicall, readContract });
+
+        const saved = await service.getTokenByAddress(auroraTestnet, TOKEN);
+
+        expect(saved).toMatchObject({
+          symbol: "WETH",
+          decimals: 18,
+          name: "Wrapped Ether",
+          version: null,
+          supportsEIP3009: false,
+        });
+        expect(multicall).not.toHaveBeenCalled();
       } finally {
         env.KITE_IS_TESTNET = false;
       }

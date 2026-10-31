@@ -65,7 +65,7 @@ export class QuoteService {
     targetAmount: bigint,
     slippageBps: number,
     operatorAddress: string,
-    appSettlementAddress: Maybe<string>,
+    appAddress: string,
   ) => {
     const fees_ = fees
       .map((f) => ({
@@ -73,9 +73,7 @@ export class QuoteService {
         amount: new FeeService().computeFeeAmount(f, targetAmount),
         // system fees are the operator's; an app's own fees go where the app settles
         feeAddress: common.normalizeAddress(
-          f.feeAddress ??
-            (f.appId ? appSettlementAddress : null) ??
-            operatorAddress,
+          f.feeAddress ?? (f.appId ? appAddress : null) ?? operatorAddress,
         ),
       }))
       .filter(
@@ -131,6 +129,13 @@ export class QuoteService {
     if (!chain) throw new NotFoundError("chain", input.chainId);
     if (!chain.config)
       throw new AppError("Selected chain is yet to be configured");
+
+    const appAddress = await new AppService().getChainAddress(appId, chain.id);
+    if (!appAddress) {
+      throw new AppError(
+        `App doesn't accept payments on ${getChain(chain.caip2Id).name}`,
+      );
+    }
 
     const settlementToken = chain.config.settlementToken;
     const chainUsdToken = chain.config.usdPeggedToken;
@@ -203,7 +208,7 @@ export class QuoteService {
         targetAmount,
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
-        await new AppService().getSettlementAddress(appId),
+        appAddress,
       ),
       quote: {
         appId,
@@ -247,6 +252,13 @@ export class QuoteService {
     if (!chain) throw new NotFoundError("chain", input.chainId);
     if (!chain.config)
       throw new AppError("Selected chain is yet to be configured");
+
+    const appAddress = await new AppService().getChainAddress(appId, chain.id);
+    if (!appAddress) {
+      throw new AppError(
+        `App doesn't accept payments on ${getChain(chain.caip2Id).name}`,
+      );
+    }
 
     const settlementToken = chain.config.settlementToken;
     const chainUsdToken = chain.config.usdPeggedToken;
@@ -333,7 +345,7 @@ export class QuoteService {
         targetAmount,
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
-        await new AppService().getSettlementAddress(appId),
+        appAddress,
       ),
       quote: {
         appId,

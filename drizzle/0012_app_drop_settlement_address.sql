@@ -1,0 +1,1 @@
+ALTER TABLE "kite_app" DROP COLUMN "settlement_address";

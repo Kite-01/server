@@ -1,4 +1,5 @@
 import {
+  acceptChain,
   IMPLEMENTATION,
   createApp,
   createConfiguredChain,
@@ -18,18 +19,22 @@ import {
 } from "../../test/transfers";
 import {
   fakeActor,
+  nearIntentsMock,
   operatorAddress,
   resetMocks,
   schedulerMock,
 } from "../../test/mocks";
 import {
   app,
+  appChain,
   chainConfig,
   deposit,
   event,
   operatorForward,
   quote as quoteTable,
   quoteFee,
+  payout,
+  token,
   transfer,
   transferTimeline,
 } from "../../db/schema";
@@ -42,6 +47,7 @@ import { encodeAbiParameters, encodeEventTopics } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   OneHour,
+  PayoutStatus,
   Provider,
   TransferStatus,
   WebhookCategory,
@@ -105,6 +111,7 @@ describe("TransferService", () => {
     appId = (await createApp()).id;
     const configured = await createConfiguredChain();
     chainId = configured.chain.id;
+    await acceptChain(appId, chainId);
     usdcId = configured.usdc.id;
     wethId = (
       await createToken(chainId, {
@@ -337,11 +344,11 @@ describe("TransferService", () => {
       });
     });
 
-    it("pays out to the app's settlement address", async () => {
+    it("settles to the app's address on the chain", async () => {
       await db
-        .update(app)
-        .set({ settlementAddress: address(0x5e77) })
-        .where(eq(app.id, appId));
+        .update(appChain)
+        .set({ address: address(0x5e77) })
+        .where(eq(appChain.appId, appId));
 
       const created = await service.createTransfer(
         appId,
@@ -354,15 +361,154 @@ describe("TransferService", () => {
       });
     });
 
-    it("pays out to the operator wallet when the app has no settlement address", async () => {
-      await createApp({ settlementAddress: address(0x07e4) });
+    it("refuses a chain the app doesn't take payments on", async () => {
+      await db.delete(appChain).where(eq(appChain.appId, appId));
 
-      const created = await service.createTransfer(
-        appId,
-        (await newQuote()).id,
-        REFUND_TO,
-      );
-      expect(created.settlementRecipient).toBe(operatorAddress);
+      await expect(
+        service.createTransfer(appId, (await newQuote()).id, REFUND_TO),
+      ).rejects.toThrow("App doesn't accept payments on Base");
+    });
+
+    describe("payouts through NEAR Intents", () => {
+      const BASE_USDC =
+        "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near";
+      const NEAR_USDC =
+        "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
+      const DEPOSIT = address(0xde90);
+      const deadline = new Date(Date.now() + 86_400_000);
+
+      const payTo = (payoutAsset: string, payoutAddress: string) =>
+        db
+          .update(app)
+          .set({ payoutAsset, payoutAddress })
+          .where(eq(app.id, appId));
+
+      beforeEach(async () => {
+        await db
+          .update(token)
+          .set({ nearIntentsAssetId: BASE_USDC })
+          .where(eq(token.id, usdcId));
+        await payTo(NEAR_USDC, "shop.near");
+        nearIntentsMock.getTokens.mockResolvedValue([
+          {
+            assetId: NEAR_USDC,
+            blockchain: "near",
+            symbol: "USDC",
+            decimals: 6,
+          },
+        ]);
+        nearIntentsMock.quote.mockResolvedValue({
+          signature: "ed25519:sig",
+          quote: {
+            depositAddress: DEPOSIT.toLowerCase(),
+            amountIn: "999000",
+            minAmountIn: "984015",
+            amountOut: "998000",
+            minAmountOut: "983030",
+            deadline: deadline.toISOString(),
+          },
+        });
+      });
+
+      it("settles into a NEAR Intents deposit address and records the payout", async () => {
+        const quote = await newQuote();
+        await db.insert(quoteFee).values({
+          quoteId: quote.id,
+          label: "platform",
+          amount: 1_000n,
+          feeAddress: address(0xfee),
+        });
+
+        const created = await service.createTransfer(
+          appId,
+          quote.id,
+          REFUND_TO,
+        );
+
+        expect(created.settlementRecipient).toBe(DEPOSIT);
+        expect(nearIntentsMock.quote).toHaveBeenCalledWith(
+          expect.objectContaining({
+            dry: false,
+            swapType: "FLEX_INPUT",
+            slippageTolerance: 150,
+            originAsset: BASE_USDC,
+            depositType: "ORIGIN_CHAIN",
+            destinationAsset: NEAR_USDC,
+            amount: "999000",
+            refundTo: operatorAddress,
+            refundType: "ORIGIN_CHAIN",
+            recipient: "shop.near",
+            recipientType: "DESTINATION_CHAIN",
+          }),
+          expect.anything(),
+        );
+
+        const [row] = await db
+          .select()
+          .from(payout)
+          .where(eq(payout.transferId, created.id));
+        expect(row).toMatchObject({
+          depositAddress: DEPOSIT,
+          destinationAsset: NEAR_USDC,
+          destinationSymbol: "USDC",
+          destinationChain: "near",
+          recipient: "shop.near",
+          refundTo: operatorAddress,
+          status: PayoutStatus.Pending,
+          deadline,
+        });
+        expect((await timeline())[0].description).toBe(
+          "Transfer created; awaiting deposit. Paid out as USDC on near to shop.near through NEAR Intents",
+        );
+      });
+
+      it("settles straight to the payout address when nothing needs converting", async () => {
+        await payTo(BASE_USDC, address(0xbeef));
+
+        const created = await service.createTransfer(
+          appId,
+          (await newQuote()).id,
+          REFUND_TO,
+        );
+
+        expect(created.settlementRecipient).toBe(address(0xbeef));
+        expect(nearIntentsMock.quote).not.toHaveBeenCalled();
+      });
+
+      it("settles to the app's address where NEAR Intents can't pay out from", async () => {
+        await db
+          .update(token)
+          .set({ nearIntentsAssetId: null })
+          .where(eq(token.id, usdcId));
+
+        const created = await service.createTransfer(
+          appId,
+          (await newQuote()).id,
+          REFUND_TO,
+        );
+
+        expect(created.settlementRecipient).toBe(operatorAddress);
+        expect(nearIntentsMock.quote).not.toHaveBeenCalled();
+        expect((await timeline())[0].description).toBe(
+          `Transfer created; awaiting deposit. NEAR Intents can't pay out from Base, so it settles to ${operatorAddress}`,
+        );
+      });
+
+      it("settles to the app's address when NEAR Intents can't quote", async () => {
+        nearIntentsMock.quote.mockRejectedValue(new Error("no route"));
+
+        const created = await service.createTransfer(
+          appId,
+          (await newQuote()).id,
+          REFUND_TO,
+        );
+
+        expect(created.settlementRecipient).toBe(operatorAddress);
+        expect(await db.select().from(payout)).toEqual([]);
+        expect((await timeline())[0].description).toContain(
+          "NEAR Intents couldn't quote a payout (no route)",
+        );
+      });
     });
 
     it("uses a quote only once", async () => {
@@ -545,6 +691,36 @@ describe("TransferService", () => {
         );
       },
     );
+
+    it("checks the payout once a paid-out transfer settles", async () => {
+      const paidOut = await open({ status: TransferStatus.Processing });
+      const plain = await open({ status: TransferStatus.Processing });
+      await db.insert(payout).values({
+        transferId: paidOut.id,
+        depositAddress: address(0xde90),
+        destinationAsset: "nep141:usdc.near",
+        destinationSymbol: "USDC",
+        destinationChain: "near",
+        recipient: "shop.near",
+        refundTo: operatorAddress,
+        deadline: new Date(Date.now() + 86_400_000),
+        status: PayoutStatus.Pending,
+        quote: {},
+      });
+
+      for (const row of [paidOut, plain]) {
+        await service.transitionTransferStatus(
+          row.id,
+          TransferStatus.Processing,
+          TransferStatus.Settled,
+          "Transfer settled",
+        );
+      }
+
+      expect(schedulerMock.enqueueCheckPayout.mock.calls).toEqual([
+        [paidOut.id, expect.anything()],
+      ]);
+    });
 
     it("keeps watching an open transfer", async () => {
       const row = await open();
@@ -821,6 +997,32 @@ describe("TransferService", () => {
 
       expect((await reload(row.id)).status).toBe(TransferStatus.Settled);
       expect(schedulerMock.enqueueRecover).toHaveBeenCalled();
+    });
+
+    it("won't settle into a payout deposit address that is about to expire", async () => {
+      const row = await open({ status: TransferStatus.DepositReceived });
+      fakeActor.getBalance.mockResolvedValue(1_000_000n);
+      await db.insert(payout).values({
+        transferId: row.id,
+        depositAddress: address(0xde90),
+        destinationAsset: "nep141:usdc.near",
+        destinationSymbol: "USDC",
+        destinationChain: "near",
+        recipient: "shop.near",
+        refundTo: operatorAddress,
+        deadline: new Date(Date.now() + 10 * 60_000),
+        status: PayoutStatus.Pending,
+        quote: {},
+      });
+
+      await service.settleTransfer(row.id);
+
+      expect(fakeActor.sendTransaction).not.toHaveBeenCalled();
+      expect((await reload(row.id)).status).toBe(TransferStatus.Failed);
+      expect(schedulerMock.enqueueRefund).toHaveBeenCalledWith(
+        row.id,
+        expect.anything(),
+      );
     });
 
     it("fails and refunds when the contract rejects the settlement", async () => {

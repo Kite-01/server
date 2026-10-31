@@ -55,6 +55,15 @@ export const ProviderKeyVars: Record<
     ],
   },
   [Provider.TrustWallet]: null,
+  [Provider.NearIntents]: {
+    [ProviderAction.Payout]: [
+      {
+        key: KeyVars.NearIntentsApiKey,
+        type: KeyType.SecureString,
+        required: false,
+      },
+    ],
+  },
 };
 
 export const SettableKeyVars = Object.fromEntries(

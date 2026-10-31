@@ -173,6 +173,8 @@ describe("StatsService", () => {
     expect(byVolume.topTokens[0]).toMatchObject({
       volume: 3,
       value: "30.000000000000000000",
+      chainName: "Base",
+      chainIcon: expect.stringContaining("/blockchains/base/info/logo.png"),
     });
   });
 

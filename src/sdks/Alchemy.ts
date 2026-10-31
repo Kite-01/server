@@ -224,6 +224,13 @@ export class Alchemy implements GasSponsor, OnchainNotifier {
     }
   };
 
+  getTrackingError = (caip2Id: Caip2Id): string | null => {
+    const network = getChain(caip2Id).descriptors?.[Provider.Alchemy];
+    return typeof network === "string"
+      ? null
+      : "not one of its supported networks";
+  };
+
   trackAddressActivity = async (
     input: OnchainNotifierTrackAddressActivityInput,
     options: SdkOptions,

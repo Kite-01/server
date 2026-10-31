@@ -1,5 +1,7 @@
 import { EvmAddress, PageQuery, Uuid, UuidIdParams } from "../schema";
 import { TokenService } from "../../services/Token.service";
+import { NearIntents } from "../../sdks/NearIntents";
+import { KvService } from "../../services/Kv.service";
 import { HttpError } from "../../shared/errors";
 import { models } from "../models";
 import { Elysia } from "elysia";
@@ -37,6 +39,43 @@ export const tokenRoutes = new Elysia({ name: "TokensRoute" })
     },
   )
   .use(Auth.plugin)
+  .get(
+    "/tokens/payouts",
+    async () => {
+      const options = {
+        variables: await new KvService().getSdkOptionVariables(),
+      };
+
+      const nearIntents = new NearIntents();
+      const tokens = await nearIntents.getTokens(options).catch(() => {
+        throw new HttpError(
+          502,
+          "BadGateway",
+          "NEAR Intents can't be reached right now",
+        );
+      });
+
+      return {
+        data: tokens.map((item) => ({
+          assetId: item.assetId,
+          blockchain: item.blockchain,
+          symbol: item.symbol,
+          decimals: item.decimals,
+          contractAddress: item.contractAddress ?? null,
+        })),
+      };
+    },
+    {
+      response: {
+        200: "PayoutTokenList",
+      },
+      detail: {
+        operationId: "tokens.listPayouts",
+        tags: ["Tokens"],
+        summary: "Tokens an app can be paid out in through NEAR Intents",
+      },
+    },
+  )
   .get("/tokens", ({ query }) => tokenService.getTokens(query), {
     query: t.Object({
       chainId: t.Optional(Uuid),

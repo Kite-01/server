@@ -11,7 +11,8 @@ export type App = {
   websiteUrl: string | null;
   termsOfServiceUrl: string | null;
   privacyPolicyUrl: string | null;
-  settlementAddress: string | null;
+  payoutAsset: string | null;
+  payoutAddress: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -22,6 +23,17 @@ export type AppPage = {
   page: number;
   pageSize: number;
   total: number;
+};
+
+export type AppChain = {
+  chainId: string;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AppChainList = {
+  data: Array<AppChain>;
 };
 
 export type ApiKey = {
@@ -60,8 +72,8 @@ export type ChainConfig = {
   kiteFactoryAddress: string;
   usdPeggedTokenId: string;
   settlementTokenId: string;
-  onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
-  gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
+  onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet' | 'NearIntents'>;
+  gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet' | 'NearIntents'>;
   maxGasPrice: string | null;
   createdAt: string;
   updatedAt: string;
@@ -122,6 +134,7 @@ export type Token = {
   version: string | null;
   icon: string | null;
   supportsEIP3009: boolean;
+  nearIntentsAssetId: string | null;
   listed: boolean;
   deletedAt: string | null;
   createdAt: string;
@@ -138,6 +151,7 @@ export type TokenWithChain = {
   version: string | null;
   icon: string | null;
   supportsEIP3009: boolean;
+  nearIntentsAssetId: string | null;
   listed: boolean;
   deletedAt: string | null;
   createdAt: string;
@@ -382,9 +396,40 @@ export type Transfer = {
 export type TransferTimelineEntry = {
   id: string;
   transferId: string;
-  eventId: string;
+  eventId: string | null;
   description: string;
   createdAt: string;
+};
+
+export type Payout = {
+  transferId: string;
+  depositAddress: string;
+  destinationAsset: string;
+  destinationSymbol: string;
+  destinationChain: string;
+  recipient: string;
+  refundTo: string;
+  deadline: string;
+  status: 'Pending' | 'Processing' | 'Delivered' | 'Refunded' | 'Failed';
+  amountOut: string | null;
+  refundedAmount: string | null;
+  blockchainHash: string | null;
+  explorerUrl: string | null;
+  reason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PayoutToken = {
+  assetId: string;
+  blockchain: string;
+  symbol: string;
+  decimals: number;
+  contractAddress: string | null;
+};
+
+export type PayoutTokenList = {
+  data: Array<PayoutToken>;
 };
 
 export type TransferDetails = {
@@ -427,6 +472,7 @@ export type TransferDetails = {
   createdAt: string;
   updatedAt: string;
   timeline: Array<TransferTimelineEntry>;
+  payout: Payout | null;
   quote: QuoteDetails;
 };
 
@@ -470,6 +516,7 @@ export type TransferListItem = {
   createdAt: string;
   updatedAt: string;
   timeline: Array<TransferTimelineEntry>;
+  payout: Payout | null;
   quote: QuoteDetails;
   app: {
     id: string;
@@ -625,11 +672,11 @@ export type KvEntry = {
 export type KvEntryList = Array<KvEntry>;
 
 export type ProviderStatus = {
-  provider: 'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet';
-  action: 'GasSponsor' | 'OnchainNotifier';
+  provider: 'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet' | 'NearIntents';
+  action: 'GasSponsor' | 'OnchainNotifier' | 'Payout';
   configured: boolean;
   keys: Array<{
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey' | 'NearIntentsApiKey';
     type: 'String' | 'SecureString';
     required: boolean;
     set: boolean;
@@ -681,6 +728,8 @@ export type Stats = {
     decimals: number;
     address: string;
     chainId: string;
+    chainName: string | null;
+    chainIcon: string | null;
     volume: number;
     value: string;
   }>;
@@ -879,7 +928,8 @@ export type AppsUpdateData = {
     websiteUrl?: string | null;
     termsOfServiceUrl?: string | null;
     privacyPolicyUrl?: string | null;
-    settlementAddress?: string | null;
+    payoutAsset?: string | null;
+    payoutAddress?: string | null;
   };
   path?: never;
   query?: never;
@@ -902,7 +952,8 @@ export type AppsCreateData = {
     websiteUrl?: string | null;
     termsOfServiceUrl?: string | null;
     privacyPolicyUrl?: string | null;
-    settlementAddress?: string | null;
+    payoutAsset?: string | null;
+    payoutAddress?: string | null;
   };
   path?: never;
   query?: never;
@@ -917,6 +968,60 @@ export type AppsCreateResponses = {
 };
 
 export type AppsCreateResponse = AppsCreateResponses[keyof AppsCreateResponses];
+
+export type AppsListChainsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/apps/chains';
+};
+
+export type AppsListChainsResponses = {
+  /**
+   * Response for status 200
+   */
+  200: AppChainList;
+};
+
+export type AppsListChainsResponse = AppsListChainsResponses[keyof AppsListChainsResponses];
+
+export type AppsRemoveChainData = {
+  body?: never;
+  path: {
+    chainId: string;
+  };
+  query?: never;
+  url: '/api/apps/chains/{chainId}';
+};
+
+export type AppsRemoveChainResponses = {
+  /**
+   * Response for status 200
+   */
+  200: AppChain;
+};
+
+export type AppsRemoveChainResponse = AppsRemoveChainResponses[keyof AppsRemoveChainResponses];
+
+export type AppsSetChainData = {
+  body: {
+    address: string;
+  };
+  path: {
+    chainId: string;
+  };
+  query?: never;
+  url: '/api/apps/chains/{chainId}';
+};
+
+export type AppsSetChainResponses = {
+  /**
+   * Response for status 200
+   */
+  200: AppChain;
+};
+
+export type AppsSetChainResponse = AppsSetChainResponses[keyof AppsSetChainResponses];
 
 export type ApiKeysListData = {
   body?: never;
@@ -1144,8 +1249,8 @@ export type ChainsConfigureData = {
     kiteFactoryAddress: string;
     usdPeggedTokenId: string;
     settlementTokenId: string;
-    onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
-    gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet'>;
+    onchainNotifierProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet' | 'NearIntents'>;
+    gasSponsorProviders: Array<'Alchemy' | 'QuickNode' | 'Thirdweb' | 'TrustWallet' | 'NearIntents'>;
     maxGasPrice?: string | null;
   };
   path: {
@@ -1182,6 +1287,22 @@ export type TokensGetByAddressResponses = {
 };
 
 export type TokensGetByAddressResponse = TokensGetByAddressResponses[keyof TokensGetByAddressResponses];
+
+export type TokensListPayoutsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/tokens/payouts';
+};
+
+export type TokensListPayoutsResponses = {
+  /**
+   * Response for status 200
+   */
+  200: PayoutTokenList;
+};
+
+export type TokensListPayoutsResponse = TokensListPayoutsResponses[keyof TokensListPayoutsResponses];
 
 export type TokensListData = {
   body?: never;
@@ -1616,7 +1737,7 @@ export type KvSetData = {
     value: string | null;
   };
   path: {
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey' | 'NearIntentsApiKey';
   };
   query?: never;
   url: '/api/kv/{key}';

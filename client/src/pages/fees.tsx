@@ -221,7 +221,7 @@ const FeeForm = ({
         label="Fee address (optional)"
         hint={
           appId
-            ? "Defaults to the app's settlement address, then the operator wallet."
+            ? "Defaults to the app's address on this chain."
             : "Defaults to the operator wallet."
         }
       >

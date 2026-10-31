@@ -11,8 +11,13 @@ import {
   NotFoundError,
   AppError,
 } from "../../shared/errors";
+import {
+  fakeActor,
+  nearIntentsMock,
+  operatorAddress,
+  resetMocks,
+} from "../../test/mocks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeActor, operatorAddress, resetMocks } from "../../test/mocks";
 import { KeyType, KeyVars, Provider } from "../../shared/constants";
 import { ChainService } from "../Chain.service";
 import { KvService } from "../Kv.service";
@@ -130,6 +135,22 @@ describe("ChainService", () => {
       readContract.mockResolvedValue(true);
     });
 
+    it("refreshes the settlement token's NEAR Intents asset id", async () => {
+      nearIntentsMock.getAssetId.mockResolvedValue("nep141:base-usdc.near");
+      await service.upsertChainConfig(chainId, config(tokens));
+
+      expect(
+        (await service.getChainById(chainId))?.config?.settlementToken,
+      ).toMatchObject({ nearIntentsAssetId: "nep141:base-usdc.near" });
+
+      nearIntentsMock.getAssetId.mockRejectedValue(new Error("down"));
+      await service.upsertChainConfig(chainId, config(tokens));
+
+      expect(
+        (await service.getChainById(chainId))?.config?.settlementToken,
+      ).toMatchObject({ nearIntentsAssetId: "nep141:base-usdc.near" });
+    });
+
     it("saves a normalised configuration and updates it in place", async () => {
       await service.upsertChainConfig(chainId, config(tokens));
 
@@ -224,6 +245,29 @@ describe("ChainService", () => {
         },
       );
       expect((await service.getChainById(chainId))?.config).toBeNull();
+    });
+
+    it("says so when the notifier cannot track activity on the chain", async () => {
+      const aurora = await service.createChain({
+        caip2Id: "eip155:1313161554",
+      });
+      const usdc = await createToken(aurora.id, {
+        address: USDC,
+        symbol: "USDC",
+        decimals: 6,
+      });
+
+      await expect(
+        service.upsertChainConfig(
+          aurora.id,
+          config({ settlement: usdc.id, usd: usdc.id }),
+        ),
+      ).rejects.toThrow(
+        "QuickNode cannot track activity on Aurora: not one of its supported networks",
+      );
+
+      expect(fakeActor.getSponsorshipError).not.toHaveBeenCalled();
+      expect((await service.getChainById(aurora.id))?.config).toBeNull();
     });
 
     it("does not save anything when validation fails", async () => {

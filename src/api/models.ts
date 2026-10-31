@@ -5,6 +5,7 @@ import {
   KeyType,
   KeyVars,
   PaymentLinkUsage,
+  PayoutStatus,
   Provider,
   ProviderAction,
   TransferStatus,
@@ -50,12 +51,23 @@ const App = t.Object(
     websiteUrl: Nullable(t.String()),
     termsOfServiceUrl: Nullable(t.String()),
     privacyPolicyUrl: Nullable(t.String()),
-    settlementAddress: Nullable(EvmAddress),
+    payoutAsset: Nullable(t.String()),
+    payoutAddress: Nullable(t.String()),
     deletedAt: Nullable(Timestamp),
     createdAt: Timestamp,
     updatedAt: Timestamp,
   },
   named("App"),
+);
+
+const AppChain = t.Object(
+  {
+    chainId: Uuid,
+    address: EvmAddress,
+    createdAt: Timestamp,
+    updatedAt: Timestamp,
+  },
+  named("AppChain"),
 );
 
 const ApiKey = t.Object(
@@ -97,6 +109,7 @@ const Token = t.Object(
     version: Nullable(t.String()),
     icon: Nullable(t.String()),
     supportsEIP3009: t.Boolean(),
+    nearIntentsAssetId: Nullable(t.String()),
     listed: t.Boolean(),
     deletedAt: Nullable(Timestamp),
     createdAt: Timestamp,
@@ -356,17 +369,51 @@ const TransferTimelineEntry = t.Object(
   {
     id: Uuid,
     transferId: Uuid,
-    eventId: Uuid,
+    eventId: Nullable(Uuid),
     description: t.String(),
     createdAt: Timestamp,
   },
   named("TransferTimelineEntry"),
 );
 
+const Payout = t.Object(
+  {
+    transferId: Uuid,
+    depositAddress: EvmAddress,
+    destinationAsset: t.String(),
+    destinationSymbol: t.String(),
+    destinationChain: t.String(),
+    recipient: t.String(),
+    refundTo: EvmAddress,
+    deadline: Timestamp,
+    status: t.Enum(PayoutStatus),
+    amountOut: Nullable(BigIntString),
+    refundedAmount: Nullable(BigIntString),
+    blockchainHash: Nullable(t.String()),
+    explorerUrl: Nullable(t.String()),
+    reason: Nullable(t.String()),
+    createdAt: Timestamp,
+    updatedAt: Timestamp,
+  },
+  named("Payout"),
+);
+
+const PayoutToken = t.Object(
+  {
+    assetId: t.String(),
+    blockchain: t.String(),
+    symbol: t.String(),
+    decimals: Int,
+    contractAddress: Nullable(t.String()),
+  },
+  named("PayoutToken"),
+);
+
 const TransferDetails = t.Object(
   {
     ...Transfer.properties,
     timeline: t.Array(ref(TransferTimelineEntry)),
+    payout: Nullable(ref(Payout)),
     quote: ref(QuoteDetails),
   },
   named("TransferDetails"),
@@ -545,6 +592,8 @@ const Stats = t.Object(
         decimals: Int,
         address: EvmAddress,
         chainId: Uuid,
+        chainName: Nullable(t.String()),
+        chainIcon: Nullable(t.String()),
         volume: Int,
         value: t.String(),
       }),
@@ -684,6 +733,11 @@ const CheckoutTransfer = t.Object(
 export const models = new Elysia({ name: "Models" }).model({
   App,
   AppPage: Page("AppPage", App),
+  AppChain,
+  AppChainList: t.Object(
+    { data: t.Array(ref(AppChain)) },
+    named("AppChainList"),
+  ),
   ApiKey,
   ApiKeyPage: Page("ApiKeyPage", ApiKey),
   Chain,
@@ -716,6 +770,12 @@ export const models = new Elysia({ name: "Models" }).model({
   QuotePage: Page("QuotePage", QuoteDetails),
   Transfer,
   TransferTimelineEntry,
+  Payout,
+  PayoutToken,
+  PayoutTokenList: t.Object(
+    { data: t.Array(ref(PayoutToken)) },
+    named("PayoutTokenList"),
+  ),
   TransferDetails,
   TransferListItem,
   TransferPage: Page("TransferPage", TransferListItem),

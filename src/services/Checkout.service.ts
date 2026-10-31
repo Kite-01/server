@@ -17,6 +17,7 @@ import { QuoteService } from "./Quote.service";
 import { TokenService } from "./Token.service";
 import { ChainService } from "./Chain.service";
 import { x402Service } from "./x402.service";
+import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { db } from "../db";
@@ -63,12 +64,17 @@ export class CheckoutService {
   getCheckout = async (paymentLinkId: string) => {
     const link = await this.requireLink(paymentLinkId);
     await new PaymentLinkService().assertPayable(link);
-    const chains = await new ChainService().getActiveChains();
+
+    const [chains, accepted] = await Promise.all([
+      new ChainService().getActiveChains(),
+      new AppService().getChainIds(link.appId),
+    ]);
+
     const tokenService = new TokenService();
 
     const options = await Promise.all(
       chains.map(async (chain) => {
-        if (!chain.config) {
+        if (!chain.config || !accepted.has(chain.id)) {
           return null;
         }
 
@@ -312,12 +318,21 @@ export class CheckoutService {
   offerX402 = async (paymentLinkId: string) => {
     const link = await this.requireLink(paymentLinkId);
     await new PaymentLinkService().assertPayable(link);
-    const chains = await new ChainService().getActiveChains();
+
+    const [chains, accepted] = await Promise.all([
+      new ChainService().getActiveChains(),
+      new AppService().getChainIds(link.appId),
+    ]);
+
     const x402 = new x402Service();
 
     const offers = await Promise.allSettled(
       chains.map(async (chain) => {
-        if (!chain.config || !this.takesX402(chain.config)) {
+        if (
+          !chain.config ||
+          !accepted.has(chain.id) ||
+          !this.takesX402(chain.config)
+        ) {
           return null;
         }
 

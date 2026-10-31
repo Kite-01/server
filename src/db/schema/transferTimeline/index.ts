@@ -10,9 +10,9 @@ export const transferTimeline = pgTable(
     transferId: uuid("transfer_id")
       .notNull()
       .references(() => transfer.id, { onDelete: "restrict" }),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => event.id, { onDelete: "restrict" }),
+    eventId: uuid("event_id").references(() => event.id, {
+      onDelete: "restrict",
+    }),
     description: text("description").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

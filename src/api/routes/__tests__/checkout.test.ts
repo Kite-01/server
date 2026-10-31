@@ -1,4 +1,5 @@
 import {
+  acceptChain,
   IMPLEMENTATION,
   address,
   createApp,
@@ -107,6 +108,7 @@ describe("checkout", () => {
 
     appId = (await createApp({ name: "Shop" })).id;
     chain = await createConfiguredChain();
+    await acceptChain(appId, chain.chain.id);
     link = await createPaymentLink(appId, {
       title: "Pro plan",
       amount: "25",
@@ -167,6 +169,16 @@ describe("checkout", () => {
       );
 
       expect(tokens).toEqual({ USDC: true, WETH: false });
+    });
+
+    it("only lists the chains the app takes payments on", async () => {
+      await createConfiguredChain("eip155:10");
+
+      const res = await get(`/api/checkout/${link.id}`);
+
+      expect(
+        res.json.chains.map((c: { caip2Id: string }) => c.caip2Id),
+      ).toEqual(["eip155:8453"]);
     });
 
     it("is not found for an unknown link or a deleted app", async () => {
@@ -461,6 +473,7 @@ describe("checkout", () => {
 
     it("offers every network that takes x402", async () => {
       const optimism = await createConfiguredChain("eip155:10");
+      await acceptChain(appId, optimism.chain.id);
 
       const required = await challengeFor(link.id);
 
@@ -471,6 +484,7 @@ describe("checkout", () => {
 
     it("offers networks without a gas sponsor, where the operator pays gas", async () => {
       const optimism = await createConfiguredChain("eip155:10");
+      await acceptChain(appId, optimism.chain.id);
       await db
         .update(chainConfigTable)
         .set({ gasSponsorProviders: [] })
@@ -481,6 +495,16 @@ describe("checkout", () => {
       expect(required.accepts.map((accepted) => accepted.network)).toContain(
         optimism.chain.caip2Id,
       );
+    });
+
+    it("leaves out networks the app doesn't take payments on", async () => {
+      await createConfiguredChain("eip155:10");
+
+      const required = await challengeFor(link.id);
+
+      expect(required.accepts.map((accepted) => accepted.network)).toEqual([
+        chain.chain.caip2Id,
+      ]);
     });
 
     it("reuses an open offer instead of opening a transfer per request", async () => {
@@ -649,7 +673,23 @@ describe("checkout", () => {
       const required = await challengeFor(link.id);
       const { payTo } = required.accepts[0];
 
-      await agent(link.id, { "PAYMENT-SIGNATURE": sign(required) });
+      // the app's error handler logs the failure; keep it out of the test output
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+
+      try {
+        const failed = await agent(link.id, {
+          "PAYMENT-SIGNATURE": sign(required),
+        });
+
+        expect(failed.status).toBe(500);
+        expect(consoleError).toHaveBeenCalledWith(
+          expect.objectContaining({ message: "rpc down" }),
+        );
+      } finally {
+        consoleError.mockRestore();
+      }
 
       const released = await db.query.transfer.findFirst({
         where: eq(transferTable.payinAddress, payTo),

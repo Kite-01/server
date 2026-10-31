@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { apiKeysCreate, apiKeysDelete, apiKeysGet, apiKeysList, apiKeysRevoke, apiKeysUpdate, appsCreate, appsDelete, appsGet, appsList, appsUpdate, chainsConfigure, chainsCreate, chainsDelete, chainsList, chainsListFull, chainsListSupported, chainsUpdate, checkoutCancelTransfer, checkoutGet, checkoutGetTransfer, checkoutOpenTransfer, checkoutQuote, customersDelete, customersGet, customersList, customersUpsert, feesCreate, feesDelete, feesGet, feesList, feesUpdate, kvList, kvListProviders, kvSet, type Options, overviewEvents, overviewInfo, overviewStats, paymentLinksCreate, paymentLinksDelete, paymentLinksGet, paymentLinksList, paymentLinksListCurrencies, paymentLinksQuote, paymentLinksUpdate, priceFeedsCreate, priceFeedsDelete, priceFeedsList, quotesCreate, quotesGet, quotesList, ratesGet, tokensDelete, tokensGetByAddress, tokensList, tokensUpdate, transfersCreate, transfersGet, transfersList, transfersRecover, transfersRecoverBalance, transfersRefund, webhooksCreate, webhooksDelete, webhooksList, webhooksListDeliveries, x402Pay, x402Requirements, x402Settle, x402Supported, x402Verify } from '../sdk.gen';
-import type { ApiKeysCreateData, ApiKeysCreateResponse, ApiKeysDeleteData, ApiKeysDeleteResponse, ApiKeysGetData, ApiKeysGetResponse, ApiKeysListData, ApiKeysListResponse, ApiKeysRevokeData, ApiKeysRevokeResponse, ApiKeysUpdateData, ApiKeysUpdateResponse, AppsCreateData, AppsCreateResponse, AppsDeleteData, AppsDeleteResponse, AppsGetData, AppsGetResponse, AppsListData, AppsListResponse, AppsUpdateData, AppsUpdateResponse, ChainsConfigureData, ChainsConfigureResponse, ChainsCreateData, ChainsCreateResponse, ChainsDeleteData, ChainsDeleteResponse, ChainsListData, ChainsListFullData, ChainsListFullResponse, ChainsListResponse, ChainsListSupportedData, ChainsListSupportedResponse, ChainsUpdateData, ChainsUpdateResponse, CheckoutCancelTransferData, CheckoutCancelTransferResponse, CheckoutGetData, CheckoutGetResponse, CheckoutGetTransferData, CheckoutGetTransferResponse, CheckoutOpenTransferData, CheckoutOpenTransferResponse, CheckoutQuoteData, CheckoutQuoteResponse, CustomersDeleteData, CustomersDeleteResponse, CustomersGetData, CustomersGetResponse, CustomersListData, CustomersListResponse, CustomersUpsertData, CustomersUpsertResponse, FeesCreateData, FeesCreateResponse, FeesDeleteData, FeesDeleteResponse, FeesGetData, FeesGetResponse, FeesListData, FeesListResponse, FeesUpdateData, FeesUpdateResponse, KvListData, KvListProvidersData, KvListProvidersResponse, KvListResponse, KvSetData, KvSetResponse, OverviewEventsData, OverviewEventsResponse, OverviewInfoData, OverviewInfoResponse, OverviewStatsData, OverviewStatsResponse, PaymentLinksCreateData, PaymentLinksCreateResponse, PaymentLinksDeleteData, PaymentLinksDeleteResponse, PaymentLinksGetData, PaymentLinksGetResponse, PaymentLinksListCurrenciesData, PaymentLinksListCurrenciesResponse, PaymentLinksListData, PaymentLinksListResponse, PaymentLinksQuoteData, PaymentLinksQuoteResponse, PaymentLinksUpdateData, PaymentLinksUpdateResponse, PriceFeedsCreateData, PriceFeedsCreateResponse, PriceFeedsDeleteData, PriceFeedsDeleteResponse, PriceFeedsListData, PriceFeedsListResponse, QuotesCreateData, QuotesCreateResponse, QuotesGetData, QuotesGetResponse, QuotesListData, QuotesListResponse, RatesGetData, RatesGetResponse, TokensDeleteData, TokensDeleteResponse, TokensGetByAddressData, TokensGetByAddressResponse, TokensListData, TokensListResponse, TokensUpdateData, TokensUpdateResponse, TransfersCreateData, TransfersCreateResponse, TransfersGetData, TransfersGetResponse, TransfersListData, TransfersListResponse, TransfersRecoverBalanceData, TransfersRecoverBalanceResponse, TransfersRecoverData, TransfersRecoverResponse, TransfersRefundData, TransfersRefundResponse, WebhooksCreateData, WebhooksCreateResponse, WebhooksDeleteData, WebhooksDeleteResponse, WebhooksListData, WebhooksListDeliveriesData, WebhooksListDeliveriesResponse, WebhooksListResponse, X402PayData, X402PayResponse, X402RequirementsData, X402RequirementsResponse, X402SettleData, X402SettleResponse, X402SupportedData, X402SupportedResponse, X402VerifyData, X402VerifyResponse } from '../types.gen';
+import { apiKeysCreate, apiKeysDelete, apiKeysGet, apiKeysList, apiKeysRevoke, apiKeysUpdate, appsCreate, appsDelete, appsGet, appsList, appsListChains, appsRemoveChain, appsSetChain, appsUpdate, chainsConfigure, chainsCreate, chainsDelete, chainsList, chainsListFull, chainsListSupported, chainsUpdate, checkoutCancelTransfer, checkoutGet, checkoutGetTransfer, checkoutOpenTransfer, checkoutQuote, customersDelete, customersGet, customersList, customersUpsert, feesCreate, feesDelete, feesGet, feesList, feesUpdate, kvList, kvListProviders, kvSet, type Options, overviewEvents, overviewInfo, overviewStats, paymentLinksCreate, paymentLinksDelete, paymentLinksGet, paymentLinksList, paymentLinksListCurrencies, paymentLinksQuote, paymentLinksUpdate, priceFeedsCreate, priceFeedsDelete, priceFeedsList, quotesCreate, quotesGet, quotesList, ratesGet, tokensDelete, tokensGetByAddress, tokensList, tokensListPayouts, tokensUpdate, transfersCreate, transfersGet, transfersList, transfersRecover, transfersRecoverBalance, transfersRefund, webhooksCreate, webhooksDelete, webhooksList, webhooksListDeliveries, x402Pay, x402Requirements, x402Settle, x402Supported, x402Verify } from '../sdk.gen';
+import type { ApiKeysCreateData, ApiKeysCreateResponse, ApiKeysDeleteData, ApiKeysDeleteResponse, ApiKeysGetData, ApiKeysGetResponse, ApiKeysListData, ApiKeysListResponse, ApiKeysRevokeData, ApiKeysRevokeResponse, ApiKeysUpdateData, ApiKeysUpdateResponse, AppsCreateData, AppsCreateResponse, AppsDeleteData, AppsDeleteResponse, AppsGetData, AppsGetResponse, AppsListChainsData, AppsListChainsResponse, AppsListData, AppsListResponse, AppsRemoveChainData, AppsRemoveChainResponse, AppsSetChainData, AppsSetChainResponse, AppsUpdateData, AppsUpdateResponse, ChainsConfigureData, ChainsConfigureResponse, ChainsCreateData, ChainsCreateResponse, ChainsDeleteData, ChainsDeleteResponse, ChainsListData, ChainsListFullData, ChainsListFullResponse, ChainsListResponse, ChainsListSupportedData, ChainsListSupportedResponse, ChainsUpdateData, ChainsUpdateResponse, CheckoutCancelTransferData, CheckoutCancelTransferResponse, CheckoutGetData, CheckoutGetResponse, CheckoutGetTransferData, CheckoutGetTransferResponse, CheckoutOpenTransferData, CheckoutOpenTransferResponse, CheckoutQuoteData, CheckoutQuoteResponse, CustomersDeleteData, CustomersDeleteResponse, CustomersGetData, CustomersGetResponse, CustomersListData, CustomersListResponse, CustomersUpsertData, CustomersUpsertResponse, FeesCreateData, FeesCreateResponse, FeesDeleteData, FeesDeleteResponse, FeesGetData, FeesGetResponse, FeesListData, FeesListResponse, FeesUpdateData, FeesUpdateResponse, KvListData, KvListProvidersData, KvListProvidersResponse, KvListResponse, KvSetData, KvSetResponse, OverviewEventsData, OverviewEventsResponse, OverviewInfoData, OverviewInfoResponse, OverviewStatsData, OverviewStatsResponse, PaymentLinksCreateData, PaymentLinksCreateResponse, PaymentLinksDeleteData, PaymentLinksDeleteResponse, PaymentLinksGetData, PaymentLinksGetResponse, PaymentLinksListCurrenciesData, PaymentLinksListCurrenciesResponse, PaymentLinksListData, PaymentLinksListResponse, PaymentLinksQuoteData, PaymentLinksQuoteResponse, PaymentLinksUpdateData, PaymentLinksUpdateResponse, PriceFeedsCreateData, PriceFeedsCreateResponse, PriceFeedsDeleteData, PriceFeedsDeleteResponse, PriceFeedsListData, PriceFeedsListResponse, QuotesCreateData, QuotesCreateResponse, QuotesGetData, QuotesGetResponse, QuotesListData, QuotesListResponse, RatesGetData, RatesGetResponse, TokensDeleteData, TokensDeleteResponse, TokensGetByAddressData, TokensGetByAddressResponse, TokensListData, TokensListPayoutsData, TokensListPayoutsResponse, TokensListResponse, TokensUpdateData, TokensUpdateResponse, TransfersCreateData, TransfersCreateResponse, TransfersGetData, TransfersGetResponse, TransfersListData, TransfersListResponse, TransfersRecoverBalanceData, TransfersRecoverBalanceResponse, TransfersRecoverData, TransfersRecoverResponse, TransfersRefundData, TransfersRefundResponse, WebhooksCreateData, WebhooksCreateResponse, WebhooksDeleteData, WebhooksDeleteResponse, WebhooksListData, WebhooksListDeliveriesData, WebhooksListDeliveriesResponse, WebhooksListResponse, X402PayData, X402PayResponse, X402RequirementsData, X402RequirementsResponse, X402SettleData, X402SettleResponse, X402SupportedData, X402SupportedResponse, X402VerifyData, X402VerifyResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -175,6 +175,58 @@ export const appsCreateMutation = (options?: Partial<Options<AppsCreateData>>): 
   const mutationOptions: UseMutationOptions<AppsCreateResponse, DefaultError, Options<AppsCreateData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await appsCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+export const appsListChainsQueryKey = (options?: Options<AppsListChainsData>) => createQueryKey('appsListChains', options);
+
+/**
+ * Chains the app takes payments on
+ */
+export const appsListChainsOptions = (options?: Options<AppsListChainsData>) => queryOptions<AppsListChainsResponse, DefaultError, AppsListChainsResponse, ReturnType<typeof appsListChainsQueryKey>>({
+  queryFn: async ({ queryKey, signal }) => {
+    const { data } = await appsListChains({
+      ...options,
+      ...queryKey[0],
+      signal,
+      throwOnError: true
+    });
+    return data;
+  },
+  queryKey: appsListChainsQueryKey(options)
+});
+
+/**
+ * Stop taking payments on a chain
+ */
+export const appsRemoveChainMutation = (options?: Partial<Options<AppsRemoveChainData>>): UseMutationOptions<AppsRemoveChainResponse, DefaultError, Options<AppsRemoveChainData>> => {
+  const mutationOptions: UseMutationOptions<AppsRemoveChainResponse, DefaultError, Options<AppsRemoveChainData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await appsRemoveChain({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Take payments on a chain, paid to an address there
+ */
+export const appsSetChainMutation = (options?: Partial<Options<AppsSetChainData>>): UseMutationOptions<AppsSetChainResponse, DefaultError, Options<AppsSetChainData>> => {
+  const mutationOptions: UseMutationOptions<AppsSetChainResponse, DefaultError, Options<AppsSetChainData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await appsSetChain({
         ...options,
         ...fnOptions,
         throwOnError: true
@@ -457,6 +509,24 @@ export const tokensGetByAddressOptions = (options: Options<TokensGetByAddressDat
     return data;
   },
   queryKey: tokensGetByAddressQueryKey(options)
+});
+
+export const tokensListPayoutsQueryKey = (options?: Options<TokensListPayoutsData>) => createQueryKey('tokensListPayouts', options);
+
+/**
+ * Tokens an app can be paid out in through NEAR Intents
+ */
+export const tokensListPayoutsOptions = (options?: Options<TokensListPayoutsData>) => queryOptions<TokensListPayoutsResponse, DefaultError, TokensListPayoutsResponse, ReturnType<typeof tokensListPayoutsQueryKey>>({
+  queryFn: async ({ queryKey, signal }) => {
+    const { data } = await tokensListPayouts({
+      ...options,
+      ...queryKey[0],
+      signal,
+      throwOnError: true
+    });
+    return data;
+  },
+  queryKey: tokensListPayoutsQueryKey(options)
 });
 
 export const tokensListQueryKey = (options?: Options<TokensListData>) => createQueryKey('tokensList', options);

@@ -18,6 +18,7 @@ import { transferTimeline } from "../transferTimeline";
 import { operatorForward } from "../operatorForward";
 import { sql, relations } from "drizzle-orm";
 import { deposit } from "../deposit";
+import { payout } from "../payout";
 import { quote } from "../quote";
 import { app } from "../app";
 
@@ -92,4 +93,5 @@ export const transferRelations = relations(transfer, ({ one, many }) => ({
   timeline: many(transferTimeline),
   deposits: many(deposit),
   operatorForwards: many(operatorForward),
+  payout: one(payout),
 }));

@@ -43,6 +43,7 @@ const rootItems: Item[] = [
 
 const appItems = (base: string): Item[] => [
   { to: base, label: "Dashboard", icon: IconDashboard, end: true },
+  { to: `${base}/chains`, label: "Chains", icon: IconBlocks },
   { to: `${base}/fees`, label: "Fees", icon: IconDiscount2 },
   { to: `${base}/customers`, label: "Customers", icon: IconUserCircle },
   { to: `${base}/api-keys`, label: "API keys", icon: IconKey },

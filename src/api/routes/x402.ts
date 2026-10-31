@@ -17,10 +17,11 @@ const PaymentBody = t.Object({
 export const x402Routes = new Elysia({ name: "x402Route", prefix: "/x402" })
   .use(Auth.plugin)
   .use(models)
-  .get("/supported", () => x402.getSupported(), {
+  .get("/supported", ({ actor }) => x402.getSupported(actor.appId), {
     response: {
       200: "x402Supported",
     },
+    beforeHandle: Auth.access({ scope: ApiKeyScope.x402 }),
     detail: {
       operationId: "x402.supported",
       tags: ["x402"],

@@ -1,4 +1,5 @@
 import {
+  acceptChain,
   IMPLEMENTATION,
   createApiKey,
   createApp,
@@ -19,11 +20,16 @@ import {
   TransferStatus,
 } from "../../../shared/constants";
 import { call, client, rootCredentials } from "../../../test/api";
-import { fakeActor, operatorAddress, resetMocks } from "../../../test/mocks";
+import {
+  fakeActor,
+  nearIntentsMock,
+  operatorAddress,
+  resetMocks,
+} from "../../../test/mocks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createQuoteRow, payinFor } from "../../../test/transfers";
 import { ChainService } from "../../../services/Chain.service";
-import { transfer } from "../../../db/schema";
+import { appChain, transfer } from "../../../db/schema";
 import { common } from "../../../shared/common";
 import { kite } from "../../../shared/kiteContract";
 import { db } from "../../../db";
@@ -69,6 +75,7 @@ describe("API resources", () => {
     const configured = await createConfiguredChain();
     chainId = configured.chain.id;
     usdcId = configured.usdc.id;
+    await acceptChain(appId, chainId);
 
     key = await createApiKey(appId, {
       scopes: Object.values(ApiKeyScope),
@@ -183,6 +190,35 @@ describe("API resources", () => {
       ).toBe(404);
     });
 
+    it("lists the tokens NEAR Intents can pay out in", async () => {
+      nearIntentsMock.getTokens.mockResolvedValue([
+        {
+          assetId: "nep141:usdc.near",
+          blockchain: "near",
+          symbol: "USDC",
+          decimals: 6,
+          contractAddress: "usdc.near",
+          price: 1,
+        },
+      ]);
+
+      const res = await api.get("/api/tokens/payouts");
+
+      expect(res.status).toBe(200);
+      expect(res.json.data).toEqual([
+        {
+          assetId: "nep141:usdc.near",
+          blockchain: "near",
+          symbol: "USDC",
+          decimals: 6,
+          contractAddress: "usdc.near",
+        },
+      ]);
+
+      nearIntentsMock.getTokens.mockRejectedValue(new Error("down"));
+      expect((await api.get("/api/tokens/payouts")).status).toBe(502);
+    });
+
     it("finds a token by address without credentials", async () => {
       await createToken(chainId, {
         address: WETH,
@@ -237,41 +273,50 @@ describe("API resources", () => {
   });
 
   describe("apps", () => {
-    it("lets the root key create an app with a settlement address", async () => {
-      const res = await client(rootCredentials()).post("/api/apps", {
-        name: "Shop",
-        settlementAddress: address(0x5e77).toLowerCase(),
+    it("lets an App:Write key turn chains on and off with an address there", async () => {
+      await db.delete(appChain).where(eq(appChain.appId, appId));
+
+      const on = await api.put(`/api/apps/chains/${chainId}`, {
+        address: address(0x5e77).toLowerCase(),
       });
+      expect(on.status).toBe(200);
+      expect(on.json).toMatchObject({ chainId, address: address(0x5e77) });
 
-      expect(res.status).toBe(201);
-      expect(res.json.settlementAddress).toBe(address(0x5e77));
-    });
+      const list = await api.get("/api/apps/chains");
+      expect(list.json.data).toEqual([
+        expect.objectContaining({ chainId, address: address(0x5e77) }),
+      ]);
 
-    it("lets an App:Write key set and clear its settlement address", async () => {
-      const set = await api.patch("/api/apps", {
-        settlementAddress: address(0x5e77),
-      });
-
-      expect(set.status).toBe(200);
-      expect(set.json.settlementAddress).toBe(address(0x5e77));
-      expect((await api.get("/api/apps")).json.settlementAddress).toBe(
-        address(0x5e77),
+      expect((await api.delete(`/api/apps/chains/${chainId}`)).status).toBe(
+        200,
       );
+      expect((await api.get("/api/apps/chains")).json.data).toEqual([]);
+      expect((await api.delete(`/api/apps/chains/${chainId}`)).status).toBe(
+        404,
+      );
+    });
 
-      const cleared = await api.patch("/api/apps", {
-        settlementAddress: null,
+    it("keeps chain settings to App:Write keys and valid addresses", async () => {
+      const reader = await createApiKey(appId, {
+        scopes: [ApiKeyScope.QuoteRead],
       });
-      expect(cleared.json.settlementAddress).toBeNull();
+
+      expect(
+        (
+          await client(reader.credentials).put(`/api/apps/chains/${chainId}`, {
+            address: address(0x5e77),
+          })
+        ).status,
+      ).toBe(403);
+      expect(
+        (await api.put(`/api/apps/chains/${chainId}`, { address: "0x123" }))
+          .status,
+      ).toBe(422);
     });
 
-    it("refuses a malformed settlement address", async () => {
-      const res = await api.patch("/api/apps", { settlementAddress: "0x123" });
-      expect(res.status).toBe(422);
-    });
-
-    it("settles new transfers to the address the app set", async () => {
-      await api.patch("/api/apps", {
-        settlementAddress: address(0x5e77),
+    it("settles new transfers to the app's address on the chain", async () => {
+      await api.put(`/api/apps/chains/${chainId}`, {
+        address: address(0x5e77),
       });
 
       const quote = await createQuoteRow({
@@ -288,6 +333,40 @@ describe("API resources", () => {
 
       expect(res.status).toBe(201);
       expect(res.json.settlementRecipient).toBe(address(0x5e77));
+    });
+
+    it("sets and clears a payout destination NEAR Intents accepts", async () => {
+      nearIntentsMock.getTokens.mockResolvedValue([
+        {
+          assetId: "nep141:usdc.near",
+          blockchain: "near",
+          symbol: "USDC",
+          decimals: 6,
+        },
+      ]);
+      nearIntentsMock.quote.mockResolvedValue({ quote: {} });
+
+      const set = await api.patch("/api/apps", {
+        payoutAsset: "nep141:usdc.near",
+        payoutAddress: "shop.near",
+      });
+      expect(set.status).toBe(200);
+      expect(set.json).toMatchObject({
+        payoutAsset: "nep141:usdc.near",
+        payoutAddress: "shop.near",
+      });
+
+      const half = await api.patch("/api/apps", { payoutAsset: null });
+      expect(half.status).toBe(400);
+
+      const cleared = await api.patch("/api/apps", {
+        payoutAsset: null,
+        payoutAddress: null,
+      });
+      expect(cleared.json).toMatchObject({
+        payoutAsset: null,
+        payoutAddress: null,
+      });
     });
   });
 
@@ -933,6 +1012,7 @@ describe("API resources", () => {
 
     it("lets the root key list transfers across apps", async () => {
       const otherApp = await createApp();
+      await acceptChain(otherApp.id, chainId);
       const otherQuote = await createQuoteRow({
         appId: otherApp.id,
         chainId,

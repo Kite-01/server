@@ -11,7 +11,8 @@ type HttpErrorCode =
   | "PreconditionFailed"
   | "Conflict"
   | "NotSupported"
-  | "PayloadTooLarge";
+  | "PayloadTooLarge"
+  | "BadGateway";
 
 export class HttpError extends Error {
   public readonly status: number;

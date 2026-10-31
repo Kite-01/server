@@ -1,4 +1,5 @@
 import { OneDay, TransferStatus } from "../shared/constants";
+import { getSupportedChains } from "../shared/chains";
 import { AppError } from "../shared/errors";
 import { common } from "../shared/common";
 import { sql } from "drizzle-orm";
@@ -118,18 +119,21 @@ export class StatsService {
           icon: string | null;
           address: string;
           chain_id: string;
+          caip2_id: string;
           volume: string;
           value: string;
         }>(
           sql`
             select tok.id, tok.symbol, tok.name, tok.icon, tok.decimals, tok.address, tok.chain_id,
+              c.caip2_id,
               count(*)::text as volume,
               coalesce(sum(q.target_usd_amount), 0)::text as value
             from kite_transfer t
             join kite_quote q on q.id = t.quote_id
             join kite_token tok on tok.id = q.source_token_id
+            join kite_chain c on c.id = tok.chain_id
             where ${settledIn(from, to)}
-            group by tok.id
+            group by tok.id, c.caip2_id
             order by ${
               rank === "value" ? sql`sum(q.target_usd_amount)` : sql`count(*)`
             } desc, tok.symbol asc
@@ -138,6 +142,9 @@ export class StatsService {
         ),
       ]);
 
+    const chains = new Map(
+      getSupportedChains().map((chain) => [chain.caip2Id as string, chain]),
+    );
     const amount = Number(current.amount);
     const customerTotal = Number(customers.total);
 
@@ -167,6 +174,8 @@ export class StatsService {
         decimals: row.decimals,
         address: row.address,
         chainId: row.chain_id,
+        chainName: chains.get(row.caip2_id)?.name ?? null,
+        chainIcon: chains.get(row.caip2_id)?.icon ?? null,
         volume: Number(row.volume),
         value: row.value,
       })),

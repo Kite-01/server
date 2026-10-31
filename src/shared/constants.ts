@@ -10,6 +10,7 @@ export enum Queue {
   RecoverTransfer = "RecoverTransfer",
   OperatorForward = "OperatorForward",
   UntrackTransfer = "UntrackTransfer",
+  CheckPayout = "CheckPayout",
   TransferSweep = "TransferSweep",
   ApiNonceCleanup = "ApiNonceCleanup",
 }
@@ -105,11 +106,21 @@ export enum Provider {
   QuickNode = "QuickNode",
   Thirdweb = "Thirdweb",
   TrustWallet = "TrustWallet",
+  NearIntents = "NearIntents",
 }
 
 export enum ProviderAction {
   GasSponsor = "GasSponsor",
   OnchainNotifier = "OnchainNotifier",
+  Payout = "Payout",
+}
+
+export enum PayoutStatus {
+  Pending = "Pending",
+  Processing = "Processing",
+  Delivered = "Delivered",
+  Refunded = "Refunded",
+  Failed = "Failed",
 }
 
 export enum KeyType {
@@ -127,6 +138,7 @@ export enum KeyVars {
   QuickNodeEvmContractEvents_EventHashesListName = "QuickNodeEvmContractEvents_EventHashesListName",
   QuickNodeWebhookSecurityToken = "QuickNodeWebhookSecurityToken",
   ThirdwebSecretKey = "ThirdwebSecretKey",
+  NearIntentsApiKey = "NearIntentsApiKey",
 }
 
 export enum KeyVarPrefix {
@@ -147,6 +159,9 @@ export const OneDay = 24 * OneHour;
 
 export const QuoteTTLSeconds = 5 * OneMinute;
 export const CancelledTransferWatchSeconds = 12 * OneHour;
+export const PayoutDeadlineSeconds = OneDay;
+export const PayoutDeadlineMarginSeconds = 30 * OneMinute; // a payment is never settled into a deposit address this close to its deadline
+export const PayoutSlippageBufferBps = 50;
 export const UniswapFeeTiers = [100, 500, 3000, 10000] as const;
 export const UniswapTwapWindowsSeconds = [
   10 * OneMinute,

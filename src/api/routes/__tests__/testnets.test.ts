@@ -1,4 +1,5 @@
 import {
+  acceptChain,
   address,
   createApp,
   createChain,
@@ -76,8 +77,10 @@ describe("testnets", () => {
     });
 
     it("marks checkout networks as testnets", async () => {
-      await createConfiguredChain("eip155:11155111");
-      const link = await createPaymentLink((await createApp()).id);
+      const sepolia = await createConfiguredChain("eip155:11155111");
+      const app = await createApp();
+      await acceptChain(app.id, sepolia.chain.id);
+      const link = await createPaymentLink(app.id);
 
       const res = await call("GET", `/api/checkout/${link.id}`, {});
 

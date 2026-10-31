@@ -1,11 +1,11 @@
 import { type Address, formatUnits, parseUnits } from "viem";
 import { AppError, NotFoundError } from "../shared/errors";
+import { getChain, readContracts } from "../shared/chains";
 import { ChainLinkAggregatorV3 } from "../shared/abis/ChainLinkAggregatorV3";
 import { getOnchainActor } from "../shared/onchainActor";
 import { and, eq, desc } from "drizzle-orm";
 import { ChainService } from "./Chain.service";
 import { priceFeed } from "../db/schema";
-import { getChain } from "../shared/chains";
 import { OneDay } from "../shared/constants";
 import { omit } from "lodash";
 import { db } from "../db";
@@ -27,9 +27,10 @@ export class PriceFeedService {
       chain.config?.rpcUrls ?? [],
     );
 
-    const [description_, decimals_] = await client.multicall({
-      allowFailure: true,
-      contracts: [
+    const [description_, decimals_] = await readContracts(
+      chain.caip2Id,
+      client,
+      [
         {
           address: input.address as Address,
           abi: ChainLinkAggregatorV3.abi,
@@ -41,7 +42,7 @@ export class PriceFeedService {
           functionName: "decimals",
         },
       ],
-    });
+    );
 
     const description = description_.result,
       decimals = decimals_.result;

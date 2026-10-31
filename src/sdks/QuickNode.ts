@@ -7,7 +7,7 @@ import {
   OneMinute,
   Provider,
 } from "../shared/constants";
-import { providerDescriptorOfChain } from "../shared/chains";
+import { getChain, providerDescriptorOfChain } from "../shared/chains";
 import { type OnchainNotifier } from "./interfaces/OnchainNotifier";
 import { SdkRequestError } from "../shared/errors";
 import { type BaseSdk } from "./interfaces/BaseSdk";
@@ -198,6 +198,13 @@ export class QuickNode implements OnchainNotifier, BaseSdk {
         type: KeyType.String,
       });
     });
+  };
+
+  getTrackingError = (caip2Id: Caip2Id): string | null => {
+    const network = getChain(caip2Id).descriptors?.[Provider.QuickNode];
+    return typeof network === "string"
+      ? null
+      : "not one of its supported networks";
   };
 
   trackAddressActivity = async (

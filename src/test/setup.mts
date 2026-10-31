@@ -54,6 +54,18 @@ vi.mock("../shared/scheduler", async () => {
   return { Scheduler: schedulerMock };
 });
 
+vi.mock("../sdks/NearIntents", async () => {
+  const { nearIntentsMock } = await import("./mocks.js");
+  return {
+    NearIntents: class {
+      getTokens = nearIntentsMock.getTokens;
+      getAssetId = nearIntentsMock.getAssetId;
+      quote = nearIntentsMock.quote;
+      getStatus = nearIntentsMock.getStatus;
+    },
+  };
+});
+
 vi.mock("../shared/onchainActor", async () => {
   const { fakeActor } = await import("./mocks.js");
   return {

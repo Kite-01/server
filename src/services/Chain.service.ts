@@ -1,12 +1,17 @@
+import {
+  getProvider,
+  isProviderConfiguredForAction,
+} from "../shared/providers";
 import { type Address, isAddress, keccak256, toHex } from "viem";
 import { and, eq, inArray, isNull, desc } from "drizzle-orm";
-import { isProviderConfiguredForAction } from "../shared/providers";
 import { getChain, getSupportedChains } from "../shared/chains";
+import { chain, chainConfig, token } from "../db/schema";
 import { AppError, NotFoundError } from "../shared/errors";
 import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
-import { chain, chainConfig } from "../db/schema";
+import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ProviderAction } from "../shared/constants";
+import { NearIntents } from "../sdks/NearIntents";
 import { KvService } from "./Kv.service";
 import { common } from "../shared/common";
 import { omit } from "lodash";
@@ -153,6 +158,18 @@ export class ChainService {
       }),
     );
 
+    for (const provider of input.onchainNotifierProviders) {
+      const reason = await getProvider<OnchainNotifier>(
+        provider,
+      ).getTrackingError(chain.caip2Id, { variables });
+
+      if (reason) {
+        throw new AppError(
+          `${provider} cannot track activity on ${internalChain.name}: ${reason}`,
+        );
+      }
+    }
+
     for (const provider of input.gasSponsorProviders) {
       const reason = await onchainActor.getSponsorshipError(
         chain.caip2Id,
@@ -179,6 +196,28 @@ export class ChainService {
         target: chainConfig.chainId,
         set: { ...omit(values, ["chainId"]), updatedAt: new Date() },
       });
+
+    // NEAR Intents may have started listing the settlement token since it was added
+    const settlementToken = await db.query.token.findFirst({
+      where: eq(token.id, input.settlementTokenId),
+    });
+
+    if (settlementToken) {
+      const nearIntents = new NearIntents();
+      const nearIntentsAssetId = await nearIntents
+        .getAssetId(chain.caip2Id, settlementToken.address, { variables })
+        .catch(() => undefined);
+
+      if (
+        nearIntentsAssetId !== undefined &&
+        nearIntentsAssetId !== settlementToken.nearIntentsAssetId
+      ) {
+        await db
+          .update(token)
+          .set({ nearIntentsAssetId })
+          .where(eq(token.id, settlementToken.id));
+      }
+    }
   };
 
   deleteChain = async (chainId: string) => {

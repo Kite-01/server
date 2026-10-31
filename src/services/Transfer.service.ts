@@ -13,6 +13,7 @@ import {
   transfer,
   transferTimeline,
   deposit,
+  payout,
 } from "../db/schema";
 import {
   AppError,
@@ -24,6 +25,7 @@ import {
 import {
   CancelledTransferWatchSeconds,
   OneMinute,
+  PayoutDeadlineMarginSeconds,
   Provider,
   SettleableTransferStatuses,
   TerminalTransferStatuses,
@@ -53,8 +55,8 @@ import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { PaymentLinkService } from "./PaymentLink.service";
 import { runProviderMethod } from "../shared/providers";
 import { getOnchainActor } from "../shared/onchainActor";
+import { PayoutService } from "./Payout.service";
 import { ChainService } from "./Chain.service";
-import { AppService } from "./App.service";
 import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
 import { KvService } from "./Kv.service";
@@ -474,6 +476,20 @@ export class TransferService {
         );
       }
 
+      if (currentStatus === TransferStatus.Settled) {
+        const paidOut = await transaction.query.payout.findFirst({
+          where: eq(payout.transferId, transferId),
+          columns: { transferId: true },
+        });
+
+        if (paidOut) {
+          await Scheduler.enqueueCheckPayout(
+            transferId,
+            dbWithTransaction(transaction),
+          );
+        }
+      }
+
       return true;
     });
   };
@@ -603,11 +619,18 @@ export class TransferService {
     const chain = getChain(caip2Id);
     const onchainActor = getOnchainActor(chain.type);
 
-    const settlementRecipient = getAddress(
-      (await new AppService().getSettlementAddress(appId)) ??
-        onchainActor.getAddress(),
-    );
+    const settlement = await new PayoutService().planSettlement({
+      appId,
+      chainId: quote_.chain.id,
+      caip2Id,
+      slippageBps: config.slippageBps,
+      settlementToken: quote_.targetToken,
+      amount:
+        quote_.targetAmount -
+        quote_.fees.reduce((total, fee) => total + fee.amount, 0n),
+    });
 
+    const settlementRecipient = getAddress(settlement.recipient);
     const minAmountOut =
       (quote_.targetAmount * (10000n - BigInt(config.slippageBps))) / 10000n;
 
@@ -703,6 +726,12 @@ export class TransferService {
         .returning();
       const created = omit(inserted, ["trackedBy"]);
 
+      if (settlement.payout) {
+        await transaction
+          .insert(payout)
+          .values({ ...settlement.payout, transferId: created.id });
+      }
+
       const [createdEvent] = await transaction
         .insert(event)
         .values({
@@ -731,7 +760,12 @@ export class TransferService {
       await transaction.insert(transferTimeline).values({
         transferId: created.id,
         eventId: createdEvent.id,
-        description: "Transfer created; awaiting deposit",
+        description: [
+          "Transfer created; awaiting deposit",
+          settlement.description,
+        ]
+          .filter(Boolean)
+          .join(". "),
       });
 
       await Scheduler.enqueueEvent(
@@ -786,6 +820,23 @@ export class TransferService {
       return this.abandonSettlement(
         row,
         "Transfer expired before it was settled",
+        balance,
+      );
+    }
+
+    const payout_ = await db.query.payout.findFirst({
+      where: eq(payout.transferId, row.id),
+      columns: { deadline: true },
+    });
+
+    if (
+      payout_ &&
+      payout_.deadline.getTime() - Date.now() <
+        common.toMs(PayoutDeadlineMarginSeconds)
+    ) {
+      return this.abandonSettlement(
+        row,
+        "The NEAR Intents deposit address for the payout is about to expire",
         balance,
       );
     }
@@ -1035,6 +1086,7 @@ export class TransferService {
     }
 
     await new OperatorForwardService().requeueStuck();
+    await new PayoutService().requeueUnfinished();
   };
 
   handleOnchainNotifierCallback = async (
@@ -1326,6 +1378,7 @@ export class TransferService {
       columns: { trackedBy: false },
       with: {
         timeline: true,
+        payout: { columns: { quote: false } },
         quote: {
           with: {
             sourceToken: true,
@@ -1349,6 +1402,11 @@ export class TransferService {
       columns: { trackedBy: false },
       with: {
         timeline: true,
+        payout: {
+          columns: {
+            quote: false,
+          },
+        },
         quote: {
           with: {
             sourceToken: true,
@@ -1412,6 +1470,11 @@ export class TransferService {
           offset,
           columns: { trackedBy: false },
           with: {
+            payout: {
+              columns: {
+                quote: false,
+              },
+            },
             app: {
               columns: {
                 id: true,
