@@ -5,7 +5,6 @@ import { HttpError } from "../../shared/errors";
 import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
-import { appendFileSync } from "node:fs";
 
 const appService = new AppService();
 
