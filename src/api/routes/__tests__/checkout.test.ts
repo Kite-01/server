@@ -673,7 +673,23 @@ describe("checkout", () => {
       const required = await challengeFor(link.id);
       const { payTo } = required.accepts[0];
 
-      await agent(link.id, { "PAYMENT-SIGNATURE": sign(required) });
+      // the app's error handler logs the failure; keep it out of the test output
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+
+      try {
+        const failed = await agent(link.id, {
+          "PAYMENT-SIGNATURE": sign(required),
+        });
+
+        expect(failed.status).toBe(500);
+        expect(consoleError).toHaveBeenCalledWith(
+          expect.objectContaining({ message: "rpc down" }),
+        );
+      } finally {
+        consoleError.mockRestore();
+      }
 
       const released = await db.query.transfer.findFirst({
         where: eq(transferTable.payinAddress, payTo),
