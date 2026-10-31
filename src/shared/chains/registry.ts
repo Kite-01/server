@@ -71,6 +71,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: mainnet.nativeCurrency,
     descriptors: {
+      NearIntents: "eth",
       TrustWallet: "ethereum",
       Alchemy: "ETH_MAINNET",
       QuickNode: "ethereum-mainnet",
@@ -98,6 +99,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: optimism.nativeCurrency,
     descriptors: {
+      NearIntents: "op",
       TrustWallet: "optimism",
       Alchemy: "OPT_MAINNET",
       QuickNode: "optimism-mainnet",
@@ -125,6 +127,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: bsc.nativeCurrency,
     descriptors: {
+      NearIntents: "bsc",
       TrustWallet: "binance",
       Alchemy: "BNB_MAINNET",
       QuickNode: "bnbchain-mainnet",
@@ -152,6 +155,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: polygon.nativeCurrency,
     descriptors: {
+      NearIntents: "pol",
       TrustWallet: "polygon",
       Alchemy: "MATIC_MAINNET",
       QuickNode: "polygon-mainnet",
@@ -179,6 +183,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: robinhood.nativeCurrency,
     descriptors: {
+      NearIntents: "hood",
       TrustWallet: "robinhoodchain",
       Alchemy: "ROBINHOOD_MAINNET",
       QuickNode: "robinhood-mainnet",
@@ -206,6 +211,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: base.nativeCurrency,
     descriptors: {
+      NearIntents: "base",
       TrustWallet: "base",
       Alchemy: "BASE_MAINNET",
       QuickNode: "base-mainnet",
@@ -233,6 +239,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: arbitrum.nativeCurrency,
     descriptors: {
+      NearIntents: "arb",
       TrustWallet: "arbitrum",
       Alchemy: "ARB_MAINNET",
       QuickNode: "arbitrum-mainnet",
@@ -260,6 +267,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     },
     nativeCurrency: monad.nativeCurrency,
     descriptors: {
+      NearIntents: "monad",
       TrustWallet: "monad",
       Alchemy: "MONAD_MAINNET",
       QuickNode: "monad-mainnet",

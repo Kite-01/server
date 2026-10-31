@@ -5,6 +5,7 @@ import {
 } from "../errors";
 import { Provider, ProviderAction } from "../constants";
 import { ProviderKeyVars } from "./registry";
+import { NearIntents } from "../../sdks/NearIntents";
 import { QuickNode } from "../../sdks/QuickNode";
 import { Thirdweb } from "../../sdks/Thirdweb";
 import { Alchemy } from "../../sdks/Alchemy";
@@ -14,6 +15,7 @@ export const ProvidersMap = {
   [Provider.QuickNode]: new QuickNode(),
   [Provider.Thirdweb]: new Thirdweb(),
   [Provider.TrustWallet]: null,
+  [Provider.NearIntents]: new NearIntents(),
 };
 
 export const getProvider = <T>(provider: Provider) =>

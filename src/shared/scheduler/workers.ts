@@ -4,6 +4,7 @@ import { TransferService } from "../../services/Transfer.service";
 import { WebhookService } from "../../services/Webhook.service";
 import { SafeHttpClient } from "../safeHttpClient";
 import { ApiKeyService } from "../../services/ApiKey.service";
+import { PayoutService } from "../../services/Payout.service";
 import { EventService } from "../../services/Event.service";
 import { type PgBoss } from "pg-boss";
 import { createHmac } from "node:crypto";
@@ -17,6 +18,7 @@ export const startWorkers = async (boss: PgBoss) => {
   const webhookService = new WebhookService();
   const transferService = new TransferService();
   const operatorForwardService = new OperatorForwardService();
+  const payoutService = new PayoutService();
   const apiKeyService = new ApiKeyService();
 
   await boss.work(Queue.EventFanout, { localConcurrency: 5 }, async ([job]) => {
@@ -197,6 +199,12 @@ export const startWorkers = async (boss: PgBoss) => {
     Queue.UntrackTransfer,
     { localConcurrency: 5 },
     async ([job]) => transferService.untrackTransfer(job.data.transferId),
+  );
+
+  await boss.work<{ transferId: string }>(
+    Queue.CheckPayout,
+    { localConcurrency: 5 },
+    async ([job]) => payoutService.checkPayout(job.data.transferId),
   );
 
   await boss.work(Queue.TransferSweep, async () => transferService.sweep());

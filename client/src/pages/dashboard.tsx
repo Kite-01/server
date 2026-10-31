@@ -477,14 +477,28 @@ export const Dashboard = () => {
                   key={token.id}
                   className="flex items-center gap-2 px-4.5 py-3"
                 >
-                  <SmartImage url={token.icon} className="size-8" />
+                  <div className="relative shrink-0">
+                    <SmartImage url={token.icon} className="size-8" />
+                    {token.chainIcon && (
+                      <span
+                        className="absolute -bottom-0.5 -right-0.5"
+                        title={token.chainName ?? undefined}
+                      >
+                        <SmartImage
+                          url={token.chainIcon}
+                          alt={token.chainName ?? ""}
+                          className="size-4 border-line bg-white"
+                        />
+                      </span>
+                    )}
+                  </div>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium">
                       {token.symbol}
                     </p>
                     <p className="truncate text-[11px] text-muted">
-                      {token.name}
+                      {token.name} ({token.chainName})
                     </p>
                   </div>
                   <p className="text-sm tabular-nums font-medium">

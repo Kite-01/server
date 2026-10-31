@@ -1,4 +1,5 @@
 import {
+  acceptChain,
   createApp,
   createChain,
   createConfiguredChain,
@@ -20,7 +21,7 @@ import {
 import { FeeType, KiteMaxFees, QuoteTTLSeconds } from "../../shared/constants";
 import { quoteAtTick, v2AmountIn, v2AmountOut } from "../../sdks/Uniswap";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { app, chainConfig, quoteFee } from "../../db/schema";
+import { appChain, chainConfig, quoteFee } from "../../db/schema";
 import { AppError, NotFoundError } from "../../shared/errors";
 import { PriceFeedService } from "../PriceFeed.service";
 import { QuoteService } from "../Quote.service";
@@ -35,6 +36,12 @@ const WethDaiTick = 76012;
 const lessFee = (amount: bigint, fee: number) =>
   (amount * (1_000_000n - BigInt(fee))) / 1_000_000n;
 
+const appAddressOnChain = (appId: string, address_: string) =>
+  db
+    .update(appChain)
+    .set({ address: address_ })
+    .where(eq(appChain.appId, appId));
+
 describe("QuoteService", () => {
   let appId: string;
   let chainId: string;
@@ -47,6 +54,7 @@ describe("QuoteService", () => {
     const configured = await createConfiguredChain();
     chainId = configured.chain.id;
     usdcId = configured.usdc.id;
+    await acceptChain(appId, chainId);
     weth = await createToken(chainId, {
       address: WETH,
       symbol: "WETH",
@@ -248,6 +256,18 @@ describe("QuoteService", () => {
       ).rejects.toBeInstanceOf(NotFoundError);
     });
 
+    it("refuses a chain the app doesn't take payments on", async () => {
+      const optimism = await createConfiguredChain("eip155:10");
+
+      await expect(
+        service.createQuote(appId, {
+          chainId: optimism.chain.id,
+          sourceTokenAddress: USDC,
+          amount: 1_000_000n,
+        }),
+      ).rejects.toThrow("App doesn't accept payments on OP Mainnet");
+    });
+
     it("enforces one reference per app", async () => {
       const input = {
         chainId,
@@ -259,6 +279,7 @@ describe("QuoteService", () => {
 
       await expect(service.createQuote(appId, input)).rejects.toThrow();
       const other = await createApp();
+      await acceptChain(other.id, chainId);
       await expect(service.createQuote(other.id, input)).resolves.toBeDefined();
     });
 
@@ -327,13 +348,10 @@ describe("QuoteService", () => {
         expect(rows.every((r) => r.feeAddress === operatorAddress)).toBe(true);
       });
 
-      it("sends fees to the fee address, else app fees to the app's settlement address and system fees to the operator", async () => {
+      it("sends fees to the fee address, else app fees to the app's address on the chain and system fees to the operator", async () => {
         const feeAddress = address(0xfee1);
         const settlement = address(0x5e77);
-        await db
-          .update(app)
-          .set({ settlementAddress: settlement })
-          .where(eq(app.id, appId));
+        await appAddressOnChain(appId, settlement);
 
         await createFee(chainId, {
           appId,
@@ -357,12 +375,10 @@ describe("QuoteService", () => {
         });
       });
 
-      it("sends an app's fees to its own settlement address, not another app's", async () => {
-        const other = await createApp({ settlementAddress: address(0x07e4) });
-        await db
-          .update(app)
-          .set({ settlementAddress: address(0x5e77) })
-          .where(eq(app.id, appId));
+      it("sends an app's fees to its own address on the chain, not another app's", async () => {
+        const other = await createApp();
+        await acceptChain(other.id, chainId, address(0x07e4));
+        await appAddressOnChain(appId, address(0x5e77));
         await createFee(chainId, { appId, label: "mine", value: 2n });
         await createFee(chainId, {
           appId: other.id,
@@ -449,11 +465,8 @@ describe("QuoteService", () => {
   });
 
   describe("createQuoteFromPaymentLink", () => {
-    it("sends the app's fees to its settlement address", async () => {
-      await db
-        .update(app)
-        .set({ settlementAddress: address(0x5e77) })
-        .where(eq(app.id, appId));
+    it("sends the app's fees to its address on the chain", async () => {
+      await appAddressOnChain(appId, address(0x5e77));
       await createFee(chainId, { appId, label: "default", value: 2n });
       const link = await createPaymentLink(appId, { amount: "10" });
 
@@ -664,6 +677,7 @@ describe("QuoteService", () => {
   describe("reads", () => {
     it("keeps quotes inside their app and loads relations", async () => {
       const other = await createApp();
+      await acceptChain(other.id, chainId);
       const mine = await service.createQuote(appId, {
         chainId,
         sourceTokenAddress: USDC,

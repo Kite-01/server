@@ -52,7 +52,7 @@ You need [Bun](https://bun.sh) 1.4+ and PostgreSQL.
 5. **Set it up in the dashboard**: open `http://localhost:3000`, sign in with your root key, then:
    1. under **Providers**, add the keys for a deposit notifier (QuickNode or Alchemy) and, optionally, a gas sponsor (Alchemy or thirdweb);
    2. under **Chains**, add a chain and configure it with your Kite factory address and settlement token;
-   3. create an **App**, then an **API key** for your backend;
+   3. create an **App**, turn on the **Chains** it accepts with an address on each, then create an **API key** for your backend;
    4. create a **Payment link** and open it to pay.
 
 To try it without real funds, set `KITE_IS_TESTNET=true` (see [Testnets](#testnets)).
@@ -98,6 +98,16 @@ Add a webhook URL to an app in the dashboard and Kite POSTs to it on every trans
 ```
 
 Each delivery carries `X-Kite-Timestamp` and `X-Kite-Signature`, the hex HMAC-SHA256 of `t=<timestamp>&<raw body>` keyed with the webhook's signing secret. `verifyWebhook` in `@kite-01/sdk` checks both. Failed deliveries are retried; use `eventId` to ignore repeats.
+
+### Getting paid on one chain
+
+By default a payment settles to the app's address on the chain it was paid on. To receive every payment in one place instead, set a **payout token** and **payout address** on the app, for example USDC on NEAR at `shop.near`:
+
+1. When a transfer opens, Kite asks [NEAR Intents](https://docs.near-intents.org/) (1Click) for a deposit address that converts the chain's settlement token into the payout token. The transfer settles into that address, and Intents delivers the payout token.
+2. The transfer timeline and the dashboard show the payout's progress, ending with the delivery transaction or a refund.
+3. Where Intents has no route, or can't quote, the payment settles to the app's address on the paying chain. Intents refunds go to that address too, so the operator never holds the money.
+
+Payout tokens are listed at `GET /api/tokens/payouts`. A 1Click API key, set under **Providers**, avoids the extra 0.25% fee charged without one. NEAR Intents has no testnet.
 
 ### API reference
 

@@ -1,4 +1,5 @@
 import {
+  acceptChain,
   createApiKey,
   createApp,
   createConfiguredChain,
@@ -34,6 +35,7 @@ const PAYER = address(0x9a7);
 
 describe("x402 API", () => {
   let appId: string;
+  let chainId: string;
   let transferRow: Awaited<ReturnType<typeof createTransferRow>>;
   let key: Awaited<ReturnType<typeof createApiKey>>;
 
@@ -62,6 +64,7 @@ describe("x402 API", () => {
     appId = app.id;
 
     const { chain, usdc } = await createConfiguredChain();
+    chainId = chain.id;
     const quote = await createQuoteRow({
       appId,
       chainId: chain.id,
@@ -115,7 +118,10 @@ describe("x402 API", () => {
     };
   };
 
-  it("advertises supported payment kinds to any key", async () => {
+  it("advertises payment kinds on the chains the app takes payments on", async () => {
+    await createConfiguredChain("eip155:10");
+    await acceptChain(appId, chainId);
+
     const res = await client(key.credentials).get("/api/x402/supported");
 
     expect(res.status).toBe(200);
@@ -129,6 +135,25 @@ describe("x402 API", () => {
     expect(res.json.signers).toEqual({
       "eip155:*": [operatorAddress],
     });
+  });
+
+  it("advertises every chain to the root key", async () => {
+    await createConfiguredChain("eip155:10");
+
+    const res = await client(rootCredentials()).get("/api/x402/supported");
+
+    expect(
+      res.json.kinds.map((kind: { network: string }) => kind.network).sort(),
+    ).toEqual(["eip155:10", "eip155:8453"]);
+  });
+
+  it("needs the x402 scope to list payment kinds", async () => {
+    const other = await createApiKey(appId, {
+      scopes: [ApiKeyScope.QuoteRead],
+    });
+
+    const res = await client(other.credentials).get("/api/x402/supported");
+    expect(res.status).toBe(403);
   });
 
   it("serves payment requirements for a transfer", async () => {

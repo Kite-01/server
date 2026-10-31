@@ -5,6 +5,7 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,6 +13,7 @@ import {
   appsListOptions,
   appsUpdateMutation,
   appsCreateMutation,
+  tokensListPayoutsOptions,
 } from "@/api/@tanstack/react-query.gen";
 import type { App } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -21,7 +23,7 @@ import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import SmartImage from "@/components/smart-image";
@@ -34,8 +36,21 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
     websiteUrl: app?.websiteUrl ?? "",
     termsOfServiceUrl: app?.termsOfServiceUrl ?? "",
     privacyPolicyUrl: app?.privacyPolicyUrl ?? "",
-    settlementAddress: app?.settlementAddress ?? "",
+    payoutAsset: app?.payoutAsset ?? "",
+    payoutAddress: app?.payoutAddress ?? "",
   });
+  const payoutTokens = useQuery(tokensListPayoutsOptions());
+  const tokens = [...(payoutTokens.data?.data ?? [])].sort(
+    (a, b) =>
+      a.blockchain.localeCompare(b.blockchain) ||
+      a.symbol.localeCompare(b.symbol),
+  );
+  const tokensByChain = Object.entries(
+    tokens.reduce<Record<string, typeof tokens>>((groups, token) => {
+      (groups[token.blockchain] ??= []).push(token);
+      return groups;
+    }, {}),
+  );
 
   const create = useMutate(appsCreateMutation(), {
     success: "App created",
@@ -57,7 +72,8 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
       websiteUrl: nullable(values.websiteUrl),
       termsOfServiceUrl: nullable(values.termsOfServiceUrl),
       privacyPolicyUrl: nullable(values.privacyPolicyUrl),
-      settlementAddress: nullable(values.settlementAddress),
+      payoutAsset: nullable(values.payoutAsset),
+      payoutAddress: nullable(values.payoutAddress),
     };
 
     if (app) update.mutate({ body, headers: { "x-kite-app-id": app.id } });
@@ -98,13 +114,31 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
         />
       </Field>
       <Field
-        label="Settlement address (optional)"
-        hint="Where settled funds go. Leave empty to use the operator wallet."
+        label="Payout token (optional)"
+        hint="Payments are converted to this token through NEAR Intents and sent to the payout address. Where there's no route, they settle to the app's address on the paying chain."
       >
-        <Input
-          value={values.settlementAddress}
-          onChange={set("settlementAddress")}
-        />
+        <Select value={values.payoutAsset} onChange={set("payoutAsset")}>
+          <option value="">None</option>
+          {values.payoutAsset &&
+            !tokens.some((token) => token.assetId === values.payoutAsset) && (
+              <option value={values.payoutAsset}>{values.payoutAsset}</option>
+            )}
+          {tokensByChain.map(([blockchain, items]) => (
+            <optgroup key={blockchain} label={blockchain}>
+              {items.map((token) => (
+                <option key={token.assetId} value={token.assetId}>
+                  {token.symbol}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </Select>
+      </Field>
+      <Field
+        label="Payout address"
+        hint="An address on the payout token's chain."
+      >
+        <Input value={values.payoutAddress} onChange={set("payoutAddress")} />
       </Field>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" onClick={onClose}>

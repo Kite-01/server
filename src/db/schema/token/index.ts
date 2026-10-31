@@ -30,6 +30,7 @@ export const token = pgTable(
     version: text("version"),
     icon: text("icon"),
     supportsEIP3009: boolean("supports_eip3009").notNull().default(false),
+    nearIntentsAssetId: text("near_intents_asset_id"),
     listed: boolean("listed").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

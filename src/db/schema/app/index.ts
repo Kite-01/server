@@ -3,6 +3,7 @@ import { paymentLink } from "../paymentLink";
 import { relations } from "drizzle-orm";
 import { customer } from "../customer";
 import { transfer } from "../transfer";
+import { appChain } from "../appChain";
 import { webhook } from "../webhook";
 import { apiKey } from "../apiKey";
 import { quote } from "../quote";
@@ -16,7 +17,8 @@ export const app = pgTable("kite_app", {
   websiteUrl: text("website_url"),
   termsOfServiceUrl: text("terms_of_service_url"),
   privacyPolicyUrl: text("privacy_policy_url"),
-  settlementAddress: text("settlement_address"), // defaults to the operator address (handled in the app layer)
+  payoutAsset: text("payout_asset"),
+  payoutAddress: text("payout_address"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -36,4 +38,5 @@ export const appRelations = relations(app, ({ many }) => ({
   events: many(event),
   quotes: many(quote),
   fees: many(fee),
+  chains: many(appChain),
 }));

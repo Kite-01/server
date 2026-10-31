@@ -26,6 +26,7 @@ const keyLabels: Partial<Record<Key["key"], string>> = {
   AlchemyAuthToken: "Auth token",
   QuickNodeApiKey: "API key",
   ThirdwebSecretKey: "Secret key",
+  NearIntentsApiKey: "API key",
 };
 
 const KeyField = ({ item, entry }: { item: Key; entry?: KvEntry }) => {

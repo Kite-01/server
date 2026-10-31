@@ -6,6 +6,7 @@ import {
   type Hex,
 } from "viem";
 import {
+  acceptChain,
   IMPLEMENTATION,
   createApp,
   createConfiguredChain,
@@ -180,6 +181,7 @@ describe("x402Service", () => {
     const configured = await createConfiguredChain();
     chainId = configured.chain.id;
     usdcId = configured.usdc.id;
+    await acceptChain(appId, chainId);
   });
 
   const open = async (

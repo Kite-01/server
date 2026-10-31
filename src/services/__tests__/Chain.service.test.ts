@@ -11,8 +11,13 @@ import {
   NotFoundError,
   AppError,
 } from "../../shared/errors";
+import {
+  fakeActor,
+  nearIntentsMock,
+  operatorAddress,
+  resetMocks,
+} from "../../test/mocks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeActor, operatorAddress, resetMocks } from "../../test/mocks";
 import { KeyType, KeyVars, Provider } from "../../shared/constants";
 import { ChainService } from "../Chain.service";
 import { KvService } from "../Kv.service";
@@ -128,6 +133,22 @@ describe("ChainService", () => {
       });
       tokens = { settlement: usdc.id, usd: usdc.id };
       readContract.mockResolvedValue(true);
+    });
+
+    it("refreshes the settlement token's NEAR Intents asset id", async () => {
+      nearIntentsMock.getAssetId.mockResolvedValue("nep141:base-usdc.near");
+      await service.upsertChainConfig(chainId, config(tokens));
+
+      expect(
+        (await service.getChainById(chainId))?.config?.settlementToken,
+      ).toMatchObject({ nearIntentsAssetId: "nep141:base-usdc.near" });
+
+      nearIntentsMock.getAssetId.mockRejectedValue(new Error("down"));
+      await service.upsertChainConfig(chainId, config(tokens));
+
+      expect(
+        (await service.getChainById(chainId))?.config?.settlementToken,
+      ).toMatchObject({ nearIntentsAssetId: "nep141:base-usdc.near" });
     });
 
     it("saves a normalised configuration and updates it in place", async () => {

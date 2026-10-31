@@ -33,6 +33,7 @@ import { TransferService } from "./Transfer.service";
 import { ExactEvmScheme } from "@x402/evm/exact/facilitator";
 import { TokenService } from "./Token.service";
 import { ChainService } from "./Chain.service";
+import { AppService } from "./App.service";
 import { KvService } from "./Kv.service";
 import { Scheduler } from "../shared/scheduler";
 import { common } from "../shared/common";
@@ -568,7 +569,7 @@ export class x402Service {
     );
   };
 
-  getSupported = async () => {
+  getSupported = async (appId?: string) => {
     const kinds: Array<{
       x402Version: number;
       scheme: string;
@@ -577,9 +578,10 @@ export class x402Service {
     }> = [];
 
     const chains = await new ChainService().getActiveChains();
+    const accepted = appId ? await new AppService().getChainIds(appId) : null;
 
     for (const chain of chains) {
-      if (!chain.config) {
+      if (!chain.config || (accepted && !accepted.has(chain.id))) {
         continue;
       }
 

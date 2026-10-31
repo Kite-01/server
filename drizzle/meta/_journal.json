@@ -78,6 +78,20 @@
       "when": 1793045425793,
       "tag": "0010_transfer_tracked_by",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793194640415,
+      "tag": "0011_app_chains_payouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793194642835,
+      "tag": "0012_app_drop_settlement_address",
+      "breakpoints": true
     }
   ]
 }

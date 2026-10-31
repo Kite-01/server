@@ -25,6 +25,7 @@ import { Providers } from "@/pages/providers";
 import { Quotes } from "@/pages/quotes";
 import { Transfers } from "@/pages/transfers";
 import { Webhooks } from "@/pages/webhooks";
+import { AppChains } from "@/pages/app-chains";
 
 // The public checkout, split out so its wallet code isn't loaded with the
 // dashboard.
@@ -77,6 +78,7 @@ export const App = () => {
 
       <Route path="apps/:appId" element={<AppRoute />}>
         <Route index element={<Dashboard />} />
+        <Route path="chains" element={<AppChains />} />
         <Route path="fees" element={<Fees />} />
         <Route path="customers" element={<Customers />} />
         <Route path="api-keys" element={<ApiKeys />} />

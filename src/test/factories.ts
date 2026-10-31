@@ -3,6 +3,7 @@ import { db } from "../db";
 import {
   apiKey,
   app,
+  appChain,
   chain,
   chainConfig,
   customer,
@@ -11,6 +12,7 @@ import {
   token,
 } from "../db/schema";
 import { FeeType, Provider } from "../shared/constants";
+import { operatorAddress } from "./mocks";
 import { signing } from "../shared/signing";
 
 let sequence = 0;
@@ -92,6 +94,20 @@ export const createConfiguredChain = async (
     .returning();
 
   return { chain: row, usdc, config };
+};
+
+// the app takes payments on the chain, paid to `address` there
+export const acceptChain = async (
+  appId: string,
+  chainId: string,
+  address = operatorAddress,
+) => {
+  const [row] = await db
+    .insert(appChain)
+    .values({ appId, chainId, address })
+    .returning();
+
+  return row;
 };
 
 export const createCustomer = async (

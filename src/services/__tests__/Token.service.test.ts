@@ -4,9 +4,9 @@ import {
   address,
   ZERO,
 } from "../../test/factories";
+import { fakeActor, nearIntentsMock, resetMocks } from "../../test/mocks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError, NotFoundError } from "../../shared/errors";
-import { fakeActor, resetMocks } from "../../test/mocks";
 import { TokenService } from "../Token.service";
 import { env } from "../../shared/env";
 
@@ -133,6 +133,55 @@ describe("TokenService", () => {
         supportsEIP3009: false,
         version: null,
       });
+    });
+
+    it("stores the token's NEAR Intents asset id when it is added", async () => {
+      multicall
+        .mockResolvedValueOnce([
+          { result: undefined },
+          { result: undefined },
+          { result: undefined },
+        ])
+        .mockResolvedValueOnce([
+          { result: "Plain Token" },
+          { result: "PLN" },
+          { result: 12 },
+        ]);
+      httpGet.mockResolvedValue({ isOk: false });
+      nearIntentsMock.getAssetId.mockResolvedValue(
+        `nep141:base-${TOKEN.toLowerCase()}.omft.near`,
+      );
+
+      const saved = await service.getTokenByAddress(chainId, TOKEN);
+
+      expect(saved.nearIntentsAssetId).toBe(
+        `nep141:base-${TOKEN.toLowerCase()}.omft.near`,
+      );
+      expect(nearIntentsMock.getAssetId).toHaveBeenCalledWith(
+        "eip155:8453",
+        TOKEN,
+        expect.anything(),
+      );
+    });
+
+    it("adds the token anyway when NEAR Intents can't be reached", async () => {
+      multicall
+        .mockResolvedValueOnce([
+          { result: undefined },
+          { result: undefined },
+          { result: undefined },
+        ])
+        .mockResolvedValueOnce([
+          { result: "Plain Token" },
+          { result: "PLN" },
+          { result: 12 },
+        ]);
+      httpGet.mockResolvedValue({ isOk: false });
+      nearIntentsMock.getAssetId.mockRejectedValue(new Error("down"));
+
+      const saved = await service.getTokenByAddress(chainId, TOKEN);
+
+      expect(saved).toMatchObject({ symbol: "PLN", nearIntentsAssetId: null });
     });
 
     it("fails when the contract is not a token", async () => {

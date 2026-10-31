@@ -121,13 +121,21 @@ export const NewTransferDialog = ({
   );
 };
 
-const Hash = ({ value, explorer }: { value: string; explorer?: string }) => (
+const Hash = ({
+  value,
+  explorer,
+  href = explorer && `${explorer}/tx/${value}`,
+}: {
+  value: string;
+  explorer?: string;
+  href?: string;
+}) => (
   <span className="flex items-center gap-1 font-mono">
     {shortAddress(value)}
     <CopyButton className="size-max text-muted" value={value} />
-    {explorer && (
+    {href && (
       <a
-        href={`${explorer}/tx/${value}`}
+        href={href}
         target="_blank"
         rel="noreferrer"
         aria-label="Open in explorer"
@@ -189,6 +197,33 @@ const Detail = ({
     ["Payin address", <Hash value={transfer.payinAddress} />],
     ["Refund address", <Hash value={transfer.refundAddress} />],
     ["Settles to", <Hash value={transfer.settlementRecipient} />],
+    ...(transfer.payout
+      ? ([
+          [
+            "Payout",
+            `${transfer.payout.destinationSymbol} on ${transfer.payout.destinationChain}, ${transfer.payout.status.toLowerCase()}`,
+          ],
+          [
+            "Paid out to",
+            transfer.payout.recipient.length > 20 ? (
+              <Hash value={transfer.payout.recipient} />
+            ) : (
+              <span className="font-mono">{transfer.payout.recipient}</span>
+            ),
+          ],
+          ...(transfer.payout.blockchainHash
+            ? [
+                [
+                  "Payout transaction",
+                  <Hash
+                    value={transfer.payout.blockchainHash}
+                    href={transfer.payout.explorerUrl ?? undefined}
+                  />,
+                ],
+              ]
+            : []),
+        ] as [string, React.ReactNode][])
+      : []),
     ...(transfer.settlementBlockchainHash
       ? ([
           [

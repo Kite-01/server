@@ -21,6 +21,7 @@ export const schedulerMock = {
   enqueueRecover: vi.fn(async () => undefined),
   enqueueForward: vi.fn(async () => undefined),
   enqueueUntrack: vi.fn(async () => undefined),
+  enqueueCheckPayout: vi.fn(async () => undefined),
   send: vi.fn(async () => undefined),
 };
 
@@ -52,8 +53,28 @@ export const fakeActor = {
   getGasPrice: vi.fn(async (..._args: unknown[]) => 1n),
 };
 
+export const nearIntentsMock = {
+  getTokens: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []),
+  getAssetId: vi.fn(
+    async (..._args: unknown[]): Promise<string | null> => null,
+  ),
+  quote: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("quote not stubbed");
+  }),
+  getStatus: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("getStatus not stubbed");
+  }),
+};
+
 export const resetMocks = () => {
   for (const fn of Object.values(schedulerMock)) fn.mockClear();
+  for (const fn of Object.values(nearIntentsMock)) fn.mockReset();
+  nearIntentsMock.getTokens.mockResolvedValue([]);
+  nearIntentsMock.getAssetId.mockResolvedValue(null);
+  nearIntentsMock.quote.mockRejectedValue(new Error("quote not stubbed"));
+  nearIntentsMock.getStatus.mockRejectedValue(
+    new Error("getStatus not stubbed"),
+  );
   for (const fn of Object.values(fakeActor)) fn.mockReset();
 
   fakeActor.getAddress.mockReturnValue(operatorAddress);

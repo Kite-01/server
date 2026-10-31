@@ -15,10 +15,12 @@ import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
 import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
 import { getChain } from "../shared/chains";
 import { Provider, zeroBytes32 } from "../shared/constants";
+import { chainConfig, token } from "../db/schema";
 import { getOnchainActor } from "../shared/onchainActor";
 import { ChainService } from "./Chain.service";
+import { NearIntents } from "../sdks/NearIntents";
+import { KvService } from "./Kv.service";
 import { common } from "../shared/common";
-import { chainConfig, token } from "../db/schema";
 import { Http } from "../sdks/Http";
 import { db } from "../db";
 
@@ -60,9 +62,16 @@ export class TokenService {
     if (!chain) throw new NotFoundError("chain", chainId);
 
     const saveToken = async (values: typeof token.$inferInsert) => {
+      const nearIntents = new NearIntents();
+      const nearIntentsAssetId = await nearIntents
+        .getAssetId(chain.caip2Id, values.address, {
+          variables: await new KvService().getSdkOptionVariables(),
+        })
+        .catch(() => null);
+
       await db
         .insert(token)
-        .values(values)
+        .values({ ...values, nearIntentsAssetId })
         .onConflictDoNothing({
           target: [token.chainId, token.address],
           where: isNull(token.deletedAt),
