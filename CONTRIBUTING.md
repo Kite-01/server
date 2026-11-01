@@ -11,7 +11,7 @@ For anything beyond a small fix, open an issue first and describe the change, so
 Related repos:
 
 - [Kite-01/contracts](https://github.com/Kite-01/contracts): the smart contracts each payment runs through
-- [Kite-01/monorepo](https://github.com/Kite-01/monorepo): `@kite-01/sdk` and `@kite-01/js`, generated from this server's API spec
+- [Kite-01/monorepo](https://github.com/Kite-01/monorepo): `@kite-01/sdk`, generated from this server's API spec
 
 ## Setup
 
