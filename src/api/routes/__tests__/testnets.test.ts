@@ -36,6 +36,21 @@ describe("testnets", () => {
     expect(created.status).toBe(422);
   });
 
+  it("lists configured chains with their name and icon", async () => {
+    await createConfiguredChain("eip155:8453");
+
+    const res = await root.get("/api/chains");
+
+    expect(res.status).toBe(200);
+    expect(res.json.data).toEqual([
+      expect.objectContaining({
+        caip2Id: "eip155:8453",
+        name: "Base",
+        icon: expect.stringMatching(/^https:\/\/.+\/logo\.png$/),
+      }),
+    ]);
+  });
+
   describe("with KITE_TESTNETS", () => {
     beforeEach(() => {
       env.KITE_IS_TESTNET = true;
