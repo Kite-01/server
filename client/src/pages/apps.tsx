@@ -1,11 +1,13 @@
 import {
   IconAppWindow,
+  IconChevronDown,
   IconEye,
   IconPencil,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { Collapsible } from "radix-ui";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -113,33 +115,51 @@ const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
           onChange={set("privacyPolicyUrl")}
         />
       </Field>
-      <Field
-        label="Payout token (optional)"
-        hint="Payments are converted to this token through NEAR Intents and sent to the payout address. Where there's no route, they settle to the app's address on the paying chain."
+      <Collapsible.Root
+        defaultOpen={!!(app?.payoutAsset || app?.payoutAddress)}
+        className="rounded-lg border border-line"
       >
-        <Select value={values.payoutAsset} onChange={set("payoutAsset")}>
-          <option value="">None</option>
-          {values.payoutAsset &&
-            !tokens.some((token) => token.assetId === values.payoutAsset) && (
-              <option value={values.payoutAsset}>{values.payoutAsset}</option>
-            )}
-          {tokensByChain.map(([blockchain, items]) => (
-            <optgroup key={blockchain} label={blockchain}>
-              {items.map((token) => (
-                <option key={token.assetId} value={token.assetId}>
-                  {token.symbol}
-                </option>
+        <Collapsible.Trigger className="group flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-ink">
+          Additional information
+          <IconChevronDown className="size-4 text-muted transition-transform group-data-[state=open]:rotate-180" />
+        </Collapsible.Trigger>
+        <Collapsible.Content className="space-y-4 border-t border-line p-3">
+          <Field
+            label="Payout token (optional)"
+            hint="Payments are converted to this token through NEAR Intents and sent to the payout address. Where there's no route, they settle to the app's address on the paying chain."
+          >
+            <Select value={values.payoutAsset} onChange={set("payoutAsset")}>
+              <option value="">None</option>
+              {values.payoutAsset &&
+                !tokens.some(
+                  (token) => token.assetId === values.payoutAsset,
+                ) && (
+                  <option value={values.payoutAsset}>
+                    {values.payoutAsset}
+                  </option>
+                )}
+              {tokensByChain.map(([blockchain, items]) => (
+                <optgroup key={blockchain} label={blockchain}>
+                  {items.map((token) => (
+                    <option key={token.assetId} value={token.assetId}>
+                      {token.symbol}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
-            </optgroup>
-          ))}
-        </Select>
-      </Field>
-      <Field
-        label="Payout address"
-        hint="An address on the payout token's chain."
-      >
-        <Input value={values.payoutAddress} onChange={set("payoutAddress")} />
-      </Field>
+            </Select>
+          </Field>
+          <Field
+            label="Payout address"
+            hint="An address on the payout token's chain."
+          >
+            <Input
+              value={values.payoutAddress}
+              onChange={set("payoutAddress")}
+            />
+          </Field>
+        </Collapsible.Content>
+      </Collapsible.Root>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" onClick={onClose}>
           Cancel

@@ -145,16 +145,19 @@ export const Shell = () => {
   return (
     <div className="mx-auto flex min-h-full max-w-400 flex-col bg-surface/10">
       {appId && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2.5 text-sm font-medium text-white">
-          <span className="flex items-center gap-2">
+        // one line on wider screens, so the sidebar can stick right below it
+        <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2.5 text-sm font-medium text-white md:h-14 md:flex-nowrap">
+          <span className="flex min-w-0 items-center gap-2">
             <IconInfoCircle className="size-4 shrink-0" />
-            You are viewing {name ?? "this app"}, changes you make here apply to
-            this app.
+            <span className="md:truncate">
+              You are viewing {name ?? "this app"}, changes you make here apply
+              to this app.
+            </span>
           </span>
 
           <Button
             size="sm"
-            className="h-9 px-4.5"
+            className="h-9 shrink-0 px-4.5"
             onClick={() => navigate("/apps")}
           >
             Back to apps
@@ -162,7 +165,12 @@ export const Shell = () => {
         </div>
       )}
       <div className="flex min-h-full">
-        <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 md:flex">
+        <aside
+          className={cn(
+            "sticky hidden w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 md:flex",
+            appId ? "top-14 h-[calc(100vh-3.5rem)]" : "top-0 h-screen",
+          )}
+        >
           <Sidebar items={items} />
         </aside>
 
