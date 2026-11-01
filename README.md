@@ -12,7 +12,7 @@ This server is the whole product: a Bun + Elysia API, the dashboard for running 
 
 - **Payment links**: priced in a fiat currency, with optional line items, your own `reference` and `meta`.
 - **Checkout**: customers pay by connecting a wallet (gasless with x402 where the token supports it) or by sending tokens to an address, shown as a QR code or text. It can also open over your own site with [`@kite-01/js`](https://github.com/Kite-01/monorepo/tree/main/packages/js).
-- **Agent payments**: a payment link is also an [x402](https://www.x402.org) resource. An agent that fetches `/pay/<id>` gets a `402` offering every network that takes x402, signs one and pays by repeating the request.
+- **Agent payments**: a payment link is also an [x402](https://www.x402.org) resource. An agent that fetches `/pay/<id>` with GET or POST gets a `402` offering every network that takes x402, signs one and pays by repeating the request.
 - **Any token in, your token out**: payments in another token are swapped through Uniswap V3, priced from time-weighted averages so a moved pool can't skew a quote.
 - **Settlement on-chain**: each payment runs through its own [Kite contract](https://github.com/Kite-01/contracts), which settles, pays fees or refunds.
 - **Webhooks** for every transfer status change, signed so you can verify them.

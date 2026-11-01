@@ -398,7 +398,7 @@ describe("checkout", () => {
     expect(settle.status).toBe(404);
   });
 
-  describe("GET /pay/:id for x402 clients", () => {
+  describe("GET and POST /pay/:id for x402 clients", () => {
     const agent = (id: string, headers: Record<string, string> = {}) =>
       call("GET", `/pay/${id}`, { accept: "*/*", ...headers });
 
@@ -561,6 +561,32 @@ describe("checkout", () => {
 
       const next = await challengeFor(link.id);
       expect(next.accepts[0].payTo).not.toBe(required.accepts[0].payTo);
+    });
+
+    it("takes the same payment over POST", async () => {
+      const post = (headers: Record<string, string>) =>
+        call("POST", `/pay/${link.id}`, headers, { body: {} });
+
+      // a POST is never the checkout page, whatever it accepts
+      const first = await post({ accept: "text/html,*/*" });
+      expect(first.status).toBe(402);
+      const required = decodePaymentRequiredHeader(
+        first.headers.get("PAYMENT-REQUIRED")!,
+      );
+      expect(required.accepts[0].payTo).toBe(
+        (await challengeFor(link.id)).accepts[0].payTo,
+      );
+
+      const paid = await post({ "PAYMENT-SIGNATURE": sign(required) });
+
+      expect(paid.status).toBe(200);
+      expect(
+        decodePaymentResponseHeader(paid.headers.get("PAYMENT-RESPONSE")!),
+      ).toMatchObject({ success: true, transaction: "0xsettled" });
+      expect(paid.json).toMatchObject({
+        paymentLinkId: link.id,
+        title: "Pro plan",
+      });
     });
 
     it("hands the agent the merchant's return URL once paid", async () => {

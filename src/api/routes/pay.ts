@@ -23,7 +23,7 @@ const PayPath =
   /^\/pay\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 
 const x402LinkId = (request: Request) => {
-  if (request.method !== "GET") {
+  if (request.method !== "GET" && request.method !== "POST") {
     return null;
   }
 
@@ -32,9 +32,12 @@ const x402LinkId = (request: Request) => {
     return null;
   }
 
+  // browsers only GET the link, for the checkout page
   const accept = request.headers.get("accept") ?? "";
   const isX402 =
-    request.headers.has("PAYMENT-SIGNATURE") || !accept.includes("text/html");
+    request.method === "POST" ||
+    request.headers.has("PAYMENT-SIGNATURE") ||
+    !accept.includes("text/html");
 
   return isX402 ? id.toLowerCase() : null;
 };
