@@ -97,6 +97,7 @@ export type ConfiguredChain = {
   id: string;
   caip2Id: string;
   name: string;
+  icon: string;
   settlementToken: Token;
   usdPeggedToken: Token;
 };
@@ -1732,12 +1733,32 @@ export type KvListProvidersResponses = {
 
 export type KvListProvidersResponse = KvListProvidersResponses[keyof KvListProvidersResponses];
 
+export type KvDeleteData = {
+  body?: never;
+  path: {
+    key: string;
+  };
+  query?: never;
+  url: '/api/kv/{key}';
+};
+
+export type KvDeleteResponses = {
+  /**
+   * Response for status 200
+   */
+  200: {
+    key: string;
+  };
+};
+
+export type KvDeleteResponse = KvDeleteResponses[keyof KvDeleteResponses];
+
 export type KvSetData = {
   body: {
     value: string | null;
   };
   path: {
-    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey' | 'NearIntentsApiKey';
+    key: 'AlchemyApiKey' | 'AlchemyGasPolicyId' | 'AlchemyAuthToken' | 'QuickNodeApiKey' | 'QuickNodeEvmWalletFilter_WalletsListName' | 'QuickNodeEvmContractEvents_ContractsListName' | 'QuickNodeEvmContractEvents_EventHashesListName' | 'QuickNodeWebhookSecurityToken' | 'ThirdwebSecretKey' | 'NearIntentsApiKey' | string;
   };
   query?: never;
   url: '/api/kv/{key}';

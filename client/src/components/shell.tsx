@@ -15,6 +15,7 @@ import {
   IconMenu,
   IconX,
   IconInfoCircle,
+  IconDatabase,
 } from "@tabler/icons-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
@@ -38,6 +39,7 @@ const rootItems: Item[] = [
   { to: "/fees", label: "Fees", icon: IconDiscount2 },
   { to: "/apps", label: "Apps", icon: IconAppWindow },
   { to: "/providers", label: "Providers", icon: IconSecretPhrases },
+  { to: "/kv", label: "KV", icon: IconDatabase },
   { to: "/price-feeds", label: "Price feeds", icon: IconTag },
 ];
 

@@ -1,11 +1,16 @@
 import {
   getProviderStatuses,
   KeyVarDependents,
-  SettableKeyVars,
+  KeyVarTypes,
 } from "../shared/providers/registry";
+import {
+  KeyType,
+  KeyVarPrefix,
+  KeyVars,
+  type KvKey,
+} from "../shared/constants";
 import { eq, inArray, isNull, like, or, sql } from "drizzle-orm";
-import { KeyType, KeyVars, type KvKey } from "../shared/constants";
-import { AppError } from "../shared/errors";
+import { AppError, NotFoundError } from "../shared/errors";
 import { crypt } from "../shared/crypt";
 import { kv } from "../db/schema";
 import { db } from "../db";
@@ -97,10 +102,12 @@ export class KvService {
     return rows.map(this.decode);
   };
 
-  setProviderKey = async (key: KeyVars, input: string | null) => {
+  setKey = async (key: KvKey, input: string | null) => {
     const value = input?.trim() || null;
-    const type = SettableKeyVars[key];
-    if (!type) throw new AppError(`${key} is managed by the server`);
+    const type = KeyVarTypes[key.split(":")[0] as KeyVars | KeyVarPrefix];
+    if (!type) {
+      throw new AppError(`${key} is not a key the server reads`);
+    }
 
     const previous = await this.getKv(key);
 
@@ -110,14 +117,33 @@ export class KvService {
       value,
     });
 
-    const dependents = KeyVarDependents[key] ?? [];
-    if (dependents.length && (previous?.value ?? null) !== value) {
-      await db
-        .delete(kv)
-        .where(or(...dependents.map((prefix) => like(kv.key, `${prefix}:%`))));
+    if ((previous?.value ?? null) !== value) {
+      await this.deleteDependents(key);
     }
 
     return (await this.getKv(key))!;
+  };
+
+  deleteKey = async (key: string) => {
+    const [row] = await db
+      .delete(kv)
+      .where(eq(kv.key, key as KvKey))
+      .returning({ key: kv.key });
+
+    if (!row) {
+      throw new NotFoundError("kv", key);
+    }
+
+    await this.deleteDependents(row.key);
+  };
+
+  private deleteDependents = async (key: KvKey) => {
+    const dependents = KeyVarDependents[key as KeyVars] ?? [];
+    if (!dependents.length) return;
+
+    await db
+      .delete(kv)
+      .where(or(...dependents.map((prefix) => like(kv.key, `${prefix}:%`))));
   };
 
   // Serialises work on a key across processes, for values that can't be

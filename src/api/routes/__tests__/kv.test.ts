@@ -5,10 +5,14 @@ import {
   KeyVarPrefix,
   KeyVars,
   networkKeyVar,
+  type KvKey,
 } from "../../../shared/constants";
 import { createApiKey, createApp } from "../../../test/factories";
 import { client, rootCredentials } from "../../../test/api";
+import { eq, inArray } from "drizzle-orm";
 import { KvService } from "../../../services/Kv.service";
+import { kv } from "../../../db/schema";
+import { db } from "../../../db";
 
 describe("configuration values", () => {
   beforeEach(async () => {
@@ -144,15 +148,15 @@ describe("configuration values", () => {
       "ethereum-mainnet",
     );
 
-    await service.setProviderKey(KeyVars.QuickNodeApiKey, "first");
+    await service.setKey(KeyVars.QuickNodeApiKey, "first");
     for (const key of [base, ethereum]) {
       await service.upsertKv({ key, type: KeyType.String, value: "webhook" });
     }
 
-    await service.setProviderKey(KeyVars.QuickNodeApiKey, "first");
+    await service.setKey(KeyVars.QuickNodeApiKey, "first");
     expect((await service.getKv(base))?.value).toBe("webhook");
 
-    await service.setProviderKey(KeyVars.QuickNodeApiKey, "second");
+    await service.setKey(KeyVars.QuickNodeApiKey, "second");
     expect(await service.getKv(base)).toBeNull();
     expect(await service.getKv(ethereum)).toBeNull();
     expect((await service.getKv(KeyVars.QuickNodeApiKey))?.value).toBe(
@@ -160,16 +164,59 @@ describe("configuration values", () => {
     );
   });
 
-  it("does not set keys the server manages", async () => {
+  it("sets keys the server manages, with the type they are stored as", async () => {
     const res = await client(rootCredentials()).put(
       `/api/kv/${KeyVars.QuickNodeWebhookSecurityToken}`,
-      { value: "forged" },
+      { value: "token" },
     );
 
-    expect(res.status).toBe(400);
-    expect(
-      await new KvService().getKv(KeyVars.QuickNodeWebhookSecurityToken),
-    ).toBeNull();
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      key: KeyVars.QuickNodeWebhookSecurityToken,
+      type: KeyType.SecureString,
+      value: "token",
+    });
+
+    const [row] = await db
+      .select()
+      .from(kv)
+      .where(eq(kv.key, KeyVars.QuickNodeWebhookSecurityToken));
+    expect(row?.value).toMatch(/^cipher\./);
+  });
+
+  it("sets a per-network key", async () => {
+    const key = networkKeyVar(
+      KeyVarPrefix.AlchemyAddressActivity_Webhook,
+      "BASE_MAINNET",
+    );
+
+    const res = await client(rootCredentials()).put(
+      `/api/kv/${encodeURIComponent(key)}`,
+      { value: '{"id":"wh_1","signingKey":"sk"}' },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({ key, type: KeyType.SecureString });
+  });
+
+  it("does not set keys the server doesn't read", async () => {
+    const keys = [
+      "Unknown",
+      "AlchemyAddressActivity_Webhooks",
+      `${KeyVarPrefix.QuickNodeEvmWalletFilter_WebhookId}:`,
+      `${KeyVarPrefix.QuickNodeEvmWalletFilter_WebhookId}:base mainnet`,
+    ];
+
+    for (const key of keys) {
+      const res = await client(rootCredentials()).put(
+        `/api/kv/${encodeURIComponent(key)}`,
+        { value: "value" },
+      );
+
+      expect(res.status).toBe(422);
+    }
+
+    expect(await new KvService().getKvs(keys as KvKey[])).toEqual([]);
   });
 
   it("does not let API keys set provider keys", async () => {
@@ -186,5 +233,85 @@ describe("configuration values", () => {
     expect((await new KvService().getKv(KeyVars.AlchemyApiKey))?.value).toBe(
       "alchemy-secret",
     );
+  });
+
+  it("deletes a value", async () => {
+    const service = new KvService();
+    const key = networkKeyVar(
+      KeyVarPrefix.QuickNodeEvmWalletFilter_WebhookId,
+      "base-mainnet",
+    );
+    await service.setKey(key, "webhook");
+
+    const res = await client(rootCredentials()).delete(
+      `/api/kv/${encodeURIComponent(key)}`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ key });
+    expect(await service.getKv(key)).toBeNull();
+    expect(await service.getKv(KeyVars.AlchemyApiKey)).not.toBeNull();
+  });
+
+  it("deletes rows the server no longer reads or can't decrypt", async () => {
+    const legacy = "AlchemyAddressActivity_Webhooks" as KvKey;
+    await db.insert(kv).values([
+      { key: legacy, type: KeyType.String, value: "old" },
+      {
+        key: KeyVars.ThirdwebSecretKey,
+        type: KeyType.SecureString,
+        value: "cipher.broken",
+      },
+    ]);
+
+    for (const key of [legacy, KeyVars.ThirdwebSecretKey]) {
+      const res = await client(rootCredentials()).delete(`/api/kv/${key}`);
+      expect(res.status).toBe(200);
+    }
+
+    expect(
+      await db
+        .select()
+        .from(kv)
+        .where(inArray(kv.key, [legacy, KeyVars.ThirdwebSecretKey])),
+    ).toEqual([]);
+  });
+
+  it("drops the webhooks made under a provider key it deletes", async () => {
+    const service = new KvService();
+    const webhook = networkKeyVar(
+      KeyVarPrefix.AlchemyContractEvents_Webhook,
+      "BASE_MAINNET",
+    );
+    await service.setKey(KeyVars.AlchemyAuthToken, "token");
+    await service.setKey(webhook, "webhook");
+
+    const res = await client(rootCredentials()).delete(
+      `/api/kv/${KeyVars.AlchemyAuthToken}`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await service.getKv(webhook)).toBeNull();
+  });
+
+  it("answers 404 for a key that isn't stored", async () => {
+    const res = await client(rootCredentials()).delete(
+      `/api/kv/${KeyVars.NearIntentsApiKey}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("does not let API keys delete values", async () => {
+    const key = await createApiKey((await createApp()).id, {
+      scopes: Object.values(ApiKeyScope),
+    });
+
+    const res = await client(key.credentials).delete(
+      `/api/kv/${KeyVars.AlchemyApiKey}`,
+    );
+
+    expect(res.status).toBe(403);
+    expect(await new KvService().getKv(KeyVars.AlchemyApiKey)).not.toBeNull();
   });
 });

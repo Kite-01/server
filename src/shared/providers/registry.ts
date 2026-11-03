@@ -74,6 +74,18 @@ export const SettableKeyVars = Object.fromEntries(
   ),
 ) as Partial<Record<KeyVars, KeyType>>;
 
+export const KeyVarTypes: Partial<Record<KeyVars | KeyVarPrefix, KeyType>> = {
+  ...SettableKeyVars,
+  [KeyVars.QuickNodeEvmWalletFilter_WalletsListName]: KeyType.String,
+  [KeyVars.QuickNodeEvmContractEvents_ContractsListName]: KeyType.String,
+  [KeyVars.QuickNodeEvmContractEvents_EventHashesListName]: KeyType.String,
+  [KeyVars.QuickNodeWebhookSecurityToken]: KeyType.SecureString,
+  [KeyVarPrefix.AlchemyAddressActivity_Webhook]: KeyType.SecureString,
+  [KeyVarPrefix.AlchemyContractEvents_Webhook]: KeyType.SecureString,
+  [KeyVarPrefix.QuickNodeEvmWalletFilter_WebhookId]: KeyType.String,
+  [KeyVarPrefix.QuickNodeEvmContractEvents_WebhookId]: KeyType.String,
+};
+
 export const KeyVarDependents: Partial<Record<KeyVars, KeyVarPrefix[]>> = {
   [KeyVars.AlchemyAuthToken]: [
     KeyVarPrefix.AlchemyAddressActivity_Webhook,

@@ -1,5 +1,5 @@
+import { KeyVarPrefix, KeyVars, type KvKey } from "../../shared/constants";
 import { KvService } from "../../services/Kv.service";
-import { KeyVars } from "../../shared/constants";
 import { models } from "../models";
 import { Elysia } from "elysia";
 import { Auth } from "../middlewares/auth";
@@ -35,10 +35,17 @@ export const kvRoutes = new Elysia({ name: "KvRoute" })
   })
   .put(
     "/kv/:key",
-    ({ params, body }) => kv.setProviderKey(params.key, body.value),
+    ({ params, body }) => kv.setKey(params.key as KvKey, body.value),
     {
       parse: "json",
-      params: t.Object({ key: t.Enum(KeyVars) }),
+      params: t.Object({
+        key: t.Union([
+          t.Enum(KeyVars),
+          t.String({
+            pattern: `^(?:${Object.values(KeyVarPrefix).join("|")}):[A-Za-z0-9_-]+$`,
+          }),
+        ]),
+      }),
       body: t.Object({
         value: t.Union([t.String({ minLength: 1 }), t.Null()]),
       }),
@@ -49,7 +56,30 @@ export const kvRoutes = new Elysia({ name: "KvRoute" })
         operationId: "kv.set",
         security: [{ rootKey: [] }],
         tags: ["Kv"],
-        summary: "Set a provider key",
+        summary: "Set a configuration value",
+      },
+    },
+  )
+  .delete(
+    "/kv/:key",
+    async ({ params }) => {
+      await kv.deleteKey(params.key);
+      return {
+        key: params.key,
+      };
+    },
+    {
+      params: t.Object({ key: t.String({ minLength: 1 }) }),
+      response: {
+        200: t.Object({
+          key: t.String(),
+        }),
+      },
+      detail: {
+        operationId: "kv.delete",
+        security: [{ rootKey: [] }],
+        tags: ["Kv"],
+        summary: "Delete a configuration value",
       },
     },
   );

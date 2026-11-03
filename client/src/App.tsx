@@ -18,6 +18,7 @@ import { Chains } from "@/pages/chains";
 import { Customers } from "@/pages/customers";
 import { Dashboard } from "@/pages/dashboard";
 import { Fees } from "@/pages/fees";
+import { Kv } from "@/pages/kv";
 import { Login } from "@/pages/login";
 import { PaymentLinks } from "@/pages/payment-links";
 import { PriceFeeds } from "@/pages/price-feeds";
@@ -73,6 +74,7 @@ export const App = () => {
         <Route path="fees" element={<Fees />} />
         <Route path="apps" element={<Apps />} />
         <Route path="providers" element={<Providers />} />
+        <Route path="kv" element={<Kv />} />
         <Route path="price-feeds" element={<PriceFeeds />} />
       </Route>
 
