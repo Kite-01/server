@@ -34,6 +34,8 @@ export default async function setup(project: TestProject) {
     password: "postgres",
     port,
     persistent: false,
+    // initdb won't run as root, so a root container runs it as the postgres user
+    createPostgresUser: process.getuid?.() === 0,
     onLog: () => {},
   });
 

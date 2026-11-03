@@ -12,7 +12,7 @@ import {
 } from "../shared/constants";
 import { type UniswapQuoter } from "./interfaces/UniswapQuoter";
 import { getOnchainActor } from "../shared/onchainActor";
-import { getChain } from "../shared/chains";
+import { getChain, getEvmChain } from "../shared/chains";
 import { common } from "../shared/common";
 
 const Q112 = 1n << 112n;
@@ -194,7 +194,7 @@ export class Uniswap implements UniswapQuoter {
 
   private getToken = (caip2Id: Caip2Id, tokenAddress: string) => {
     if (!common.isZeroAddress(tokenAddress)) return getAddress(tokenAddress);
-    return getAddress(getChain(caip2Id).contracts.WETH9);
+    return getAddress(getEvmChain(caip2Id).contracts.WETH9);
   };
 
   private ethCall = async (
@@ -346,7 +346,7 @@ export class Uniswap implements UniswapQuoter {
   getTwap = async (caip2Id: Caip2Id, tokenIn: string, tokenOut: string) => {
     const factory = await this.getFactory(
       caip2Id,
-      getChain(caip2Id).contracts.Uniswap?.SwapRouter02,
+      getEvmChain(caip2Id).contracts.Uniswap?.SwapRouter02,
     );
 
     if (!factory) {
@@ -456,7 +456,7 @@ export class Uniswap implements UniswapQuoter {
   getV2Twap = async (caip2Id: Caip2Id, tokenIn: string, tokenOut: string) => {
     const factory = await this.getFactory(
       caip2Id,
-      getChain(caip2Id).contracts.Uniswap?.UniswapV2Router02,
+      getEvmChain(caip2Id).contracts.Uniswap?.UniswapV2Router02,
     );
 
     if (!factory) {

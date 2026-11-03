@@ -61,7 +61,7 @@ import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
 import { KvService } from "./Kv.service";
 import { Scheduler } from "../shared/scheduler";
-import { getChain } from "../shared/chains";
+import { getChain, getEvmChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { kite } from "../shared/kiteContract";
 import { omit } from "lodash";
@@ -616,7 +616,7 @@ export class TransferService {
       throw new AppError("The refund address is not a valid address");
 
     const caip2Id = quote_.chain.caip2Id;
-    const chain = getChain(caip2Id);
+    const chain = getEvmChain(caip2Id);
     const onchainActor = getOnchainActor(chain.type);
 
     const settlement = await new PayoutService().planSettlement({

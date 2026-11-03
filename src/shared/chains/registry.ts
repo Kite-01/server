@@ -19,10 +19,8 @@ import {
 import { ChainType } from "../constants";
 import { Address, zeroAddress } from "viem";
 
-type Chain = {
+type ChainBase = {
   caip2Id: Caip2Id;
-  type: ChainType;
-  chainId: number;
   name: string;
   icon: string;
   testnet?: true;
@@ -38,6 +36,11 @@ type Chain = {
     decimals: number;
   };
   descriptors?: Record<string, unknown>;
+};
+
+export type EvmChain = ChainBase & {
+  type: ChainType.Evm;
+  chainId: number;
   contracts: {
     multicall3?: {
       address: Address;
@@ -53,6 +56,23 @@ type Chain = {
     };
   };
 };
+
+export type NearChain = ChainBase & {
+  type: ChainType.Near;
+  networkId: "mainnet" | "testnet";
+  contracts: {
+    wrapNear: string;
+    /**
+     * @see https://guide.rhea.finance/developers/contracts
+     */
+    Rhea?: {
+      dcl?: string;
+      refV1?: string;
+    };
+  };
+};
+
+export type Chain = EvmChain | NearChain;
 
 const icon = (folder: string) => {
   return `https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/${folder}/info/logo.png`;
@@ -467,6 +487,52 @@ export const Chains: Record<Caip2Id, Chain> = {
          * @see https://trisolaris-labs.github.io/docs/contracts/#testnet-deployments
          */
         UniswapV2Router02: "0x26ec2aFBDFdFB972F106100A3deaE5887353d9B9",
+      },
+    },
+  },
+  "near:mainnet": {
+    caip2Id: "near:mainnet",
+    type: ChainType.Near,
+    networkId: "mainnet",
+    name: "NEAR",
+    icon: icon("near"),
+    publicRpcUrls: ["https://free.rpc.fastnear.com", "https://near.lava.build"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "NearBlocks",
+      url: "https://nearblocks.io",
+    },
+    nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
+    descriptors: {
+      NearIntents: "near",
+    },
+    contracts: {
+      wrapNear: "wrap.near",
+      Rhea: {
+        dcl: "dclv2.ref-labs.near",
+        refV1: "v2.ref-finance.near",
+      },
+    },
+  },
+  "near:testnet": {
+    caip2Id: "near:testnet",
+    type: ChainType.Near,
+    networkId: "testnet",
+    name: "NEAR Testnet",
+    icon: icon("near"),
+    testnet: true,
+    publicRpcUrls: ["https://test.rpc.fastnear.com"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "NearBlocks",
+      url: "https://testnet.nearblocks.io",
+    },
+    nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
+    contracts: {
+      wrapNear: "wrap.testnet",
+      Rhea: {
+        dcl: "dclv2.ref-dev.testnet",
+        refV1: "ref-finance-101.testnet",
       },
     },
   },

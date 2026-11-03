@@ -53,6 +53,36 @@ export const fakeActor = {
   getGasPrice: vi.fn(async (..._args: unknown[]) => 1n),
 };
 
+export const nearOperator = "a".repeat(64);
+
+export const fakeNearActor = {
+  getAddress: vi.fn(() => nearOperator),
+  getPublicKey: vi.fn(() => "ed25519:11111111111111111111111111111111"),
+  getBalance: vi.fn(async (..._args: unknown[]) => 0n),
+  view: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("view not stubbed");
+  }),
+  accountExists: vi.fn(async (..._args: unknown[]) => true),
+  functionCall: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("functionCall not stubbed");
+  }),
+  transferNear: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("transferNear not stubbed");
+  }),
+  getOutcome: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("getOutcome not stubbed");
+  }),
+  getTransactionStatus: vi.fn(
+    async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
+  ),
+  getConfirmations: vi.fn(async (..._args: unknown[]) => 1n),
+  getBlockNumber: vi.fn(async (..._args: unknown[]) => 1n),
+  getSponsorshipError: vi.fn(
+    async (..._args: unknown[]): Promise<string | null> =>
+      "Gas sponsors aren't available on NEAR; the operator pays gas",
+  ),
+};
+
 export const nearIntentsMock = {
   getTokens: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []),
   getAssetId: vi.fn(
@@ -76,6 +106,15 @@ export const resetMocks = () => {
     new Error("getStatus not stubbed"),
   );
   for (const fn of Object.values(fakeActor)) fn.mockReset();
+  for (const fn of Object.values(fakeNearActor)) fn.mockReset();
+  fakeNearActor.getAddress.mockReturnValue(nearOperator);
+  fakeNearActor.getBalance.mockResolvedValue(0n);
+  fakeNearActor.accountExists.mockResolvedValue(true);
+  fakeNearActor.getConfirmations.mockResolvedValue(1n);
+  fakeNearActor.view.mockRejectedValue(new Error("view not stubbed"));
+  fakeNearActor.functionCall.mockRejectedValue(
+    new Error("functionCall not stubbed"),
+  );
 
   fakeActor.getAddress.mockReturnValue(operatorAddress);
   fakeActor.getBalance.mockResolvedValue(0n);

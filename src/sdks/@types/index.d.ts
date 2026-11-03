@@ -1,5 +1,5 @@
-type Caip2Namespace = "eip155";
-type Caip2Id = `${Caip2Namespace}:${number}`;
+type Caip2Namespace = "eip155" | "near";
+type Caip2Id = `eip155:${number}` | "near:mainnet" | "near:testnet";
 
 type HttpResponse<T = unknown, H = Record<string, unknown>> = {
   isOk: boolean;

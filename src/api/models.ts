@@ -163,7 +163,7 @@ const SupportedChain = t.Object(
   {
     caip2Id: t.String(),
     name: t.String(),
-    chainId: Int,
+    chainId: Nullable(Int),
     testnet: t.Boolean(),
     nativeCurrency: t.Object({
       name: t.String(),
@@ -687,7 +687,7 @@ const Checkout = t.Object(
         id: Uuid,
         caip2Id: t.String(),
         name: t.String(),
-        chainId: Int,
+        chainId: Nullable(Int),
         testnet: t.Boolean(),
         icon: t.String(),
         nativeCurrency: SupportedChain.properties.nativeCurrency,
