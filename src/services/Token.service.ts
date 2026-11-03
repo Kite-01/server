@@ -1,11 +1,4 @@
-import {
-  type Address,
-  type Hex,
-  erc20Abi,
-  getAddress,
-  isAddress,
-  parseAbi,
-} from "viem";
+import { type Address, type Hex, erc20Abi, isAddress, parseAbi } from "viem";
 import {
   paginate,
   searchPattern,
@@ -14,9 +7,10 @@ import {
 import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
 import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
 import { getChain, readContracts } from "../shared/chains";
-import { Provider, zeroBytes32 } from "../shared/constants";
+import { ChainType, Provider, zeroBytes32 } from "../shared/constants";
+import { isNearAccountId, NearNativeToken } from "../shared/kiteNearContract";
 import { chainConfig, token } from "../db/schema";
-import { getOnchainActor } from "../shared/onchainActor";
+import { getNearActor, getOnchainActor } from "../shared/onchainActor";
 import { ChainService } from "./Chain.service";
 import { NearIntents } from "../sdks/NearIntents";
 import { KvService } from "./Kv.service";
@@ -26,7 +20,10 @@ import { db } from "../db";
 
 export class TokenService {
   findTokenByAddress = async (chainId: string, tokenAddress: string) => {
-    if (!isAddress(tokenAddress, { strict: false })) {
+    if (
+      !isAddress(tokenAddress, { strict: false }) &&
+      !isNearAccountId(tokenAddress)
+    ) {
       return undefined;
     }
 
@@ -34,7 +31,7 @@ export class TokenService {
       with: { chain: true },
       where: and(
         eq(token.chainId, chainId),
-        eq(token.address, getAddress(tokenAddress)),
+        eq(token.address, common.normalizeAddress(tokenAddress)),
         isNull(token.deletedAt),
       ),
     });
@@ -89,7 +86,16 @@ export class TokenService {
     const descriptor = chain_.descriptors?.[Provider.TrustWallet] as
       string | undefined;
 
-    if (common.isZeroAddress(address)) {
+    const isNative =
+      chain_.type === ChainType.Near
+        ? address === NearNativeToken
+        : common.isZeroAddress(address);
+
+    if (!common.isValidAddress(chain_.type, address)) {
+      throw new AppError(`${address} is not a token address on ${chain_.name}`);
+    }
+
+    if (isNative) {
       return saveToken({
         chainId,
         address,
@@ -98,6 +104,41 @@ export class TokenService {
         name: chain_.nativeCurrency.name,
         supportsEIP3009: false,
         icon: descriptor ? `${TWAssetsUrl}/${descriptor}/info/logo.png` : null,
+      });
+    }
+
+    if (chain_.type === ChainType.Near) {
+      const metadata = await getNearActor()
+        .view<{
+          name: string;
+          symbol: string;
+          decimals: number;
+          icon: string | null;
+        }>(
+          chain.caip2Id,
+          address,
+          "ft_metadata",
+          {},
+          chain.config?.rpcUrls ?? [],
+        )
+        .catch(() => null);
+
+      if (!metadata || typeof metadata.decimals !== "number") {
+        throw new AppError("Could not get meta information for token");
+      }
+
+      return saveToken({
+        chainId,
+        address,
+        symbol: metadata.symbol,
+        decimals: metadata.decimals,
+        name: metadata.name,
+        supportsEIP3009: false,
+        // NEP-148 icons are usually data URLs; keep the small ones
+        icon:
+          metadata.icon && metadata.icon.length <= 16_384
+            ? metadata.icon
+            : null,
       });
     }
 
@@ -145,9 +186,13 @@ export class TokenService {
       chain.caip2Id,
       client,
       [
-        { address, abi: erc20Abi, functionName: "name" },
-        { address, abi: erc20Abi, functionName: "symbol" },
-        { address, abi: erc20Abi, functionName: "decimals" },
+        { address: address as Address, abi: erc20Abi, functionName: "name" },
+        { address: address as Address, abi: erc20Abi, functionName: "symbol" },
+        {
+          address: address as Address,
+          abi: erc20Abi,
+          functionName: "decimals",
+        },
       ],
     );
 

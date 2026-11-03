@@ -15,7 +15,8 @@ import {
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { AppError, SdkConfigError } from "./errors";
 import { timingSafeEqual } from "node:crypto";
-import { type KeyVars, type KvKey } from "./constants";
+import { type ChainType, type KeyVars, type KvKey } from "./constants";
+import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { english } from "viem/accounts";
 import { get } from "lodash";
 
@@ -24,16 +25,43 @@ class Common {
 
   isZeroAddress = (address: string) => address.toLowerCase() === zeroAddress;
 
-  normalizeAddress = (address: string) => getAddress(address);
+  /** Native ETH (the zero address) or native NEAR. */
+  isNativeToken = (address: string) =>
+    this.isZeroAddress(address) || address === NearNativeToken;
+
+  /** Checksums an EVM address; a NEAR account id is kept as it is, in lowercase. */
+  normalizeAddress = (address: string) => {
+    if (!isAddress(address, { strict: false }) && isNearAccountId(address)) {
+      return address;
+    }
+
+    return getAddress(address);
+  };
+
+  normalizeEvmAddress = (address: string) => getAddress(address);
+
+  /** NEAR account ids, ETH-implicit `0x…` ones included, are kept as they are. */
+  normalizeAddressFor = (chainType: ChainType, address: string) => {
+    return (chainType as string) === "Near"
+      ? address
+      : this.normalizeEvmAddress(address);
+  };
+
+  isValidAddress = (chainType: ChainType, address: string) => {
+    // compared as a string: constants.ts imports this file, so ChainType can't be imported here
+    return (chainType as string) === "Near"
+      ? isNearAccountId(address)
+      : isAddress(address, { strict: false });
+  };
 
   isSameAddress = (a: Maybe<string>, b: Maybe<string>) => {
-    return (
-      !!a &&
-      !!b &&
-      isAddress(a, { strict: false }) &&
-      isAddress(b, { strict: false }) &&
-      isAddressEqual(a as Address, b as Address)
-    );
+    if (!a || !b) return false;
+
+    if (isAddress(a, { strict: false }) && isAddress(b, { strict: false })) {
+      return isAddressEqual(a as Address, b as Address);
+    }
+
+    return isNearAccountId(a) && a === b;
   };
 
   toMs = (s: number) => s * 1000;

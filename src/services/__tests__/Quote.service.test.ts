@@ -83,6 +83,7 @@ describe("QuoteService", () => {
         targetUsdAmount: "25.000000000000000000",
         rate: "1.000000000000000000",
         uniswapPoolFeeTier: null,
+        swapPool: null,
         reference: "order-1",
         meta: { sku: "a" },
       });
@@ -496,6 +497,7 @@ describe("QuoteService", () => {
         targetAmount: 10_000_000n,
         targetUsdAmount: "10.000000000000000000",
         uniswapPoolFeeTier: null,
+        swapPool: null,
       });
     });
 

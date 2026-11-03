@@ -284,6 +284,7 @@ const Quote = t.Object(
     targetUsdAmount: t.String(),
     rate: t.String(),
     uniswapPoolFeeTier: Nullable(Int),
+    swapPool: Nullable(t.String()),
     reference: Nullable(t.String()),
     meta: t.Unsafe<unknown>(Nullable(Json)),
     expiresAt: Timestamp,

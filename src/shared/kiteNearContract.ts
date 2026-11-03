@@ -1,6 +1,8 @@
 import { keccak256, toHex } from "viem";
-import { AppError } from "./errors";
 import { KiteMaxFees } from "./constants";
+import { common } from "./common";
+import { isNearAccountId, NearNativeToken } from "./nearAccount";
+import { AppError } from "./errors";
 
 /**
  * The `kite-factory` / `kite-deposit` contracts on NEAR (Kite-01/contracts, `near/`).
@@ -32,8 +34,25 @@ export type NearKiteTransfer = {
 export type NearKiteStatus =
   "Uninitialized" | "Open" | "Executing" | "Settled" | "Refunded";
 
-/** The token address Kite stores for native NEAR, as the zero address is for native ETH. */
-export const NearNativeToken = "near";
+export { NearNativeToken, isNearAccountId };
+
+/** `DEPOSIT_RESERVE` in kite-types: NEAR a deposit account keeps for its own storage. */
+export const NearDepositReserve = 30n * 10n ** 21n;
+
+export type NearSettleStopped = {
+  payinAddress: string;
+  step: string;
+  status: NearKiteStatus;
+  reason: string;
+};
+
+type NearOutcome = {
+  transaction_outcome: { id: string };
+  receipts_outcome: Array<{
+    id: string;
+    outcome: { logs: string[]; executor_id: string };
+  }>;
+};
 
 const MaxIdLength = 64;
 
@@ -98,14 +117,6 @@ class BorshWriter {
 const writeAsset = (w: BorshWriter, asset: NearAsset) => {
   if (asset === "Native") w.u8(0);
   else w.u8(1).string(asset.Token);
-};
-
-export const isNearAccountId = (value: string) => {
-  return (
-    value.length >= 2 &&
-    value.length <= 64 &&
-    /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(value)
-  );
 };
 
 class KiteNearContract {
@@ -275,6 +286,110 @@ class KiteNearContract {
 
   payInToken = (t: NearKiteTransfer) =>
     t.pay_in === "Native" ? NearNativeToken : t.pay_in.Token;
+
+  settlementToken = (t: NearKiteTransfer) =>
+    t.settlement_token === "Native"
+      ? NearNativeToken
+      : t.settlement_token.Token;
+
+  private assetAddress = (asset: NearAsset) =>
+    asset === "Native" ? NearNativeToken : asset.Token;
+
+  /** The deposit contracts' NEP-297 events, in the shapes `KiteContract.parseContractLogs` gives. */
+  parseEvents = (caip2Id: Caip2Id, outcome: NearOutcome) => {
+    const items: OnchainNotifierCallbackResult = [];
+    const stopped: NearSettleStopped[] = [];
+    const blockchainHash = outcome.transaction_outcome.id;
+    const id = (value: string) => common.uuidToBytes32(value);
+
+    outcome.receipts_outcome.forEach((receipt, receiptIndex) => {
+      receipt.outcome.logs.forEach((log, index) => {
+        if (!log.startsWith("EVENT_JSON:")) return;
+
+        let event: { standard?: string; event?: string; data?: unknown };
+        try {
+          event = JSON.parse(log.slice("EVENT_JSON:".length));
+        } catch {
+          return;
+        }
+
+        if (event.standard !== "kite") return;
+        const data = (
+          Array.isArray(event.data) ? event.data[0] : event.data
+        ) as Record<string, any>;
+        if (!data) return;
+
+        const base = {
+          caip2Id,
+          blockchainHash,
+          logIndex: String(receiptIndex * 1000 + index),
+          payinAddress: receipt.outcome.executor_id,
+        };
+
+        switch (event.event) {
+          case "settled":
+            items.push({
+              ...base,
+              type: "Settled",
+              transferId: id(data.transfer_id),
+            });
+            break;
+
+          case "fee_paid":
+            items.push({
+              ...base,
+              type: "FeePaid",
+              transferId: id(data.transfer_id),
+              feeId: id(data.fee_id),
+            });
+            break;
+
+          case "refunded":
+            items.push({
+              ...base,
+              type: "Refunded",
+              transferId: id(data.transfer_id),
+              refundAddress: data.refund_account,
+              amountRefunded: BigInt(data.amount_refunded),
+            });
+            break;
+
+          case "excess_refunded":
+            items.push({
+              ...base,
+              type: "ExcessRefunded",
+              transferId: id(data.transfer_id),
+              tokenAddress: this.assetAddress(data.token),
+              amount: BigInt(data.amount),
+              to: data.to,
+            });
+            break;
+
+          case "recovered":
+            items.push({
+              ...base,
+              type: "Recovered",
+              transferId: id(data.transfer_id),
+              tokenAddress: this.assetAddress(data.token),
+              amount: BigInt(data.amount),
+              to: data.to,
+            });
+            break;
+
+          case "settle_stopped":
+            stopped.push({
+              payinAddress: receipt.outcome.executor_id,
+              step: data.step,
+              status: data.status,
+              reason: data.reason,
+            });
+            break;
+        }
+      });
+    });
+
+    return { items, stopped };
+  };
 }
 
 export const kiteNear = new KiteNearContract();

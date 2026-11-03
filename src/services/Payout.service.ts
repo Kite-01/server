@@ -20,7 +20,6 @@ import { getOnchainActor } from "../shared/onchainActor";
 import { NearIntents } from "../sdks/NearIntents";
 import { Scheduler } from "../shared/scheduler";
 import { KvService } from "./Kv.service";
-import { isAddress } from "viem";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { db } from "../db";
@@ -74,7 +73,7 @@ export class PayoutService {
         ),
       );
 
-    const chainName = getChain(input.caip2Id).name;
+    const { name: chainName, type: chainType } = getChain(input.caip2Id);
     if (!row) throw new AppError(`App doesn't accept payments on ${chainName}`);
 
     const { address, payoutAsset, payoutAddress } = row;
@@ -93,7 +92,10 @@ export class PayoutService {
       };
     }
 
-    if (originAsset === payoutAsset && isAddress(payoutAddress)) {
+    if (
+      originAsset === payoutAsset &&
+      common.isValidAddress(chainType, payoutAddress)
+    ) {
       return {
         recipient: payoutAddress,
         description: `Settles straight to ${payoutAddress}`,
@@ -133,7 +135,10 @@ export class PayoutService {
       );
 
       const depositAddress = response.quote.depositAddress;
-      if (!depositAddress || !isAddress(depositAddress)) {
+      if (
+        !depositAddress ||
+        !common.isValidAddress(chainType, depositAddress)
+      ) {
         throw new AppError("NEAR Intents returned no deposit address");
       }
 

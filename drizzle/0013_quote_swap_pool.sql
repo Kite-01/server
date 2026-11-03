@@ -1,0 +1,1 @@
+ALTER TABLE "kite_quote" ADD COLUMN "swap_pool" text;
