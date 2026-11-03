@@ -73,9 +73,11 @@ export const chainConfigRelations = relations(chainConfig, ({ one }) => ({
   settlementToken: one(token, {
     fields: [chainConfig.settlementTokenId],
     references: [token.id],
+    relationName: "kite_settlement_token",
   }),
   usdPeggedToken: one(token, {
     fields: [chainConfig.usdPeggedTokenId],
     references: [token.id],
+    relationName: "kite_usd_pegged_token",
   }),
 }));

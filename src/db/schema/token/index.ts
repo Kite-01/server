@@ -58,6 +58,7 @@ export const tokenRelations = relations(token, ({ one, many }) => ({
   chain: one(chain, { fields: [token.chainId], references: [chain.id] }),
   quotesAsSource: many(quote, { relationName: "kite_quote_source_token" }),
   quotesAsTarget: many(quote, { relationName: "kite_quote_target_token" }),
-  settlementFor: many(chainConfig),
+  settlementFor: many(chainConfig, { relationName: "kite_settlement_token" }),
+  usdPeggedFor: many(chainConfig, { relationName: "kite_usd_pegged_token" }),
   deposits: many(deposit),
 }));

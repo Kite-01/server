@@ -29,7 +29,8 @@ A payment settles to the app's address on the paying chain instead when Intents 
 
 - Intents has no route for the chain or its settlement token.
 - 1Click can't quote the payment.
-- The deposit address is within 30 minutes of its deadline.
+
+A payment that would settle within 30 minutes of the deposit address's deadline isn't sent there: the transfer fails and the customer is refunded.
 
 ### Limitations
 
@@ -39,7 +40,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On chains NEAR Intents doesn't support**, payments settle to the app's address on the paying chain, even when the app has a payout set.
 - **On chains without an onchain notifier**, deposits are found by a balance check every minute, and deposit webhooks aren't sent.
 - **On chains without a gas sponsor**, the operator wallet pays the gas.
-- **x402 needs EIP-3009**: on chains whose settlement token doesn't support it, agents can't pay and customers pay their own gas.
+- **x402 needs EIP-3009**: on chains whose settlement token doesn't support it, agents can't pay.
 - **NEAR Intents has no testnet**, so payouts only happen on mainnet.
 
 ## What Kite does
