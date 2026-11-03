@@ -152,6 +152,7 @@ const ConfiguredChain = t.Object(
     id: Uuid,
     caip2Id: t.String(),
     name: t.String(),
+    icon: t.String(),
     settlementToken: ref(Token),
     usdPeggedToken: ref(Token),
   },

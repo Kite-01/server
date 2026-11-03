@@ -29,6 +29,7 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
                   id: chain.id,
                   caip2Id: chain.caip2Id,
                   name: getChain(chain.caip2Id).name,
+                  icon: getChain(chain.caip2Id).icon,
                   settlementToken: chain.config.settlementToken,
                   usdPeggedToken: chain.config.usdPeggedToken,
                 },
