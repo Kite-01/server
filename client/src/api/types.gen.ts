@@ -109,7 +109,7 @@ export type ConfiguredChainList = {
 export type SupportedChain = {
   caip2Id: string;
   name: string;
-  chainId: number;
+  chainId: number | null;
   testnet: boolean;
   nativeCurrency: {
     name: string;
@@ -297,6 +297,7 @@ export type Quote = {
   targetUsdAmount: string;
   rate: string;
   uniswapPoolFeeTier: number | null;
+  swapPool: string | null;
   reference: string | null;
   meta: {
     [key: string]: unknown;
@@ -331,6 +332,7 @@ export type QuoteDetails = {
   targetUsdAmount: string;
   rate: string;
   uniswapPoolFeeTier: number | null;
+  swapPool: string | null;
   reference: string | null;
   meta: {
     [key: string]: unknown;
@@ -689,7 +691,7 @@ export type ProviderStatusList = Array<ProviderStatus>;
 export type SystemInfo = {
   version: string;
   operators: Array<{
-    chainType: 'Evm';
+    chainType: 'Evm' | 'Near';
     address: string;
   }>;
   chains: Array<{
@@ -827,7 +829,8 @@ export type Checkout = {
     id: string;
     caip2Id: string;
     name: string;
-    chainId: number;
+    chainType: 'Evm' | 'Near';
+    chainId: number | null;
     testnet: boolean;
     icon: string;
     nativeCurrency: {

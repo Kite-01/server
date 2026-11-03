@@ -75,6 +75,8 @@ const ConfigurationForm = ({
   providers: ProviderStatus[];
 }) => {
   const config = chain.config;
+  // NEAR has no notifier or gas sponsor, and its gas price isn't capped here
+  const near = chain.caip2Id.startsWith("near:");
   const [values, setValues] = useState({
     rpcUrls: (config?.rpcUrls ?? []).join("\n"),
     slippageBps: String(config?.slippageBps ?? 100),
@@ -83,12 +85,14 @@ const ConfigurationForm = ({
     usdPeggedTokenId: config?.usdPeggedTokenId ?? "",
     maxGasPrice: config?.maxGasPrice ?? "",
     // A new configuration starts with every provider that is ready.
-    onchainNotifierProviders:
-      config?.onchainNotifierProviders ??
-      configuredProviders(providers, "OnchainNotifier"),
-    gasSponsorProviders:
-      config?.gasSponsorProviders ??
-      configuredProviders(providers, "GasSponsor"),
+    onchainNotifierProviders: near
+      ? []
+      : (config?.onchainNotifierProviders ??
+        configuredProviders(providers, "OnchainNotifier")),
+    gasSponsorProviders: near
+      ? []
+      : (config?.gasSponsorProviders ??
+        configuredProviders(providers, "GasSponsor")),
   });
 
   useEffect(() => {
@@ -140,7 +144,14 @@ const ConfigurationForm = ({
   return (
     <Card className="max-w-2xl p-6">
       <form className="space-y-5" onSubmit={submit}>
-        <Field label="KiteFactory address">
+        <Field
+          label={near ? "kite-factory account" : "KiteFactory address"}
+          hint={
+            near
+              ? "The account kite-factory is deployed to, e.g. kite-factory.near."
+              : undefined
+          }
+        >
           <Input
             required
             value={values.kiteFactoryAddress}
@@ -192,13 +203,15 @@ const ConfigurationForm = ({
               onChange={set("slippageBps")}
             />
           </Field>
-          <Field label="Max gas price in wei (optional)">
-            <Input
-              inputMode="numeric"
-              value={values.maxGasPrice}
-              onChange={set("maxGasPrice")}
-            />
-          </Field>
+          {!near && (
+            <Field label="Max gas price in wei (optional)">
+              <Input
+                inputMode="numeric"
+                value={values.maxGasPrice}
+                onChange={set("maxGasPrice")}
+              />
+            </Field>
+          )}
         </div>
 
         <Field
@@ -208,31 +221,35 @@ const ConfigurationForm = ({
           <Textarea value={values.rpcUrls} onChange={set("rpcUrls")} />
         </Field>
 
-        <Field
-          label="Deposit notifier providers"
-          hint="Watch pay-in addresses and tell the server when deposits land."
-        >
-          <CheckboxGroup
-            options={providerOptions(providers, "OnchainNotifier")}
-            value={values.onchainNotifierProviders}
-            onChange={(next) =>
-              setValues({ ...values, onchainNotifierProviders: next })
-            }
-          />
-        </Field>
+        {!near && (
+          <>
+            <Field
+              label="Deposit notifier providers"
+              hint="Watch pay-in addresses and tell the server when deposits land."
+            >
+              <CheckboxGroup
+                options={providerOptions(providers, "OnchainNotifier")}
+                value={values.onchainNotifierProviders}
+                onChange={(next) =>
+                  setValues({ ...values, onchainNotifierProviders: next })
+                }
+              />
+            </Field>
 
-        <Field
-          label="Gas sponsor providers"
-          hint="Pay gas for the operator's settlement transactions."
-        >
-          <CheckboxGroup
-            options={providerOptions(providers, "GasSponsor")}
-            value={values.gasSponsorProviders}
-            onChange={(next) =>
-              setValues({ ...values, gasSponsorProviders: next })
-            }
-          />
-        </Field>
+            <Field
+              label="Gas sponsor providers"
+              hint="Pay gas for the operator's settlement transactions."
+            >
+              <CheckboxGroup
+                options={providerOptions(providers, "GasSponsor")}
+                value={values.gasSponsorProviders}
+                onChange={(next) =>
+                  setValues({ ...values, gasSponsorProviders: next })
+                }
+              />
+            </Field>
+          </>
+        )}
 
         <div className="flex justify-end">
           <Button type="submit" disabled={save.isPending}>

@@ -1,4 +1,4 @@
-import { Digits, EvmAddress, t, Uuid, UuidIdParams } from "../schema";
+import { Digits, ChainAddress, t, Uuid, UuidIdParams } from "../schema";
 import { getChain, getSupportedChains } from "../../shared/chains";
 import { ChainService } from "../../services/Chain.service";
 import { HttpError } from "../../shared/errors";
@@ -177,7 +177,7 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
           minimum: 0,
           maximum: 9900,
         }),
-        kiteFactoryAddress: EvmAddress,
+        kiteFactoryAddress: ChainAddress,
         usdPeggedTokenId: Uuid,
         settlementTokenId: Uuid,
         onchainNotifierProviders: Providers,

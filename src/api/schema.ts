@@ -40,6 +40,15 @@ export const EvmAddress = t.String({
   pattern: "^0x[0-9a-fA-F]{40}$",
 });
 
+/** An EVM address or a NEAR account id; services check it against the chain it's for. */
+export const ChainAddress = t.String({
+  minLength: 2,
+  maxLength: 64,
+  pattern:
+    // a NEAR id starting with 0x is ETH-implicit, so it's an EVM address too
+    "^(0x[0-9a-fA-F]{40}|(?!0x)(([a-z\\d]+[-_])*[a-z\\d]+\\.)*([a-z\\d]+[-_])*[a-z\\d]+)$",
+});
+
 export const Origin = t.String({
   pattern: "^https?://[^/\\s]+$",
   maxLength: 255,

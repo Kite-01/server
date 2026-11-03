@@ -1,4 +1,4 @@
-import { EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
+import { ChainAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { ApiKeyScope, PaymentLinkUsage } from "../../shared/constants";
 import { formatUnits, parseUnits } from "viem";
 import { Elysia, type Static } from "elysia";
@@ -281,7 +281,7 @@ export const paymentLinkRoutes = new Elysia({ name: "PaymentLinksRoute" })
       parse: "json",
       body: t.Object({
         chainId: Uuid,
-        sourceTokenAddress: EvmAddress,
+        sourceTokenAddress: ChainAddress,
         customerId: t.Optional(Uuid),
         reference: t.Optional(
           t.String({

@@ -9,6 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@near-js/transactions": "2.5.1",
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/here-wallet": "10.1.4",
+    "@near-wallet-selector/intear-wallet": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "@near-wallet-selector/modal-ui": "10.1.4",
+    "@near-wallet-selector/my-near-wallet": "10.1.4",
     "@tabler/icons-react": "3.49.0",
     "@tanstack/react-query": "5.104.1",
     "class-variance-authority": "0.7.1",

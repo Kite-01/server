@@ -6,7 +6,9 @@ import {
 import { and, eq, isNull, or, desc, count, ilike } from "drizzle-orm";
 import { FeeType } from "../shared/constants";
 import { common } from "../shared/common";
-import { fee } from "../db/schema";
+import { chain, fee } from "../db/schema";
+import { getChain } from "../shared/chains";
+import { AppError, NotFoundError } from "../shared/errors";
 import { db } from "../db";
 
 type Scalar = string | number | boolean;
@@ -31,8 +33,35 @@ type FeeMatchContext = {
 };
 
 export class FeeService {
+  private assertFeeAddress = async (
+    chainId: string,
+    feeAddress: string | null | undefined,
+  ) => {
+    if (!feeAddress) return feeAddress;
+
+    const row = await db.query.chain.findFirst({
+      where: eq(chain.id, chainId),
+      columns: { caip2Id: true },
+    });
+    if (!row) throw new NotFoundError("chain", chainId);
+
+    const { type, name } = getChain(row.caip2Id);
+    if (!common.isValidAddress(type, feeAddress)) {
+      throw new AppError(`The fee address is not a valid address on ${name}`);
+    }
+
+    return common.normalizeAddressFor(type, feeAddress);
+  };
+
   createFee = async (input: typeof fee.$inferInsert) => {
-    const [row] = await db.insert(fee).values(input).returning();
+    const feeAddress = await this.assertFeeAddress(
+      input.chainId,
+      input.feeAddress,
+    );
+    const [row] = await db
+      .insert(fee)
+      .values({ ...input, feeAddress })
+      .returning();
     return row;
   };
 
@@ -104,6 +133,22 @@ export class FeeService {
     feeId: string,
     input: Partial<Omit<typeof fee.$inferInsert, "appId">>,
   ) => {
+    if (input.feeAddress) {
+      const existing = await db.query.fee.findFirst({
+        where: and(eq(fee.id, feeId), this.ownedBy(appId)),
+        columns: { chainId: true },
+      });
+      if (!existing) return undefined;
+
+      input = {
+        ...input,
+        feeAddress: await this.assertFeeAddress(
+          input.chainId ?? existing.chainId,
+          input.feeAddress,
+        ),
+      };
+    }
+
     const [row] = await db
       .update(fee)
       .set(input)

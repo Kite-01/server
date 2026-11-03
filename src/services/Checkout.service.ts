@@ -95,6 +95,7 @@ export class CheckoutService {
           caip2Id: chain.caip2Id,
           name: meta.name,
           icon: meta.icon,
+          chainType: meta.type,
           chainId: "chainId" in meta ? meta.chainId : null,
           testnet: !!meta.testnet,
           nativeCurrency: meta.nativeCurrency,

@@ -1,4 +1,4 @@
-import { EvmAddress, Uuid, UuidIdParams } from "../schema";
+import { ChainAddress, Uuid, UuidIdParams } from "../schema";
 import { CheckoutService } from "../../services/Checkout.service";
 import { models } from "../models";
 import { Elysia } from "elysia";
@@ -38,7 +38,7 @@ export const checkoutRoutes = new Elysia({
       parse: "json",
       body: t.Object({
         chainId: Uuid,
-        sourceTokenAddress: EvmAddress,
+        sourceTokenAddress: ChainAddress,
       }),
       response: {
         201: "Quote",
@@ -68,7 +68,7 @@ export const checkoutRoutes = new Elysia({
       parse: "json",
       body: t.Object({
         quoteId: Uuid,
-        refundAddress: EvmAddress,
+        refundAddress: ChainAddress,
       }),
       response: {
         201: "CreatedTransfer",

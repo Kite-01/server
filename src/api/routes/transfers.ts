@@ -1,4 +1,4 @@
-import { EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
+import { ChainAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { ApiKeyScope, TransferStatus } from "../../shared/constants";
 import { TransferService } from "../../services/Transfer.service";
 import { HttpError } from "../../shared/errors";
@@ -29,7 +29,7 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
       parse: "json",
       body: t.Object({
         quoteId: Uuid,
-        refundAddress: EvmAddress,
+        refundAddress: ChainAddress,
       }),
       response: {
         201: "CreatedTransfer",
@@ -129,7 +129,7 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
     {
       parse: "json",
       params: UuidIdParams,
-      body: t.Object({ tokenAddress: EvmAddress }),
+      body: t.Object({ tokenAddress: ChainAddress }),
       response: { 200: t.Object({ balance: t.String() }) },
       beforeHandle: Auth.access({ scope: ApiKeyScope.TransferWrite }),
       detail: {
@@ -155,8 +155,8 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
       parse: "json",
       params: UuidIdParams,
       body: t.Object({
-        tokenAddress: EvmAddress,
-        destinationAddress: EvmAddress,
+        tokenAddress: ChainAddress,
+        destinationAddress: ChainAddress,
         useGasSponsor: t.Optional(t.Boolean()),
       }),
       response: { 200: t.Object({}) },

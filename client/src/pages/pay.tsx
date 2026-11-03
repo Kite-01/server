@@ -26,7 +26,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { shortAddress } from "@/lib/format";
+import { shortAddress, txUrl } from "@/lib/format";
+import {
+  connectNearWallet,
+  isNearAccountId,
+  nearNetworkOf,
+  sendNearPayment,
+  type NearWallet,
+} from "@/lib/near-wallet";
 import { cn } from "@/lib/utils";
 import {
   connectWallet,
@@ -62,6 +69,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
+
+const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
+const isNearWallet = (wallet: Wallet | NearWallet): wallet is NearWallet =>
+  "kind" in wallet && wallet.kind === "near";
 
 type Token = CheckoutChain["tokens"][number];
 
@@ -939,7 +950,11 @@ const InstructionsStep = ({
           <div className="mt-3 flex flex-col items-center gap-2">
             <div className="rounded-xl bg-white p-3">
               <QRCodeSVG
-                value={paymentUri(pay, chain.chainId)}
+                value={
+                  isNear(chain) || chain.chainId === null
+                    ? pay.address
+                    : paymentUri(pay, chain.chainId)
+                }
                 size={176}
                 marginSize={0}
                 title={pay.address}
@@ -1017,7 +1032,7 @@ const StatusStep = ({
     data?.settlementBlockchainHash ?? data?.x402BlockchainHash ?? txHash;
   const explorer =
     chain?.blockExplorer && hash
-      ? `${chain.blockExplorer.url}/tx/${hash}`
+      ? txUrl(chain.blockExplorer.url, hash)
       : undefined;
 
   const view = statusView(data, expired, checkout.app.name);
@@ -1241,15 +1256,23 @@ const PayFlow = () => {
   const [chainId, setChainId] = useState("");
   const [token, setToken] = useState<Token | null>(null);
   const [imported, setImported] = useState<Record<string, Token[]>>({});
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [account, setAccount] = useState<Address | null>(null);
+  const [wallet, setWallet] = useState<Wallet | NearWallet | null>(null);
+  const [account, setAccount] = useState<string | null>(null);
   const [refundAddress, setRefundAddress] = useState("");
   // the transfer this page opened that nobody has paid yet
   const [openedId, setOpenedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const chains = useMemo(() => checkout.data?.chains ?? [], [checkout.data]);
+  const allChains = useMemo(() => checkout.data?.chains ?? [], [checkout.data]);
+  const chains = useMemo(
+    () =>
+      wallet
+        ? allChains.filter((item) => isNear(item) === isNearWallet(wallet))
+        : allChains,
+    [allChains, wallet],
+  );
+  const nearChain = allChains.find(isNear);
   const chain = chains.find((item) => item.id === chainId) ?? chains[0];
 
   const payToken =
@@ -1350,7 +1373,10 @@ const PayFlow = () => {
       .request({ method: "eth_chainId" })
       .then(Number)
       .catch(() => 0);
-    const start = chains.find((item) => item.chainId === current) ?? chains[0];
+    const evmChains = allChains.filter((item) => !isNear(item));
+    const start =
+      evmChains.find((item) => item.chainId === current) ?? evmChains[0];
+    if (!start) throw new Error("This link can't be paid on an EVM chain");
 
     setWallet(choice);
     setAccount(address);
@@ -1358,6 +1384,19 @@ const PayFlow = () => {
     setToken(null);
     setStep({ kind: "token" });
   };
+
+  const chooseNearWallet = () =>
+    run("near-wallet", async (progress) => {
+      if (!nearChain) return;
+      progress("Waiting for your NEAR wallet…");
+      const near = await connectNearWallet(nearNetworkOf(nearChain.caip2Id));
+
+      setWallet(near);
+      setAccount(near.accountId);
+      setChainId(nearChain.id);
+      setToken(null);
+      setStep({ kind: "token" });
+    });
 
   const chooseWallet = () =>
     run("wallet", async (progress) => {
@@ -1406,6 +1445,24 @@ const PayFlow = () => {
     run("pay", async (progress) => {
       if (!wallet || !account || !chain) return;
 
+      // the deposit account takes the payment; refunds go back to the paying account
+      if (isNearWallet(wallet)) {
+        progress("Preparing payment…");
+        const transfer = await openTransfer(q, wallet.accountId);
+        const { address, tokenAddress, amount } = transfer.paymentInstructions;
+
+        progress("Confirm in your wallet…");
+        const txHash = await sendNearPayment(
+          wallet,
+          tokenAddress,
+          address,
+          amount,
+        );
+
+        setStep({ kind: "status", transferId: transfer.id, txHash });
+        return;
+      }
+
       progress(`Switching to ${chain.name}…`);
       await switchChain(wallet, chain);
 
@@ -1416,7 +1473,7 @@ const PayFlow = () => {
       progress("Confirm in your wallet…");
       const txHash = await sendToken(
         wallet,
-        account,
+        account as Address,
         chain,
         tokenAddress,
         address,
@@ -1516,6 +1573,19 @@ const PayFlow = () => {
                 disabled={!!busy}
                 busy={busy?.on === "wallet"}
               />
+              {nearChain && (
+                <Option
+                  icon={
+                    <IconTile className="bg-ink">
+                      <img src={nearChain.icon} alt="" className="size-6" />
+                    </IconTile>
+                  }
+                  title="Connect NEAR wallet"
+                  onClick={chooseNearWallet}
+                  disabled={!!busy}
+                  busy={busy?.on === "near-wallet"}
+                />
+              )}
               <Option
                 icon={
                   <IconTile className="bg-pending">
@@ -1684,7 +1754,9 @@ const PayFlow = () => {
     );
   } else if (step.kind === "review" && chain && token) {
     const refund = refundAddress.trim();
-    const refundValid = isAddress(refund);
+    const refundValid = isNear(chain)
+      ? isNearAccountId(refund)
+      : isAddress(refund);
 
     body = (
       <>

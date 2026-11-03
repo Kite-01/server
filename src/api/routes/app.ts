@@ -1,4 +1,4 @@
-import { EvmAddress, PageQuery, t, Uuid } from "../schema";
+import { ChainAddress, PageQuery, t, Uuid } from "../schema";
 import { ApiKeyScope } from "../../shared/constants";
 import { AppService } from "../../services/App.service";
 import { HttpError } from "../../shared/errors";
@@ -178,7 +178,7 @@ export const appRoutes = new Elysia({ name: "AppsRoute" })
     {
       parse: "json",
       params: ChainParams,
-      body: t.Object({ address: EvmAddress }),
+      body: t.Object({ address: ChainAddress }),
       response: {
         200: "AppChain",
       },

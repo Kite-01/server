@@ -4,7 +4,11 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
-import { KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
+import {
+  type ChainType,
+  KiteMaxFees,
+  QuoteTTLSeconds,
+} from "../shared/constants";
 import { AppError, NotFoundError } from "../shared/errors";
 import { formatUnits, parseUnits } from "viem";
 import { quote, quoteFee, fee } from "../db/schema";
@@ -66,13 +70,15 @@ export class QuoteService {
     slippageBps: number,
     operatorAddress: string,
     appAddress: string,
+    chainType: ChainType,
   ) => {
     const fees_ = fees
       .map((f) => ({
         fee: f,
         amount: new FeeService().computeFeeAmount(f, targetAmount),
         // system fees are the operator's; an app's own fees go where the app settles
-        feeAddress: common.normalizeAddress(
+        feeAddress: common.normalizeAddressFor(
+          chainType,
           f.feeAddress ?? (f.appId ? appAddress : null) ?? operatorAddress,
         ),
       }))
@@ -211,6 +217,7 @@ export class QuoteService {
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
         appAddress,
+        getChain(chain.caip2Id).type,
       ),
       quote: {
         appId,
@@ -349,6 +356,7 @@ export class QuoteService {
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
         appAddress,
+        getChain(chain.caip2Id).type,
       ),
       quote: {
         appId,
