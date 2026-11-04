@@ -46,7 +46,11 @@ export const ChainName = ({
 }) => (
   <span className="inline-flex items-center gap-2">
     {chainName(caip2Id, supported)}
-    {isBeta(caip2Id, supported) && <Badge>Beta</Badge>}
+    {isBeta(caip2Id, supported) && (
+      <Badge variant={"count"} className="text-[11px] px-2.25">
+        Beta
+      </Badge>
+    )}
   </span>
 );
 
@@ -183,14 +187,7 @@ export const Chains = () => {
               ))}
             </Select>
           </Field>
-          {isBeta(selected, available) && (
-            <p className="text-xs flex items-center gap-0.5 text-muted">
-              <IconInfoCircle className="size-4" strokeWidth={1.5} />
-              <span>
-                This network is in beta: payments on it are still being tested
-              </span>
-            </p>
-          )}
+
           {available?.length === 0 && (
             <p className="text-xs flex items-center gap-0.5 text-muted">
               <IconInfoCircle className="size-4" strokeWidth={1.5} />
