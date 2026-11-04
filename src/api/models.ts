@@ -165,6 +165,7 @@ const SupportedChain = t.Object(
     name: t.String(),
     chainId: Nullable(Int),
     testnet: t.Boolean(),
+    beta: t.Boolean(),
     nativeCurrency: t.Object({
       name: t.String(),
       symbol: t.String(),

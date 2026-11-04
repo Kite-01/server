@@ -111,6 +111,7 @@ export type SupportedChain = {
   name: string;
   chainId: number | null;
   testnet: boolean;
+  beta: boolean;
   nativeCurrency: {
     name: string;
     symbol: string;

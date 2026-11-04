@@ -69,6 +69,7 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
         name: chain.name,
         chainId: "chainId" in chain ? chain.chainId : null,
         testnet: !!chain.testnet,
+        beta: !!chain.beta,
         nativeCurrency: chain.nativeCurrency,
         blockExplorer: chain.blockExplorer,
         confirmations: chain.confirmations,

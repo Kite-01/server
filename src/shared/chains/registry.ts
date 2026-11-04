@@ -24,6 +24,8 @@ type ChainBase = {
   name: string;
   icon: string;
   testnet?: true;
+  /** Still being tested; the dashboard and checkout mark it as beta. */
+  beta?: true;
   publicRpcUrls: readonly string[];
   confirmations: number;
   blockExplorer?: {
@@ -497,6 +499,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: "NEAR Testnet",
     icon: icon("near"),
     testnet: true,
+    beta: true,
     publicRpcUrls: ["https://test.rpc.fastnear.com"],
     confirmations: 1,
     blockExplorer: {

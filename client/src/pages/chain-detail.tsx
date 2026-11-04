@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-import { chainName, useSupportedChains } from "./chains";
+import { ChainName, useSupportedChains } from "./chains";
 import SmartImage from "@/components/smart-image";
 
 type Provider = ChainConfig["gasSponsorProviders"][number];
@@ -519,7 +519,7 @@ export const ChainDetail = () => {
   return (
     <>
       <PageHeader
-        title={chainName(chain.caip2Id, supported.data)}
+        title={<ChainName caip2Id={chain.caip2Id} supported={supported.data} />}
         action={
           <Button
             variant="danger"

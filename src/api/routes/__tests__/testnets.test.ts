@@ -101,6 +101,7 @@ describe("testnets", () => {
         expect.objectContaining({
           caip2Id: "near:testnet",
           chainId: null,
+          beta: true,
           nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
         }),
       );
