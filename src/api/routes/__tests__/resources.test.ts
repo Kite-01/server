@@ -916,6 +916,43 @@ describe("API resources", () => {
       );
     });
 
+    it("recovers only with Transfer:Recover, which Transfer:Write doesn't include", async () => {
+      const quote = await quoteVia();
+      const created = await api.post("/api/transfers", {
+        quoteId: quote.id,
+        refundAddress: REFUND_TO,
+      });
+      const id = created.json.id;
+      fakeActor.getBalance.mockResolvedValue(25n);
+
+      const writer = client(
+        (await createApiKey(appId, { scopes: [ApiKeyScope.TransferWrite] }))
+          .credentials,
+      );
+      const balance = await writer.post(
+        `/api/transfers/${id}/recover/balance`,
+        {
+          tokenAddress: WETH,
+        },
+      );
+      const recovery = await writer.post(`/api/transfers/${id}/recover`, {
+        tokenAddress: WETH,
+        destinationAddress: REFUND_TO,
+      });
+      expect(balance.status).toBe(403);
+      expect(recovery.status).toBe(403);
+
+      const recoverer = client(
+        (await createApiKey(appId, { scopes: [ApiKeyScope.TransferRecover] }))
+          .credentials,
+      );
+      const allowed = await recoverer.post(`/api/transfers/${id}/recover`, {
+        tokenAddress: WETH,
+        destinationAddress: REFUND_TO,
+      });
+      expect(allowed.status).toBe(200);
+    });
+
     it("refuses refunds and recoveries that can't happen, before sending anything", async () => {
       const quote = await quoteVia();
       const created = await api.post("/api/transfers", {
