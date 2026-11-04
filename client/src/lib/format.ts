@@ -89,3 +89,5 @@ export const parseUnits = (value: string, decimals: number) => {
 // NearBlocks shows transactions under /txns; the EVM explorers under /tx.
 export const txUrl = (explorer: string, hash: string) =>
   `${explorer}/${/nearblocks\.io/.test(explorer) ? "txns" : "tx"}/${hash}`;
+
+export const NearNativeToken = "near";

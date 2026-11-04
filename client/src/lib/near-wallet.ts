@@ -1,8 +1,9 @@
 import type { WalletSelector } from "@near-wallet-selector/core";
 import type { WalletSelectorModal } from "@near-wallet-selector/modal-ui";
 import { actionCreators } from "@near-js/transactions";
+import { NearNativeToken } from "./format";
 
-export const NearNativeToken = "near";
+export { NearNativeToken };
 
 export type NearNetwork = "mainnet" | "testnet";
 
