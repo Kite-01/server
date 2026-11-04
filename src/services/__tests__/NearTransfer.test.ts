@@ -177,7 +177,7 @@ describe("TransferService on NEAR", () => {
       expect(fakeNearActor.functionCall).toHaveBeenCalledTimes(1);
     });
 
-    it("doesn't count the account's own reserve as native payment", async () => {
+    const nativeTransfer = async () => {
       const quote = await createQuoteRowFor({
         appId,
         chainId,
@@ -186,16 +186,45 @@ describe("TransferService on NEAR", () => {
         sourceAmount: 10n ** 24n,
       });
       fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
-      const created = await service.createTransfer(appId, quote.id, PAYER);
+      return service.createTransfer(appId, quote.id, PAYER);
+    };
 
-      fakeNearActor.getBalance.mockResolvedValue(
-        NearDepositReserve + 10n ** 24n - 1n,
-      );
+    it("doesn't count the account's own reserve as native payment", async () => {
+      const created = await nativeTransfer();
+
+      fakeNearActor.getAccount.mockResolvedValue({
+        amount: NearDepositReserve + 10n ** 24n - 1n,
+        storageUsage: 434,
+      });
       await service.settleTransfer(created.id);
 
       expect((await reload(created.id)).status).toBe(
         TransferStatus.AwaitingDeposit,
       );
+    });
+
+    it("doesn't count the storage stake of a large state as native payment", async () => {
+      const created = await nativeTransfer();
+      const stake = 1_131n * 10n ** 19n;
+
+      fakeNearActor.getAccount.mockResolvedValue({
+        amount: NearDepositReserve + stake + 10n ** 24n - 1n,
+        storageUsage: 1_131,
+      });
+      await service.settleTransfer(created.id);
+      expect((await reload(created.id)).status).toBe(
+        TransferStatus.AwaitingDeposit,
+      );
+
+      fakeNearActor.getAccount.mockResolvedValue({
+        amount: NearDepositReserve + stake + 10n ** 24n,
+        storageUsage: 1_131,
+      });
+      fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
+      await service.settleTransfer(created.id);
+      expect(fakeNearActor.functionCall.mock.calls.at(-1)?.[1]).toMatchObject({
+        method: "settle",
+      });
     });
 
     it("registers the recipients, settles, and records the result", async () => {
@@ -273,30 +302,53 @@ describe("TransferService on NEAR", () => {
       );
     });
 
-    it("retries a settlement that stopped after its swap", async () => {
+    const stopped = (transferId: string, payinAddress: string) =>
+      outcome([
+        {
+          executor: payinAddress,
+          logs: [
+            event("settle_stopped", {
+              transfer_id: transferId,
+              step: "Pay",
+              status: "Executing",
+              reason: "OutOfGas",
+            }),
+          ],
+        },
+      ]);
+
+    it("resumes a settlement that stopped after its swap", async () => {
       const created = await create();
       fakeNearActor.getBalance.mockResolvedValue(1_000_000n);
       fakeNearActor.functionCall
         .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValueOnce(stopped(created.id, created.payinAddress))
         .mockResolvedValueOnce(
           outcome([
             {
               executor: created.payinAddress,
-              logs: [
-                event("settle_stopped", {
-                  transfer_id: created.id,
-                  step: "Pay",
-                  status: "Executing",
-                  reason: "PayoutFailed",
-                }),
-              ],
+              logs: [event("settled", { transfer_id: created.id })],
             },
           ]),
         );
 
+      await service.settleTransfer(created.id);
+
+      expect((await reload(created.id)).status).toBe(TransferStatus.Settled);
+    });
+
+    it("leaves a settlement that keeps stopping to the next attempt", async () => {
+      const created = await create();
+      fakeNearActor.getBalance.mockResolvedValue(1_000_000n);
+      fakeNearActor.functionCall
+        .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValue(stopped(created.id, created.payinAddress));
+
       await expect(service.settleTransfer(created.id)).rejects.toBeInstanceOf(
         AppError,
       );
+      // registering the shop, then three attempts
+      expect(fakeNearActor.functionCall).toHaveBeenCalledTimes(5);
       expect((await reload(created.id)).status).toBe(TransferStatus.Processing);
     });
 

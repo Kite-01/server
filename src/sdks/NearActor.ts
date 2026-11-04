@@ -223,6 +223,27 @@ export class NearActor implements OnchainActor {
     };
   };
 
+  /** A NEAR account's balance and storage, or null when it doesn't exist. */
+  getAccount = async (
+    caip2Id: Caip2Id,
+    accountId: string,
+    rpcUrls?: string[],
+  ) => {
+    try {
+      const account = await this.provider(caip2Id, rpcUrls).viewAccount({
+        accountId,
+        blockQuery: { finality: "final" },
+      });
+      return {
+        amount: BigInt(account.amount),
+        storageUsage: Number(account.storage_usage),
+      };
+    } catch (e) {
+      if (/does not exist|UNKNOWN_ACCOUNT/i.test(String(e))) return null;
+      throw e;
+    }
+  };
+
   getBalance = async (
     caip2Id: Caip2Id,
     tokenAddress: string,

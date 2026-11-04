@@ -53,7 +53,7 @@ import { runProviderMethod } from "../shared/providers";
 import { getNearActor, getOnchainActor } from "../shared/onchainActor";
 import {
   kiteNear,
-  NearDepositReserve,
+  nearNativeAvailable,
   NearNativeToken,
   type NearKiteStatus,
   type NearKiteTransfer,
@@ -99,6 +99,7 @@ type PreparedTransfer = {
 const NearFactoryCallGas = 300_000_000_000_000n;
 const NearDeployGas = 100_000_000_000_000n;
 const NearRegisterGas = 10_000_000_000_000n;
+const NearSettleAttempts = 3;
 
 export class TransferService {
   private sdkOptions = async (): Promise<SdkOptions> => {
@@ -840,15 +841,23 @@ export class TransferService {
   private nearBalance = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
     token: string,
-  ) => {
-    const balance = await ctx.actor.getBalance(
-      ctx.caip2Id,
-      token,
-      ctx.row.payinAddress,
-    );
+  ) => this.nearPayinBalance(ctx.caip2Id, token, ctx.row.payinAddress);
 
-    if (token !== NearNativeToken) return balance;
-    return balance > NearDepositReserve ? balance - NearDepositReserve : 0n;
+  /** What a NEAR deposit account holds of a token, leaving out its reserve and storage stake. */
+  private nearPayinBalance = async (
+    caip2Id: Caip2Id,
+    token: string,
+    address: string,
+  ) => {
+    const actor = getNearActor();
+    if (token !== NearNativeToken) {
+      return actor.getBalance(caip2Id, token, address);
+    }
+
+    const account = await actor.getAccount(caip2Id, address);
+    return account
+      ? nearNativeAvailable(account.amount, account.storageUsage)
+      : 0n;
   };
 
   private nearStatus = async (
@@ -901,15 +910,20 @@ export class TransferService {
   private registerNearRecipients = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
-    const token = kiteNear.settlementToken(ctx.struct);
-    if (token === NearNativeToken) return;
+    await this.registerOnNearToken(ctx, kiteNear.settlementToken(ctx.struct), [
+      ctx.struct.settlement_recipient,
+      ...ctx.struct.fees.map((fee) => fee.recipient),
+    ]);
+  };
 
-    const accounts = [
-      ...new Set([
-        ctx.struct.settlement_recipient,
-        ...ctx.struct.fees.map((fee) => fee.recipient),
-      ]),
-    ];
+  /** A NEP-141 token only sends to registered accounts; registers those that aren't. */
+  private registerOnNearToken = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+    token: string,
+    recipients: string[],
+  ) => {
+    if (token === NearNativeToken) return;
+    const accounts = [...new Set(recipients)];
 
     const unregistered: string[] = [];
     for (const account of accounts) {
@@ -1043,12 +1057,19 @@ export class TransferService {
 
     await this.registerNearRecipients(ctx);
 
-    const result = await this.sendNearFactoryCall(ctx, "settle");
-    if (result.status !== "success") {
-      throw new AppError(`Settlement failed: ${result.failure}`);
+    // a settlement that stops after its swap (out of gas, or the swap's output not landed
+    // yet) resumes straight away; past a few attempts it's left to the job's retry
+    let stop;
+    for (let attempt = 0; attempt < NearSettleAttempts; attempt++) {
+      const result = await this.sendNearFactoryCall(ctx, "settle");
+      if (result.status !== "success") {
+        throw new AppError(`Settlement failed: ${result.failure}`);
+      }
+
+      stop = result.stopped.at(-1);
+      if (!stop || stop.status !== "Executing") break;
     }
 
-    const stop = result.stopped.at(-1);
     if (!stop) return;
 
     if (stop.status === "Open") {
@@ -1154,12 +1175,17 @@ export class TransferService {
       return revert("RecoveryNotAllowed");
     }
 
+    const destination =
+      !destinationAddress || common.isZeroAddress(destinationAddress)
+        ? null
+        : destinationAddress;
+    await this.registerOnNearToken(ctx, tokenAddress, [
+      destination ?? ctx.struct.refund_account,
+    ]);
+
     const result = await this.sendNearFactoryCall(ctx, "recover", {
       token: tokenAddress === NearNativeToken ? null : tokenAddress,
-      destination:
-        !destinationAddress || common.isZeroAddress(destinationAddress)
-          ? null
-          : destinationAddress,
+      destination,
     });
 
     if (result.status !== "success") {
@@ -1875,16 +1901,18 @@ export class TransferService {
 
           const chainType = getChain(item.caip2Id).type;
           const sourceToken = transfer_.quote.sourceToken.address;
-          const onchainActor = getOnchainActor(chainType);
-          let balance = await onchainActor.getBalance(
-            item.caip2Id,
-            sourceToken,
-            transfer_.payinAddress,
-          );
-          if (sourceToken === NearNativeToken) {
-            balance =
-              balance > NearDepositReserve ? balance - NearDepositReserve : 0n;
-          }
+          const balance =
+            chainType === ChainType.Near
+              ? await this.nearPayinBalance(
+                  item.caip2Id,
+                  sourceToken,
+                  transfer_.payinAddress,
+                )
+              : await getOnchainActor(chainType).getBalance(
+                  item.caip2Id,
+                  sourceToken,
+                  transfer_.payinAddress,
+                );
 
           const undelivered = item.amountRefunded === 0n && balance > 0n;
           const description = undelivered

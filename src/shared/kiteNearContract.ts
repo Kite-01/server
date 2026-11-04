@@ -39,6 +39,23 @@ export { NearNativeToken, isNearAccountId };
 /** `DEPOSIT_RESERVE` in kite-types: NEAR a deposit account keeps for its own storage. */
 export const NearDepositReserve = 30n * 10n ** 21n;
 
+/** `ZERO_BALANCE_STORAGE_LIMIT` in kite-types: up to this many bytes, no storage stake. */
+const ZeroBalanceStorageLimit = 770;
+const StorageByteCost = 10n ** 19n;
+
+/**
+ * Native NEAR a deposit account holds as payment: its balance beyond the reserve and the
+ * storage stake its StateInit kept, as `native_available` in kite-deposit computes it.
+ */
+export const nearNativeAvailable = (amount: bigint, storageUsage: number) => {
+  const stake =
+    storageUsage <= ZeroBalanceStorageLimit
+      ? 0n
+      : BigInt(storageUsage) * StorageByteCost;
+  const available = amount - NearDepositReserve - stake;
+  return available > 0n ? available : 0n;
+};
+
 export type NearSettleStopped = {
   payinAddress: string;
   step: string;
