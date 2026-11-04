@@ -78,6 +78,7 @@ type Token = CheckoutChain["tokens"][number];
 
 type Step =
   | { kind: "method" }
+  | { kind: "families" }
   | { kind: "wallets"; wallets: Wallet[] }
   | { kind: "wallet" }
   | { kind: "token" }
@@ -1404,6 +1405,38 @@ const PayFlow = () => {
       setStep({ kind: "token" });
     });
 
+  // One entry per kind of chain a wallet connects to: a new chain type adds one here.
+  const families = [
+    {
+      type: "Evm",
+      name: "EVM",
+      description: "MetaMask, Rabby, Coinbase Wallet and other browser wallets",
+      icon: (
+        <IconTile className="bg-ink">
+          <IconWallet />
+        </IconTile>
+      ),
+      connect: () => chooseWallet(),
+    },
+    {
+      type: "Near",
+      name: "NEAR",
+      description: "Meteor, Intear, HERE or MyNearWallet",
+      icon: (
+        <IconTile className="bg-ink">
+          {nearChain && <img src={nearChain.icon} alt="" className="size-6" />}
+        </IconTile>
+      ),
+      connect: () => chooseNearWallet(),
+    },
+  ].filter((family) =>
+    allChains.some((item) => item.chainType === family.type),
+  );
+
+  // Straight to the wallets when the link takes one kind of chain.
+  const connect = () =>
+    families.length === 1 ? families[0].connect() : go({ kind: "families" });
+
   const chooseWallet = () =>
     run("wallet", async (progress) => {
       progress("Looking for wallets…");
@@ -1575,23 +1608,13 @@ const PayFlow = () => {
                   </IconTile>
                 }
                 title="Connect wallet"
-                onClick={chooseWallet}
-                disabled={!!busy}
-                busy={busy?.on === "wallet"}
+                onClick={connect}
+                disabled={!!busy || !families.length}
+                busy={
+                  families.length === 1 &&
+                  (busy?.on === "wallet" || busy?.on === "near-wallet")
+                }
               />
-              {nearChain && (
-                <Option
-                  icon={
-                    <IconTile className="bg-ink">
-                      <img src={nearChain.icon} alt="" className="size-6" />
-                    </IconTile>
-                  }
-                  title="Connect NEAR wallet"
-                  onClick={chooseNearWallet}
-                  disabled={!!busy}
-                  busy={busy?.on === "near-wallet"}
-                />
-              )}
               <Option
                 icon={
                   <IconTile className="bg-pending">
@@ -1625,12 +1648,43 @@ const PayFlow = () => {
         )}
       </div>
     );
-  } else if (step.kind === "wallets") {
+  } else if (step.kind === "families") {
     body = (
       <div>
         <SheetHeader
           title="Connect wallet"
           onBack={() => go({ kind: "method" })}
+        />
+
+        <div className="mt-6">
+          <Group>
+            {families.map((family) => (
+              <Option
+                key={family.type}
+                icon={family.icon}
+                title={family.name}
+                description={family.description}
+                onClick={family.connect}
+                disabled={!!busy}
+                busy={
+                  busy?.on ===
+                  (family.type === "Near" ? "near-wallet" : "wallet")
+                }
+              />
+            ))}
+          </Group>
+          {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
+        </div>
+      </div>
+    );
+  } else if (step.kind === "wallets") {
+    body = (
+      <div>
+        <SheetHeader
+          title="Connect wallet"
+          onBack={() =>
+            go({ kind: families.length > 1 ? "families" : "method" })
+          }
         />
 
         {step.wallets.length ? (
