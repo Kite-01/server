@@ -27,6 +27,12 @@ const connectors = connectorsForWallets(
   { appName: "Kite", projectId: "" },
 );
 
+// RainbowKit's light theme in the checkout's ink and font
+const theme = (() => {
+  const base = lightTheme({ accentColor: "#111111", borderRadius: "large" });
+  return { ...base, fonts: { body: "var(--font-sans)" } };
+})();
+
 export const EvmWalletProvider = ({
   chains,
   children,
@@ -51,10 +57,7 @@ export const EvmWalletProvider = ({
 
   return (
     <WagmiProvider config={config}>
-      <RainbowKitProvider
-        modalSize="compact"
-        theme={lightTheme({ accentColor: "#111111", borderRadius: "large" })}
-      >
+      <RainbowKitProvider modalSize="compact" theme={theme}>
         {children}
       </RainbowKitProvider>
     </WagmiProvider>

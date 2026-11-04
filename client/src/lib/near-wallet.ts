@@ -52,6 +52,8 @@ const load = (network: NearNetwork) => {
         import("@near-wallet-selector/my-near-wallet"),
         import("@near-wallet-selector/modal-ui/styles.css"),
       ]);
+      // after the selector's own styles, so these win
+      await import("./wallet-modals.css");
 
       const selector = await core.setupWalletSelector({
         network,

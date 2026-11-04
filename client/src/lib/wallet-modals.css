@@ -1,0 +1,70 @@
+/* The wallet pickers in the checkout's fonts. */
+
+.nws-modal-wrapper {
+  font-family: var(--font-sans) !important;
+}
+
+.nws-modal-wrapper h2,
+.nws-modal-wrapper h3 {
+  font-family: var(--font-display);
+}
+
+/* Wallet Selector pins each icon to the top of a taller box; centre it on the name. */
+.nws-modal-wrapper
+  .nws-modal
+  .wallet-options-wrapper
+  .options-list
+  .single-wallet.sidebar {
+  align-items: center;
+}
+
+.nws-modal-wrapper
+  .nws-modal
+  .wallet-options-wrapper
+  .options-list
+  .single-wallet.sidebar
+  .icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 4px;
+}
+
+.nws-modal-wrapper
+  .nws-modal
+  .wallet-options-wrapper
+  .options-list
+  .single-wallet.sidebar
+  .icon
+  img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nws-modal-wrapper
+  .nws-modal
+  .wallet-options-wrapper
+  .options-list
+  .single-wallet.sidebar
+  .content {
+  display: flex;
+  align-items: center;
+  height: auto;
+}
+
+.nws-modal-wrapper
+  .nws-modal
+  .wallet-options-wrapper
+  .options-list
+  .single-wallet.sidebar
+  .content
+  .title {
+  margin-top: 0;
+  font-size: 15px;
+  line-height: 20px;
+}
