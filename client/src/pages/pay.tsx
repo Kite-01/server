@@ -71,6 +71,8 @@ import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
 
 const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
+const EthereumLogo =
+  "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/info/logo.png";
 const isNearWallet = (wallet: Wallet | NearWallet): wallet is NearWallet =>
   "kind" in wallet && wallet.kind === "near";
 
@@ -1410,18 +1412,18 @@ const PayFlow = () => {
     {
       type: "Evm",
       name: "EVM",
-      description: "MetaMask, Rabby, Coinbase Wallet and other browser wallets",
       icon: (
-        <IconTile className="bg-ink">
-          <IconWallet />
-        </IconTile>
+        <img
+          src={EthereumLogo}
+          alt=""
+          className="size-10 shrink-0 rounded-full"
+        />
       ),
       connect: () => chooseWallet(),
     },
     {
       type: "Near",
       name: "NEAR",
-      description: "Meteor, Intear, HERE or MyNearWallet",
       icon: (
         <IconTile className="bg-ink">
           {nearChain && <img src={nearChain.icon} alt="" className="size-6" />}
@@ -1663,7 +1665,6 @@ const PayFlow = () => {
                 key={family.type}
                 icon={family.icon}
                 title={family.name}
-                description={family.description}
                 onClick={family.connect}
                 disabled={!!busy}
                 busy={
