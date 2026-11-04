@@ -40,8 +40,12 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On chains NEAR Intents doesn't support**, payments settle to the app's address on the paying chain, even when the app has a payout set.
 - **On chains without an onchain notifier**, deposits are found by a balance check every minute, and deposit webhooks aren't sent.
 - **On chains without a gas sponsor**, the operator wallet pays the gas.
-- **x402 needs EIP-3009**: on chains whose settlement token doesn't support it, agents can't pay.
+- **x402 needs EIP-3009** on EVM chains: where the settlement token doesn't support it, agents can't pay. On NEAR, agents pay any NEP-141 token with a delegated `ft_transfer`, not native NEAR.
 - **NEAR Intents has no testnet**, so payouts only happen on mainnet.
+- **On NEAR**:
+  - Deposits are found by the balance check, as on chains without a notifier.
+  - Swap quotes come from Rhea's spot price rather than a time-weighted average, though the deposit contract still enforces the minimum it settles for.
+  - Each transfer's deposit account is created when the transfer opens, and keeps a 0.03 NEAR reserve.
 
 ## What Kite does
 
@@ -50,6 +54,10 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **Agent payments**: a payment link is also an [x402](https://www.x402.org) resource. An agent that requests `/pay/<id>` with GET or POST gets a `402` offering every network that takes x402, signs one and pays by repeating the request.
 - **Any token in, your token out**: payments in another token are swapped through Uniswap V3, or V2 where a chain has no V3. They're priced from time-weighted averages, so a pool someone just moved can't skew a quote.
 - **Settlement on-chain**: each payment runs through its own [Kite contract](https://github.com/Kite-01/contracts), which settles, pays fees or refunds.
+- **NEAR as a chain**: on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
+  - The account's id is derived from the transfer, before it exists (a [NEP-616](https://github.com/near/NEPs/pull/616) `0s…` account running the `kite-deposit` global contract).
+  - Swaps go through Rhea Finance.
+  - Agents pay with x402.
 - **Payouts through NEAR Intents**: every payment delivered as one token on one chain
 - **Webhooks** for every transfer status change, signed so you can verify them.
 - **Apps and API keys**: separate businesses or projects, each with the chains it accepts and an address on each, and scoped API keys.
@@ -155,18 +163,18 @@ The full API is documented at `/openapi`, with the spec at `/openapi/json`. Ever
 
 All settings come from environment variables, checked at startup:
 
-| Variable                          | Required | Description                                                                      |
-| --------------------------------- | -------- | -------------------------------------------------------------------------------- |
-| `KITE_PUBLIC_BASE_URL`            | yes      | The public URL of this server, used for provider callbacks and links             |
-| `KITE_PG_DB_URL`                  | yes      | Postgres connection URL                                                          |
-| `KITE_ENCRYPTION_KEY`             | yes      | 32 random bytes, base64 (`openssl rand -base64 32`); encrypts secrets at rest    |
-| `KITE_OPERATOR_MNEMONIC`          | yes      | BIP-39 mnemonic of the operator wallet that settles and refunds transfers        |
-| `KITE_ROOT_KEY`                   | yes      | At least 16 characters; signs you into the dashboard and grants full API access  |
-| `KITE_PORT`                       |          | Default `3000`                                                                   |
-| `KITE_ENABLE_DASHBOARD`           |          | Serve the dashboard. The checkout at `/pay` is served either way. Default `true` |
-| `KITE_ENABLE_OPENAPI_UI_SPECS`    |          | Serve `/openapi`. Default `true`                                                 |
-| `KITE_ENABLE_OPENAPI_UI_PROVIDER` |          | `scalar` (default) or `swagger`                                                  |
-| `KITE_IS_TESTNET`                 |          | Run on testnets instead of mainnets. Default `false`                             |
+| Variable                          | Required | Description                                                                                                                                        |
+| --------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KITE_PUBLIC_BASE_URL`            | yes      | The public URL of this server, used for provider callbacks and links                                                                               |
+| `KITE_PG_DB_URL`                  | yes      | Postgres connection URL                                                                                                                            |
+| `KITE_ENCRYPTION_KEY`             | yes      | 32 random bytes, base64 (`openssl rand -base64 32`); encrypts secrets at rest                                                                      |
+| `KITE_OPERATOR_MNEMONIC`          | yes      | BIP-39 mnemonic of the operator wallet that settles and refunds transfers. On NEAR the operator is the implicit account of its `m/44'/397'/0'` key |
+| `KITE_ROOT_KEY`                   | yes      | At least 16 characters; signs you into the dashboard and grants full API access                                                                    |
+| `KITE_PORT`                       |          | Default `3000`                                                                                                                                     |
+| `KITE_ENABLE_DASHBOARD`           |          | Serve the dashboard. The checkout at `/pay` is served either way. Default `true`                                                                   |
+| `KITE_ENABLE_OPENAPI_UI_SPECS`    |          | Serve `/openapi`. Default `true`                                                                                                                   |
+| `KITE_ENABLE_OPENAPI_UI_PROVIDER` |          | `scalar` (default) or `swagger`                                                                                                                    |
+| `KITE_IS_TESTNET`                 |          | Run on testnets instead of mainnets. Default `false`                                                                                               |
 
 Provider keys (QuickNode, Alchemy, thirdweb, NEAR Intents, etc) aren't environment variables: set them from the dashboard's **Providers** page, where they're stored encrypted.
 
@@ -228,7 +236,12 @@ The code lives in `src/`: routes in `api/`, business logic in `services/`, chain
 Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World Money and Agent Economy tracks. Kite was already running before the hackathon. What's judged is the NEAR work we added during the hackathon:
 
 - payouts through NEAR Intents ([how they work](#what-near-intents-does-in-kite)), with the apps' payout settings and accepted chains, and payout tracking in the dashboard;
-- support for Aurora, NEAR's EVM, with a [Kite factory on its testnet](https://github.com/Kite-01/contracts/blob/main/ignition/deployments/chain-1313161555/deployed_addresses.json).
+- support for Aurora, NEAR's EVM, with a [Kite factory on its testnet](https://github.com/Kite-01/contracts/blob/main/ignition/deployments/chain-1313161555/deployed_addresses.json);
+- NEAR itself as a chain Kite runs on, matching the EVM design:
+  - `kite-factory` and the per-transfer `kite-deposit` contracts ([`near/` in the contracts repository](https://github.com/Kite-01/contracts/tree/main/near)), each transfer at an account derived from it before it exists (NEP-616 with NEP-591 global contracts);
+  - settlement through Rhea;
+  - NEAR wallets at checkout;
+  - x402 on NEAR, with Kite relaying the agent's delegated `ft_transfer`.
 
 Tag `pre-hackathon` (commit `84d0343`, the import of the existing code) marks Kite before the hackathon, and `hackathon-submission` the submitted state: [see the diff](https://github.com/Kite-01/server/compare/pre-hackathon...hackathon-submission). Thirdweb gas sponsorship, the Uniswap V2 fallback and the upgradeable factory are in that diff too, but they aren't NEAR work.
 
