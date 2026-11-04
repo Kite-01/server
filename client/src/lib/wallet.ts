@@ -22,51 +22,7 @@ export type Wallet = {
   provider: EIP1193Provider;
 };
 
-type Announcement = CustomEvent<{
-  info: { uuid: string; name: string; icon: string; rdns: string };
-  provider: EIP1193Provider;
-}>;
-
-declare global {
-  interface Window {
-    ethereum?: EIP1193Provider;
-  }
-}
-
-// EIP-6963: every installed wallet announces itself; older wallets only
-// inject window.ethereum, which is used when nothing announces.
-export const discoverWallets = () =>
-  new Promise<Wallet[]>((resolve) => {
-    const wallets = new Map<string, Wallet>();
-    const onAnnounce = (event: Event) => {
-      const { info, provider } = (event as Announcement).detail;
-      wallets.set(info.rdns || info.uuid, {
-        id: info.uuid,
-        name: info.name,
-        icon: info.icon,
-        provider,
-      });
-    };
-
-    window.addEventListener("eip6963:announceProvider", onAnnounce);
-    window.dispatchEvent(new Event("eip6963:requestProvider"));
-
-    setTimeout(() => {
-      window.removeEventListener("eip6963:announceProvider", onAnnounce);
-
-      if (!wallets.size && window.ethereum) {
-        wallets.set("injected", {
-          id: "injected",
-          name: "Browser wallet",
-          provider: window.ethereum,
-        });
-      }
-
-      resolve([...wallets.values()]);
-    }, 400);
-  });
-
-const toViemChain = (chain: CheckoutChain) =>
+export const toViemChain = (chain: CheckoutChain) =>
   defineChain({
     id: chain.chainId!,
     name: chain.name,

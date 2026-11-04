@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress, txUrl } from "@/lib/format";
+import { EvmWalletProvider, useConnectEvmWallet } from "@/lib/evm-wallet";
 import {
   connectNearWallet,
   isNearAccountId,
@@ -37,7 +38,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   connectWallet,
-  discoverWallets,
   sendToken,
   switchChain,
   walletMessage,
@@ -81,7 +81,6 @@ type Token = CheckoutChain["tokens"][number];
 type Step =
   | { kind: "method" }
   | { kind: "families" }
-  | { kind: "wallets"; wallets: Wallet[] }
   | { kind: "wallet" }
   | { kind: "token" }
   | { kind: "review" }
@@ -1227,21 +1226,32 @@ const Loading = () => (
   />
 );
 
-export const Pay = () => (
-  <>
-    <PayFlow />
-    {embedded && (
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={() => notify({ type: "close" })}
-        className="fixed top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft"
-      >
-        <IconX className="size-5" />
-      </button>
-    )}
-  </>
-);
+export const Pay = () => {
+  const { id = "" } = useParams();
+  const checkout = useQuery({
+    ...checkoutGetOptions({ path: { id } }),
+    enabled: /^[0-9a-f-]{36}$/i.test(id),
+  });
+  const evmChains = (checkout.data?.chains ?? []).filter(
+    (item) => !isNear(item),
+  );
+
+  return (
+    <EvmWalletProvider chains={evmChains}>
+      <PayFlow />
+      {embedded && (
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={() => notify({ type: "close" })}
+          className="fixed top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft"
+        >
+          <IconX className="size-5" />
+        </button>
+      )}
+    </EvmWalletProvider>
+  );
+};
 
 const PayFlow = () => {
   const { id = "" } = useParams();
@@ -1439,13 +1449,13 @@ const PayFlow = () => {
   const connect = () =>
     families.length === 1 ? families[0].connect() : go({ kind: "families" });
 
+  const connectEvmWallet = useConnectEvmWallet();
+
   const chooseWallet = () =>
     run("wallet", async (progress) => {
-      progress("Looking for wallets…");
-      const found = await discoverWallets();
-
-      if (found.length === 1) await connectTo(found[0], progress);
-      else setStep({ kind: "wallets", wallets: found });
+      progress("Waiting for your wallet…");
+      const found = await connectEvmWallet();
+      if (found) await connectTo(found, progress);
     });
 
   const openTransfer = async (q: Quote, refund: string) => {
@@ -1676,66 +1686,6 @@ const PayFlow = () => {
           </Group>
           {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
         </div>
-      </div>
-    );
-  } else if (step.kind === "wallets") {
-    body = (
-      <div>
-        <SheetHeader
-          title="Connect wallet"
-          onBack={() =>
-            go({ kind: families.length > 1 ? "families" : "method" })
-          }
-        />
-
-        {step.wallets.length ? (
-          <div className="mt-6">
-            <Group>
-              {step.wallets.map((item) => (
-                <Option
-                  key={item.id}
-                  icon={
-                    item.icon ? (
-                      <img
-                        src={item.icon}
-                        alt=""
-                        className="size-10 shrink-0 rounded-xl"
-                      />
-                    ) : (
-                      <IconTile className="bg-ink">
-                        <IconWallet />
-                      </IconTile>
-                    )
-                  }
-                  title={item.name}
-                  onClick={() =>
-                    run(item.id, (progress) => connectTo(item, progress))
-                  }
-                  disabled={!!busy}
-                  busy={busy?.on === item.id}
-                />
-              ))}
-            </Group>
-            {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center py-12 text-center">
-            <IconTile className="size-14 rounded-full bg-soft text-muted [&_svg]:size-7">
-              <IconWallet />
-            </IconTile>
-            <p className="mt-5 text-lg font-semibold">No wallet found</p>
-            <p className="mt-1.5 max-w-xs text-sm text-muted">
-              Install a browser wallet and reload this page, or pay with
-              instructions instead
-            </p>
-            <Button
-              className="mt-7 h-11 px-5"
-              onClick={() => go({ kind: "token" })}
-            >
-              Use payment instructions
-            </Button>
-          </div>
-        )}
       </div>
     );
   } else if (step.kind === "wallet" && chain && token && wallet && account) {
