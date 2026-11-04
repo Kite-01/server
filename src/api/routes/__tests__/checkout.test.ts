@@ -32,7 +32,12 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { PaymentLinkUsage, TransferStatus } from "../../../shared/constants";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
-import { fakeActor, resetMocks, stubPools } from "../../../test/mocks";
+import {
+  fakeActor,
+  resetMocks,
+  schedulerMock,
+  stubPools,
+} from "../../../test/mocks";
 import { rootCredentials, call, client } from "../../../test/api";
 import { payinFor } from "../../../test/transfers";
 import { common } from "../../../shared/common";
@@ -941,9 +946,11 @@ describe("checkout", () => {
       quote: await quoteFor(link.id),
     });
 
+    schedulerMock.enqueueSettle.mockClear();
     const res = await get(`/api/checkout/${link.id}/transfer/${row.id}`);
 
     expect(res.status).toBe(200);
+    expect(schedulerMock.enqueueSettle).not.toHaveBeenCalled();
     expect(res.json).toMatchObject({
       id: row.id,
       status: "AwaitingDeposit",
