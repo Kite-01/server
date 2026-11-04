@@ -351,7 +351,6 @@ const NearAsset = t.Union([
   t.Object({ Token: ChainAddress }),
 ]);
 
-// the transfer kite-factory and kite-deposit take on NEAR (kite_types::Transfer)
 const NearKiteTransferInput = t.Object(
   {
     id: t.String(),

@@ -2,7 +2,6 @@ import type { WalletSelector } from "@near-wallet-selector/core";
 import type { WalletSelectorModal } from "@near-wallet-selector/modal-ui";
 import { actionCreators } from "@near-js/transactions";
 
-// The token address Kite uses for native NEAR, as the zero address is native ETH on EVM.
 export const NearNativeToken = "near";
 
 export type NearNetwork = "mainnet" | "testnet";
@@ -97,7 +96,6 @@ const current = async (
   };
 };
 
-/** Null when the payer closes the picker without choosing a wallet. */
 export const connectNearWallet = async (
   network: NearNetwork,
 ): Promise<NearWallet | null> => {
@@ -127,8 +125,6 @@ export const connectNearWallet = async (
   });
 };
 
-// Sends native NEAR, or a NEP-141 token with ft_transfer, to the transfer's deposit account.
-// Kite registers that account on the token when it opens the transfer.
 export const sendNearPayment = async (
   wallet: NearWallet,
   token: string,

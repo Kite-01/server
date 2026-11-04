@@ -25,7 +25,6 @@ type ExactOutput = {
   amountOut: bigint;
 };
 
-/** Quotes swaps on whichever DEX the chain settles through: Uniswap on EVM, Rhea on NEAR. */
 export const swapQuoter = {
   quoteExactInput: async (input: ExactInput): Promise<SwapQuote | null> => {
     if (getChain(input.caip2Id).type === ChainType.Near) {

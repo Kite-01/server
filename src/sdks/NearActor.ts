@@ -34,11 +34,8 @@ export type NearCallResult = {
 const MaxGas = 300_000_000_000_000n;
 
 /**
- * The operator on NEAR: an implicit account whose ed25519 key comes from
- * `KITE_OPERATOR_MNEMONIC` on NEAR's path, m/44'/397'/0'. It is a different key from the
- * operator's EVM key, derived from the same seed.
- *
- * The EVM-only parts of `OnchainActor` (viem clients, gas sponsors) throw here.
+ * The operator on NEAR: the implicit account of `KITE_OPERATOR_MNEMONIC`'s key on
+ * m/44'/397'/0', a different key from the operator's EVM one.
  */
 export class NearActor implements OnchainActor {
   private keyPair?: ReturnType<typeof parseSeedPhrase>;
@@ -55,7 +52,6 @@ export class NearActor implements OnchainActor {
 
   getPublicKey = () => this.getKeyPair().getPublicKey().toString();
 
-  /** The operator's secret key, for the x402 relayer, which signs its own transactions. */
   getSecretKey = () => this.getKeyPair().toString() as KeyPairString;
 
   provider = (caip2Id: Caip2Id, rpcUrls: string[] = []) => {
@@ -96,7 +92,6 @@ export class NearActor implements OnchainActor {
     })) as T;
   };
 
-  /** An access key's nonce, or null when the account has no such key. */
   viewAccessKey = async (
     caip2Id: Caip2Id,
     accountId: string,
@@ -223,10 +218,7 @@ export class NearActor implements OnchainActor {
     };
   };
 
-  /**
-   * A NEAR account's balance, storage and global contract, or null when it doesn't exist.
-   * `contract` is null for a plain account, such as a deposit account paid before it's deployed.
-   */
+  /** `contract` is null for a plain account, such as a deposit paid before it's deployed. */
   getAccount = async (
     caip2Id: Caip2Id,
     accountId: string,

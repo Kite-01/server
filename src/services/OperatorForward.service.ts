@@ -143,7 +143,6 @@ export class OperatorForwardService {
     });
     if (!chainRow) throw new NotFoundError("chain", transfer.quote.chainId);
 
-    // x402 transfers refund to the operator of their own chain, which forwards to the payer
     const operator = getOnchainActor(
       getChain(chainRow.caip2Id).type,
     ).getAddress();
@@ -391,7 +390,6 @@ export class OperatorForwardService {
     }
   };
 
-  /** Native NEAR, or `ft_transfer` after registering the recipient on the token if needed. */
   private sendOnNear = async (
     caip2Id: Caip2Id,
     rpcUrls: string[],

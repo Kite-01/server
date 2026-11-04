@@ -5,13 +5,8 @@ import {
 import { getNearChain } from "../shared/chains";
 import { type NearActor } from "./NearActor";
 
-/**
- * The x402 NEAR facilitator signer, with the operator as the only relayer: it wraps the
- * payer's signed delegate action in a transaction it signs and pays gas for.
- *
- * Reads and submission are `@x402/near`'s reference signer; submissions go through the
- * operator's per-chain queue, since its other transactions use the same access key.
- */
+// Submissions go through the operator's per-chain queue: its other transactions use the same
+// access key.
 export const x402NearFacilitatorSigner = (
   caip2Id: Caip2Id,
   actor: NearActor,
@@ -22,7 +17,6 @@ export const x402NearFacilitatorSigner = (
     relayers: [
       {
         accountId: actor.getAddress(),
-        // the same `ed25519:…` string, typed by @near-js/crypto rather than near-api-js
         secretKey: actor.getSecretKey() as `ed25519:${string}`,
       },
     ],

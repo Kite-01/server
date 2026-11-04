@@ -6,7 +6,6 @@ import { NearNativeToken } from "../shared/kiteNearContract";
 export const RheaDclFeeTiers = [100, 400, 2000, 10000] as const;
 
 export type RheaQuote = {
-  /** The DCL pool id, `token_x|token_y|fee`. */
   pool: string;
   amount: bigint;
 };
@@ -14,12 +13,8 @@ export type RheaQuote = {
 type DclQuoteResult = { amount: string; tag: string | null };
 
 /**
- * Swap quotes on NEAR from Rhea Finance's DCL (concentrated liquidity) pools, the NEAR
- * counterpart of `Uniswap`. Native NEAR is quoted as wrapped NEAR.
- *
- * Unlike `Uniswap`, which prices from time-weighted averages, these are spot quotes: DCL has no
- * oracle to read an average from. The deposit contract still enforces `min_amount_out` when it
- * swaps.
+ * Spot quotes from Rhea's DCL pools, which have no time-weighted average to read; the deposit
+ * contract still enforces `min_amount_out`.
  */
 export class Rhea {
   private dcl = (caip2Id: Caip2Id) => getNearChain(caip2Id).contracts.Rhea?.dcl;

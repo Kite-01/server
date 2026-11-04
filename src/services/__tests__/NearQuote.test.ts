@@ -14,7 +14,6 @@ describe("quotes on NEAR", () => {
   });
 
   it("rounds a payment link's amount in NEAR up to 6 decimals", async () => {
-    // Rhea asks 0.007325763748910487055142 wNEAR for 0.05 USDC
     fakeNearActor.view.mockImplementation(async (...args: unknown[]) =>
       args[2] === "quote_by_output"
         ? { amount: "7325763748910487055142", tag: null }

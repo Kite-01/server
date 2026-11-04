@@ -24,7 +24,6 @@ type ChainBase = {
   name: string;
   icon: string;
   testnet?: true;
-  /** Still being tested; the dashboard and checkout mark it as beta. */
   beta?: true;
   publicRpcUrls: readonly string[];
   confirmations: number;

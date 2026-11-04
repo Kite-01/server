@@ -63,7 +63,6 @@ export const quote = pgTable(
       mode: "string",
     }).notNull(),
     uniswapPoolFeeTier: integer("uniswap_pool_fee_tier"),
-    // the Rhea DCL pool a NEAR swap goes through
     swapPool: text("swap_pool"),
     reference: text("reference"),
     meta: jsonb("meta"),

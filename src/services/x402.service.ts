@@ -153,11 +153,6 @@ export class x402Service {
     }
   };
 
-  /**
-   * The payer's authorization in one shape: an EIP-3009 authorization on EVM, or on NEAR the
-   * `ft_transfer` in a signed delegate action. `nonce` identifies it: the EIP-3009 nonce, or
-   * the delegate's access key and nonce.
-   */
   private authorizationOf = async (
     payload: ReturnType<typeof x402_PaymentPayloadSchema.parse>["payload"],
     requirements: ReturnType<typeof x402_RequirementSchema.parse>,
@@ -594,11 +589,8 @@ export class x402Service {
     };
   };
 
-  /**
-   * On NEAR the facilitator waits for the relayed transaction to finish, so a reservation
-   * without an outcome either never landed or landed unseen. A delegate's nonce is used
-   * once it lands; then the deposit account holds the payment and settles like any other.
-   */
+  // A NEAR reservation without an outcome never landed or landed unseen; a used nonce means
+  // it landed.
   private resolveNearReservation = async (
     ctx: ValidatedPayment,
     row: {
@@ -744,7 +736,6 @@ export class x402Service {
       const near = getChain(chain.caip2Id).type === ChainType.Near;
 
       for (const token of tokens) {
-        // NEAR: any NEP-141 token, paid by a delegated ft_transfer
         if (near) {
           if (token.address !== NearNativeToken) {
             kinds.push({
@@ -793,7 +784,6 @@ export class x402Service {
     });
     if (!quote_) throw new NotFoundError("quote", quoteId);
 
-    // refunds of x402 payments go to the operator, which forwards them to the payer
     const operatorAddress = getOnchainActor(
       getChain(quote_.chain.caip2Id).type,
     ).getAddress();

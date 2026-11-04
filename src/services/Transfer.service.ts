@@ -96,7 +96,6 @@ type PreparedTransfer = {
   settlementRecipient: string;
 };
 
-/** Gas for a factory call that runs the deposit's steps: the most a transaction can attach. */
 const NearFactoryCallGas = 300_000_000_000_000n;
 const NearDeployGas = 100_000_000_000_000n;
 const NearRegisterCallGas = 50_000_000_000_000n;
@@ -700,10 +699,6 @@ export class TransferService {
     };
   };
 
-  /**
-   * A NEP-141 token only sends to accounts registered on it, so on NEAR the deposit account is
-   * created now, registered on the tokens it will hold, rather than when it settles.
-   */
   private prepareNearTransfer = async (
     input: PrepareTransferInput,
   ): Promise<PreparedTransfer> => {
@@ -765,7 +760,7 @@ export class TransferService {
     );
     if (derived !== payinAddress) {
       throw new AppError(
-        `kite-factory derives ${derived} for this transfer, not ${payinAddress}`,
+        `The Kite factory derives ${derived} for this transfer, not ${payinAddress}`,
       );
     }
 
@@ -844,7 +839,6 @@ export class TransferService {
     };
   };
 
-  /** What a NEAR deposit account holds of a token, leaving out its own reserve. */
   private nearBalance = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
     token: string,
@@ -856,7 +850,6 @@ export class TransferService {
       ctx.struct.implementation,
     );
 
-  /** What a NEAR deposit account holds of a token, leaving out its reserve and storage stake. */
   private nearPayinBalance = async (
     caip2Id: Caip2Id,
     token: string,
@@ -872,7 +865,6 @@ export class TransferService {
     return account ? nearNativeAvailable(account, implementation) : 0n;
   };
 
-  /** The deposit contract's status, or null while it isn't deployed. */
   private nearStatus = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
@@ -893,7 +885,6 @@ export class TransferService {
     );
   };
 
-  /** Creates the deposit account; it registers it on the tokens it will hold and funds it. */
   private deployNearDeposit = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
@@ -924,10 +915,7 @@ export class TransferService {
     }
   };
 
-  /**
-   * Gets back the reserve and registration deposits of a finished transfer. A failure only
-   * leaves them in the account, so it's logged rather than thrown.
-   */
+  // a failed close only leaves the deposits in the account, so it's logged, not thrown
   private closeNearDeposit = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
@@ -978,7 +966,6 @@ export class TransferService {
     return { ...result, stopped: parsed.stopped };
   };
 
-  /** Fee recipients and the settlement recipient must be registered on the settlement token. */
   private registerNearRecipients = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
@@ -988,7 +975,6 @@ export class TransferService {
     ]);
   };
 
-  /** A NEP-141 token only sends to registered accounts; registers those that aren't. */
   private registerOnNearToken = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
     token: string,

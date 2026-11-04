@@ -19,15 +19,12 @@ import {
 import { getAccount, watchAccount } from "wagmi/actions";
 import { toViemChain, type CheckoutChain, type Wallet } from "./wallet";
 
-// Browser wallets (every installed extension, found through EIP-6963) and Coinbase Wallet,
-// none of which needs an API key. WalletConnect, for phone wallets by QR code, needs a
-// Reown project id, so it isn't offered.
+// Wallets that need no API key; WalletConnect would need a Reown project id.
 const connectors = connectorsForWallets(
   [{ groupName: "Wallets", wallets: [injectedWallet, coinbaseWallet] }],
   { appName: "Kite", projectId: "" },
 );
 
-// RainbowKit's light theme in the checkout's ink and font
 const theme = (() => {
   const base = lightTheme({ accentColor: "#111111", borderRadius: "large" });
   return { ...base, fonts: { body: "var(--font-sans)" } };
@@ -51,7 +48,6 @@ export const EvmWalletProvider = ({
       connectors,
       transports: Object.fromEntries(evm.map((chain) => [chain.id, http()])),
     });
-    // the chains change only with the link
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids]);
 
@@ -71,7 +67,6 @@ const toWallet = async (connector: Connector): Promise<Wallet> => ({
   provider: (await connector.getProvider()) as EIP1193Provider,
 });
 
-/** Opens RainbowKit's modal; resolves to the connected wallet, or null when it's closed. */
 export const useConnectEvmWallet = () => {
   const config = useConfig();
   const { openConnectModal, connectModalOpen } = useConnectModal();

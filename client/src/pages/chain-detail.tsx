@@ -75,7 +75,6 @@ const ConfigurationForm = ({
   providers: ProviderStatus[];
 }) => {
   const config = chain.config;
-  // NEAR has no notifier or gas sponsor, and its gas price isn't capped here
   const near = chain.caip2Id.startsWith("near:");
   const [values, setValues] = useState({
     rpcUrls: (config?.rpcUrls ?? []).join("\n"),
@@ -145,10 +144,10 @@ const ConfigurationForm = ({
     <Card className="max-w-2xl p-6">
       <form className="space-y-5" onSubmit={submit}>
         <Field
-          label={near ? "kite-factory account" : "KiteFactory address"}
+          label={near ? "Kite factory account" : "KiteFactory address"}
           hint={
             near
-              ? "The account kite-factory is deployed to, e.g. kite-factory.near."
+              ? "The account the Kite factory contract is deployed to, e.g. kite-factory.near."
               : undefined
           }
         >

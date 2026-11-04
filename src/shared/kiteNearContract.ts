@@ -5,16 +5,9 @@ import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { AppError } from "./errors";
 
 /**
- * The `kite-factory` / `kite-deposit` contracts on NEAR (Kite-01/near-contracts).
- *
- * A deposit account's id is `0s` + the last 20 bytes of keccak256(borsh(StateInit)), where the
- * StateInit runs the transfer's `implementation` (a global contract code hash) with
- * `{factory, transfer, status: Uninitialized, progress: default}` stored under `STATE`
- * (NEP-616). The serializer below must match `kite_types::DepositState` field for field.
- *
- * The account is only deployed once there is a payment: `register` puts the predicted id on the
- * pay-in token before it exists, and `deploy` creates it before the first settle, refund or
- * recover. `close` returns the reserve and registration deposits once it's finished.
+ * The `factory` and `kite` contracts on NEAR (Kite-01/near-contracts). A deposit account is `0s` +
+ * the last 20 bytes of keccak256(borsh(StateInit)) (NEP-616), so the serializer below must match
+ * `DepositState` in the contracts' `types` crate field for field.
  */
 
 export type NearAsset = "Native" | { Token: string };
@@ -40,13 +33,10 @@ export type NearKiteStatus =
 
 export { NearNativeToken, isNearAccountId };
 
-/** `DEPOSIT_RESERVE` in kite-types: NEAR a deposit account keeps for its token calls. */
+/** `DEPOSIT_RESERVE` in the contracts' `types`. */
 export const NearDepositReserve = 10n ** 21n;
 
-/**
- * kite-deposit versions from before accounts were deployed lazily: they start `Open`, keep a
- * 0.03 NEAR reserve, and have no `close`.
- */
+// The first testnet version: starts `Open`, keeps a 0.03 NEAR reserve, and has no `close`.
 const LegacyImplementations = new Set([
   "6enzFVmxd6A9uWCLfstYVt4Qjc8zxEq8adVcFzGUfnUi",
 ]);
@@ -55,15 +45,11 @@ const LegacyDepositReserve = 30n * 10n ** 21n;
 export const isLegacyNearImplementation = (implementation: string) =>
   LegacyImplementations.has(implementation);
 
-/** `ZERO_BALANCE_STORAGE_LIMIT` in kite-types: up to this many bytes, no storage stake. */
+/** `ZERO_BALANCE_STORAGE_LIMIT` in the contracts' `types`. */
 const ZeroBalanceStorageLimit = 770;
 const StorageByteCost = 10n ** 19n;
 
-/**
- * Native NEAR a deposit account holds as payment: its balance beyond the reserve and the
- * storage stake its StateInit kept, as `native_available` in kite-deposit computes it. Before
- * it's deployed, the account is a plain one holding only what was paid.
- */
+// As `native_available` in the contract computes it; before it's deployed, everything is payment.
 export const nearNativeAvailable = (
   account: { amount: bigint; storageUsage: number; contract: string | null },
   implementation: string,
@@ -260,7 +246,7 @@ class KiteNearContract {
     };
   };
 
-  /** The same rules as `Transfer::validate` in `kite-types`. */
+  /** The same rules as `Transfer::validate` in the contracts. */
   validateTransferInput = (t: NearKiteTransfer) => {
     const accounts = [
       t.settlement_recipient,
@@ -316,7 +302,6 @@ class KiteNearContract {
     return null;
   };
 
-  /** Fungible tokens the deposit account is registered on when it's deployed. */
   tokensToRegister = (t: NearKiteTransfer) => {
     const tokens = new Set<string>();
     if (t.pay_in !== "Native") tokens.add(t.pay_in.Token);
@@ -338,7 +323,6 @@ class KiteNearContract {
   private assetAddress = (asset: NearAsset) =>
     asset === "Native" ? NearNativeToken : asset.Token;
 
-  /** The deposit contracts' NEP-297 events, in the shapes `KiteContract.parseContractLogs` gives. */
   parseEvents = (caip2Id: Caip2Id, outcome: NearOutcome) => {
     const items: OnchainNotifierCallbackResult = [];
     const stopped: NearSettleStopped[] = [];

@@ -24,7 +24,6 @@ import { TransferService } from "../Transfer.service";
 import { OperatorForwardService } from "../OperatorForward.service";
 import { nearEvent } from "../../test/near";
 
-// the scheme's own checks read the chain; here they're stubbed
 const scheme = vi.hoisted(() => ({
   verify: vi.fn(),
   settle: vi.fn(),
@@ -291,7 +290,6 @@ describe("x402 on NEAR", () => {
         status: "Pending",
       });
 
-      // the payer isn't registered on the token yet
       fakeNearActor.view.mockImplementation(async (...args: unknown[]) =>
         args[2] === "storage_balance_bounds"
           ? { min: "1250000000000000000000" }

@@ -40,7 +40,6 @@ export const EvmAddress = t.String({
   pattern: "^0x[0-9a-fA-F]{40}$",
 });
 
-/** An EVM address or a NEAR account id; services check it against the chain it's for. */
 export const ChainAddress = t.String({
   minLength: 2,
   maxLength: 64,

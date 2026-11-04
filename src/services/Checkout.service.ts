@@ -32,7 +32,6 @@ type SettlementToken = {
 };
 
 export class CheckoutService {
-  // EIP-3009 on EVM; on NEAR any NEP-141 settlement token, paid by a delegated ft_transfer
   private takesX402 = (
     caip2Id: Caip2Id,
     config: { settlementToken: SettlementToken },

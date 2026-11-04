@@ -5,7 +5,6 @@ import { createApp } from "./factories";
 import { fakeNearActor } from "./mocks";
 import { env } from "../shared/env";
 
-// NEAR is testnet-only for now, so NEAR tests run as a testnet server
 export const NEAR_CAIP2 = "near:testnet" as Caip2Id;
 export const NEAR_FACTORY = "kite-factory.near";
 export const NEAR_USDC = "usdc.near";
@@ -13,7 +12,6 @@ export const NEAR_IMPLEMENTATION =
   "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ";
 export const NEAR_SHOP = "shop.near";
 
-/** An app taking payments on NEAR testnet in USDC, with kite-factory's views stubbed. */
 export const setupNearChain = async () => {
   env.KITE_IS_TESTNET = true;
 
@@ -60,7 +58,6 @@ export const setupNearChain = async () => {
 
   await db.insert(appChain).values({ appId, chainId, address: NEAR_SHOP });
 
-  // the contracts' views, answered as they would
   fakeNearActor.view.mockImplementation(async (...args: unknown[]) => {
     const [, contractId, method, params] = args as [
       Caip2Id,
@@ -85,7 +82,6 @@ export const setupNearChain = async () => {
     throw new Error(`unexpected view ${contractId}.${method}`);
   });
 
-  // a deployed deposit account holding no NEAR; tests of undeployed ones override it
   fakeNearActor.getAccount.mockResolvedValue(nearDeployedAccount());
 
   return { appId, chainId, usdcId: usdc.id, nearId: near.id };
@@ -124,7 +120,6 @@ export const createNearQuoteRow = async (input: {
   return row;
 };
 
-/** What `NearActor.functionCall` resolves to, with each receipt's logs. */
 export const nearOutcome = (
   receipts: Array<{ logs: string[]; executor?: string }>,
   status: "success" | "failure" = "success",

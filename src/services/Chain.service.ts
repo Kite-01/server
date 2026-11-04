@@ -144,7 +144,7 @@ export class ChainService {
   ) => {
     if (!isNearAccountId(input.kiteFactoryAddress)) {
       throw new AppError(
-        "The kite-factory account is not a valid NEAR account",
+        "The Kite factory account is not a valid NEAR account",
       );
     }
 
@@ -168,12 +168,12 @@ export class ChainService {
         input.rpcUrls ?? [],
       )
       .catch(() => {
-        throw new AppError("Is this a valid kite-factory contract?");
+        throw new AppError("Is this a valid Kite factory contract?");
       });
 
     if (!isOperator) {
       throw new AppError(
-        `The server's NEAR account ${actor.getAddress()} is not an operator on the provided kite-factory`,
+        `The server's NEAR account ${actor.getAddress()} is not an operator on the provided Kite factory`,
       );
     }
   };

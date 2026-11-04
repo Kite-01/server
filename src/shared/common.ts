@@ -25,11 +25,9 @@ class Common {
 
   isZeroAddress = (address: string) => address.toLowerCase() === zeroAddress;
 
-  /** Native ETH (the zero address) or native NEAR. */
   isNativeToken = (address: string) =>
     this.isZeroAddress(address) || address === NearNativeToken;
 
-  /** Checksums an EVM address; a NEAR account id is kept as it is, in lowercase. */
   normalizeAddress = (address: string) => {
     if (!isAddress(address, { strict: false }) && isNearAccountId(address)) {
       return address;
@@ -40,7 +38,6 @@ class Common {
 
   normalizeEvmAddress = (address: string) => getAddress(address);
 
-  /** NEAR account ids, ETH-implicit `0x…` ones included, are kept as they are. */
   normalizeAddressFor = (chainType: ChainType, address: string) => {
     return (chainType as string) === "Near"
       ? address

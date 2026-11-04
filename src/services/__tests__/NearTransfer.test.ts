@@ -326,7 +326,6 @@ describe("TransferService on NEAR", () => {
         contractId: FACTORY,
         method: "settle",
       });
-      // then gets back the reserve and registration deposits
       expect(calls[2][1]).toMatchObject({
         contractId: FACTORY,
         method: "close",
@@ -408,7 +407,6 @@ describe("TransferService on NEAR", () => {
         .finally(() => vi.useRealTimers());
 
       expect((await reload(created.id)).status).toBe(TransferStatus.Cancelled);
-      // only the registration made when it was created
       expect(fakeNearActor.functionCall).toHaveBeenCalledTimes(1);
     });
 
@@ -487,7 +485,6 @@ describe("TransferService on NEAR", () => {
       await expect(service.settleTransfer(created.id)).rejects.toBeInstanceOf(
         AppError,
       );
-      // registering the shop, then three attempts
       expect(fakeNearActor.functionCall).toHaveBeenCalledTimes(5);
       expect((await reload(created.id)).status).toBe(TransferStatus.Processing);
     });

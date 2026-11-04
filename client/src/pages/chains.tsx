@@ -37,7 +37,6 @@ export const chainName = (caip2Id: string, supported?: SupportedChain[]) =>
 const isBeta = (caip2Id: string, supported?: SupportedChain[]) =>
   !!supported?.find((chain) => chain.caip2Id === caip2Id)?.beta;
 
-/** A chain's name, with a Beta badge while it's still being tested. */
 export const ChainName = ({
   caip2Id,
   supported,

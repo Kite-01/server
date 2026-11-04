@@ -134,7 +134,6 @@ export class TokenService {
         decimals: metadata.decimals,
         name: metadata.name,
         supportsEIP3009: false,
-        // NEP-148 icons are usually data URLs; keep the small ones
         icon:
           metadata.icon && metadata.icon.length <= 16_384
             ? metadata.icon

@@ -9,11 +9,9 @@ const USDC = "usdc.near";
 describe("Rhea", () => {
   beforeEach(() => {
     resetMocks();
-    // NEAR is testnet-only for now
     env.KITE_IS_TESTNET = true;
   });
 
-  // amounts each fee tier's pool would give, or take
   const pools = (amounts: Record<number, string | null>) => {
     fakeNearActor.view.mockImplementation(async (...args: unknown[]) => {
       const [, , , params] = args as [

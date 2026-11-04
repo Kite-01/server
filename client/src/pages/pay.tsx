@@ -1426,7 +1426,6 @@ const PayFlow = () => {
       setStep({ kind: "token" });
     });
 
-  // One entry per kind of chain a wallet connects to: a new chain type adds one here.
   const families = [
     {
       type: "Evm",
@@ -1455,7 +1454,6 @@ const PayFlow = () => {
     allChains.some((item) => item.chainType === family.type),
   );
 
-  // Straight to the wallets when the link takes one kind of chain.
   const connect = () =>
     families.length === 1 ? families[0].connect() : go({ kind: "families" });
 
@@ -1506,7 +1504,6 @@ const PayFlow = () => {
     run("pay", async (progress) => {
       if (!wallet || !account || !chain) return;
 
-      // the deposit account takes the payment; refunds go back to the paying account
       if (isNearWallet(wallet)) {
         progress("Preparing payment…");
         const transfer = await openTransfer(q, wallet.accountId);
