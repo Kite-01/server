@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toHex } from "viem";
 import { kiteNear, type NearKiteTransfer } from "../kiteNearContract";
 
-// The same transfer as `vector::fixed_vector` in Kite-01/contracts near/kite-types.
+// The same transfer as `vector::fixed_vector` in Kite-01/near-contracts, contracts/kite-types.
 const transfer: NearKiteTransfer = {
   id: "7d0c3a52-2f1e-4b8a-9c61-0f3e2d1c4b5a",
   pay_in: "Native",

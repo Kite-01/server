@@ -5,7 +5,7 @@ import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { AppError } from "./errors";
 
 /**
- * The `kite-factory` / `kite-deposit` contracts on NEAR (Kite-01/contracts, `near/`).
+ * The `kite-factory` / `kite-deposit` contracts on NEAR (Kite-01/near-contracts).
  *
  * A deposit account's id is `0s` + the last 20 bytes of keccak256(borsh(StateInit)), where the
  * StateInit runs the transfer's `implementation` (a global contract code hash) with

@@ -35,7 +35,7 @@ bun run lint
   - `Alchemy` and `Thirdweb`: gas sponsors;
   - `Uniswap` and `Rhea`: swap quotes on EVM and on NEAR.
 - `src/shared/chains/registry.ts`: every supported chain, with each provider's name for it under `descriptors`.
-- `src/shared/kiteContract.ts` and `src/shared/kiteNearContract.ts`: the Kite contracts on EVM and on NEAR. `predictAddress` on NEAR must stay byte for byte with `kite-types` in the contracts repository; its test pins the same vector.
+- `src/shared/kiteContract.ts` and `src/shared/kiteNearContract.ts`: the Kite contracts on EVM and on NEAR. `predictAddress` on NEAR must stay byte for byte with `kite-types` in [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts); its test pins the same vector.
 - `src/db/schema/`: drizzle tables. The migrations generated from them are in `drizzle/`.
 - `src/shared/scheduler/`: pg-boss queues and workers.
 - `src/test/`: test setup, factories and API helpers. `setup.mts` stubs NEAR Intents, the scheduler and the operator wallet.

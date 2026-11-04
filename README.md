@@ -8,7 +8,7 @@ Kite is an open-source crypto payment processor that a business runs itself. The
 
 With [NEAR Intents](https://docs.near-intents.org/), the business can receive every payment as one token on one chain, for example USDC on NEAR at `shop.near`, whichever chain and token the customer paid with.
 
-This repository is the server: the API, the dashboard the business runs it from, and the checkout page customers pay on. The [contracts](https://github.com/Kite-01/contracts) and the [SDK](https://github.com/Kite-01/monorepo) live in their own repositories.
+This repository is the server: the API, the dashboard the business runs it from, and the checkout page customers pay on. The contracts ([EVM](https://github.com/Kite-01/contracts), [NEAR](https://github.com/Kite-01/near-contracts)) and the [SDK](https://github.com/Kite-01/monorepo) live in their own repositories.
 
 ### The problem
 
@@ -239,7 +239,7 @@ Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World
 - payouts through NEAR Intents ([how they work](#what-near-intents-does-in-kite)), with the apps' payout settings and accepted chains, and payout tracking in the dashboard;
 - support for Aurora, NEAR's EVM, with a [Kite factory on its testnet](https://github.com/Kite-01/contracts/blob/main/ignition/deployments/chain-1313161555/deployed_addresses.json);
 - NEAR itself as a chain Kite runs on, matching the EVM design, in beta on testnet:
-  - `kite-factory` and the per-transfer `kite-deposit` contracts ([`near/` in the contracts repository](https://github.com/Kite-01/contracts/tree/main/near)), each transfer at an account derived from it before it exists (NEP-616 with NEP-591 global contracts);
+  - `kite-factory` and the per-transfer `kite-deposit` contracts ([Kite-01/near-contracts](https://github.com/Kite-01/near-contracts)), each transfer at an account derived from it before it exists (NEP-616 with NEP-591 global contracts);
   - settlement through Rhea;
   - NEAR wallets at checkout;
   - x402 on NEAR, with Kite relaying the agent's delegated `ft_transfer`.
@@ -249,6 +249,7 @@ Tag `pre-hackathon` (commit `84d0343`, the import of the existing code) marks Ki
 ## Related repositories
 
 - [Kite-01/contracts](https://github.com/Kite-01/contracts): the `KiteFactory` and `Kite` contracts, published as `@kite-01/contracts` (MIT).
+- [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts): `kite-factory` and `kite-deposit`, the same on NEAR (MIT).
 - [Kite-01/monorepo](https://github.com/Kite-01/monorepo): `@kite-01/sdk`, for calling the API and verifying webhooks (MIT).
 
 ## Contributing
