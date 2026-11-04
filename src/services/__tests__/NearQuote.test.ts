@@ -17,7 +17,9 @@ describe("quotes on NEAR", () => {
     fakeNearActor.view.mockImplementation(async (...args: unknown[]) =>
       args[2] === "quote_by_output"
         ? { amount: "7325763748910487055142", tag: null }
-        : null,
+        : args[2] === "get_pool"
+          ? {}
+          : null,
     );
     const link = await createPaymentLink(appId, {
       currency: "USD",

@@ -48,6 +48,11 @@ export class Rhea {
     const actor = getNearActor();
     const quotes = await Promise.all(
       this.poolIds(input, output).map(async (pool) => {
+        const exists = await actor
+          .view<object | null>(caip2Id, dcl, "get_pool", { pool_id: pool })
+          .catch(() => null);
+        if (!exists) return null;
+
         const result = await actor
           .view<DclQuoteResult>(caip2Id, dcl, method, {
             pool_ids: [pool],
