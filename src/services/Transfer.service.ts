@@ -772,11 +772,12 @@ export class TransferService {
     // Nothing is deployed until there's a payment. A token can only be sent to a registered
     // account, so the predicted one is registered on the pay-in token; native NEAR needs nothing.
     if (struct.pay_in !== "Native") {
-      const deposit = await actor.view<string>(
+      // the token's own minimum, so it has nothing to refund
+      const bounds = await actor.view<{ min: string }>(
         caip2Id,
-        factory,
-        "register_deposit",
-        { transfer: struct },
+        struct.pay_in.Token,
+        "storage_balance_bounds",
+        {},
         rpcUrls,
       );
 
@@ -786,7 +787,7 @@ export class TransferService {
           contractId: factory,
           method: "register",
           args: { transfer: struct },
-          deposit: BigInt(deposit),
+          deposit: BigInt(bounds.min),
           gas: NearRegisterCallGas,
         },
         rpcUrls,

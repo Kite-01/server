@@ -99,7 +99,7 @@ describe("TransferService on NEAR", () => {
           contractId: FACTORY,
           method: "register",
           args: { transfer: struct },
-          deposit: 2_500_000_000_000_000_000_000n,
+          deposit: 1_250_000_000_000_000_000_000n,
         }),
         [],
       );
