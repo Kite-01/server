@@ -11,9 +11,13 @@ import {
 } from "../shared/errors";
 import { encodeFunctionData, erc20Abi, type Address } from "viem";
 import { db, dbWithTransaction, type Transaction } from "../db";
-import { deposit, operatorForward, token } from "../db/schema";
+import { chain, deposit, operatorForward, token } from "../db/schema";
 import { and, eq, inArray, lt } from "drizzle-orm";
-import { getOnchainActor } from "../shared/onchainActor";
+import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import { NearNativeToken } from "../shared/nearAccount";
+import { type NearFunctionCall } from "../sdks/NearActor";
+
+const NearFtGas = 30_000_000_000_000n;
 import { Scheduler } from "../shared/scheduler";
 import { KvService } from "./Kv.service";
 import { getChain } from "../shared/chains";
@@ -133,7 +137,16 @@ export class OperatorForwardService {
   ) => {
     const { transfer, item, sourceId } = input;
 
-    const operator = getOnchainActor(ChainType.Evm).getAddress();
+    const chainRow = await transaction.query.chain.findFirst({
+      where: eq(chain.id, transfer.quote.chainId),
+      columns: { caip2Id: true },
+    });
+    if (!chainRow) throw new NotFoundError("chain", transfer.quote.chainId);
+
+    // x402 transfers refund to the operator of their own chain, which forwards to the payer
+    const operator = getOnchainActor(
+      getChain(chainRow.caip2Id).type,
+    ).getAddress();
     if (!common.isSameAddress(transfer.refundAddress, operator)) {
       return;
     }
@@ -241,7 +254,9 @@ export class OperatorForwardService {
           with: {
             quote: {
               with: {
-                chain: true,
+                chain: {
+                  with: { config: true },
+                },
               },
             },
           },
@@ -317,7 +332,28 @@ export class OperatorForwardService {
     }
 
     const tokenAddress = row.token.address;
-    const isNative = common.isZeroAddress(tokenAddress);
+    const isNative = common.isNativeToken(tokenAddress);
+
+    if (chain.type === ChainType.Near) {
+      const result = await this.sendOnNear(
+        caip2Id,
+        row.transfer.quote.chain.config?.rpcUrls ?? [],
+        tokenAddress,
+        row.recipient,
+        row.amount,
+      );
+
+      if (result.status === "success") {
+        await this.markSent(row.id, result.transactionHash);
+      } else {
+        await this.markFailed(
+          row.id,
+          `The forward failed on-chain: ${result.failure ?? "unknown error"}`,
+        );
+      }
+
+      return;
+    }
 
     try {
       const transactionHash = await onchainActor.sendTransaction(
@@ -353,6 +389,57 @@ export class OperatorForwardService {
 
       throw e;
     }
+  };
+
+  /** Native NEAR, or `ft_transfer` after registering the recipient on the token if needed. */
+  private sendOnNear = async (
+    caip2Id: Caip2Id,
+    rpcUrls: string[],
+    tokenAddress: string,
+    recipient: string,
+    amount: bigint,
+  ) => {
+    const actor = getNearActor();
+
+    if (tokenAddress === NearNativeToken) {
+      return actor.transferNear(caip2Id, recipient, amount, rpcUrls);
+    }
+
+    const registered = await actor.view<unknown>(
+      caip2Id,
+      tokenAddress,
+      "storage_balance_of",
+      { account_id: recipient },
+      rpcUrls,
+    );
+
+    const calls: NearFunctionCall[] = [];
+    if (!registered) {
+      const bounds = await actor.view<{ min: string }>(
+        caip2Id,
+        tokenAddress,
+        "storage_balance_bounds",
+        {},
+        rpcUrls,
+      );
+      calls.push({
+        contractId: tokenAddress,
+        method: "storage_deposit",
+        args: { account_id: recipient, registration_only: true },
+        deposit: BigInt(bounds.min),
+        gas: NearFtGas,
+      });
+    }
+
+    calls.push({
+      contractId: tokenAddress,
+      method: "ft_transfer",
+      args: { receiver_id: recipient, amount: amount.toString() },
+      deposit: 1n,
+      gas: NearFtGas,
+    });
+
+    return actor.functionCall(caip2Id, calls, rpcUrls);
   };
 
   requeueStuck = async () => {

@@ -3,6 +3,7 @@ import {
   type PaymentRequirements,
 } from "@x402/core/types";
 import {
+  ChainType,
   TransferStatus,
   x402_MaxTimeoutSeconds,
   x402_SettlementReserveSeconds,
@@ -19,17 +20,27 @@ import { ChainService } from "./Chain.service";
 import { x402Service } from "./x402.service";
 import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
+import { NearNativeToken } from "../shared/nearAccount";
 import { common } from "../shared/common";
 import { db } from "../db";
 
 type SettlementToken = {
   id: string;
+  address: string;
   supportsEIP3009: boolean;
   version: string | null;
 };
 
 export class CheckoutService {
-  private takesX402 = (config: { settlementToken: SettlementToken }) => {
+  // EIP-3009 on EVM; on NEAR any NEP-141 settlement token, paid by a delegated ft_transfer
+  private takesX402 = (
+    caip2Id: Caip2Id,
+    config: { settlementToken: SettlementToken },
+  ) => {
+    if (getChain(caip2Id).type === ChainType.Near) {
+      return config.settlementToken.address !== NearNativeToken;
+    }
+
     return (
       config.settlementToken.supportsEIP3009 && !!config.settlementToken.version
     );
@@ -86,7 +97,7 @@ export class CheckoutService {
           return null;
         }
 
-        const x402 = this.takesX402(chain.config);
+        const x402 = this.takesX402(chain.caip2Id, chain.config);
         const tokens = await tokenService.getTokensByChainId(chain.id);
         const settlementToken = chain.config.settlementToken;
 
@@ -332,7 +343,7 @@ export class CheckoutService {
         if (
           !chain.config ||
           !accepted.has(chain.id) ||
-          !this.takesX402(chain.config)
+          !this.takesX402(chain.caip2Id, chain.config)
         ) {
           return null;
         }

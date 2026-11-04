@@ -761,8 +761,8 @@ export type X402PaymentRequirements = {
   payTo: string;
   maxTimeoutSeconds: number;
   extra: {
-    name: string;
-    version: string;
+    name?: string;
+    version?: string;
   };
 };
 

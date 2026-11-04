@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
+import { quote as quoteTable, quoteFee, transfer } from "../../db/schema";
 import {
-  appChain,
-  chain,
-  chainConfig,
-  quote as quoteTable,
-  quoteFee,
-  token,
-  transfer,
-} from "../../db/schema";
-import { createApp, createQuoteRowFor } from "./nearHelpers";
+  NEAR_CAIP2 as CAIP2,
+  NEAR_FACTORY as FACTORY,
+  NEAR_IMPLEMENTATION as IMPLEMENTATION,
+  NEAR_SHOP as SHOP,
+  NEAR_USDC as USDC,
+  createNearQuoteRow as createQuoteRowFor,
+  nearEvent as event,
+  nearOutcome as outcome,
+  setupNearChain,
+} from "../../test/near";
 import {
   fakeNearActor,
   nearOperator,
@@ -27,37 +29,7 @@ import { TransferService } from "../Transfer.service";
 import { AppError } from "../../shared/errors";
 
 const service = new TransferService();
-
-const CAIP2 = "near:mainnet" as Caip2Id;
-const FACTORY = "kite-factory.near";
-const USDC = "usdc.near";
-const IMPLEMENTATION = "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ";
-const SHOP = "shop.near";
 const PAYER = "payer.near";
-
-type Outcome = {
-  logs: string[];
-  executor?: string;
-};
-
-const outcome = (
-  receipts: Outcome[],
-  status: "success" | "failure" = "success",
-) => ({
-  status,
-  transactionHash: "TxHash111",
-  failure: status === "failure" ? "{}" : undefined,
-  outcome: {
-    transaction_outcome: { id: "TxHash111" },
-    receipts_outcome: receipts.map((r, i) => ({
-      id: `r${i}`,
-      outcome: { logs: r.logs, executor_id: r.executor ?? FACTORY },
-    })),
-  },
-});
-
-const event = (name: string, data: Record<string, unknown>) =>
-  `EVENT_JSON:${JSON.stringify({ standard: "kite", version: "1.0.0", event: name, data })}`;
 
 const reload = async (id: string) => {
   const [row] = await db.select().from(transfer).where(eq(transfer.id, id));
@@ -72,73 +44,7 @@ describe("TransferService on NEAR", () => {
 
   beforeEach(async () => {
     resetMocks();
-
-    appId = (await createApp()).id;
-    const [row] = await db.insert(chain).values({ caip2Id: CAIP2 }).returning();
-    chainId = row.id;
-
-    const [usdc] = await db
-      .insert(token)
-      .values({
-        chainId,
-        address: USDC,
-        symbol: "USDC",
-        name: "USD Coin",
-        decimals: 6,
-        listed: true,
-      })
-      .returning();
-    usdcId = usdc.id;
-
-    const [near] = await db
-      .insert(token)
-      .values({
-        chainId,
-        address: "near",
-        symbol: "NEAR",
-        name: "NEAR",
-        decimals: 24,
-        listed: true,
-      })
-      .returning();
-    nearId = near.id;
-
-    await db.insert(chainConfig).values({
-      chainId,
-      slippageBps: 100,
-      kiteFactoryAddress: FACTORY,
-      usdPeggedTokenId: usdcId,
-      settlementTokenId: usdcId,
-      onchainNotifierProviders: [],
-      gasSponsorProviders: [],
-    });
-
-    await db.insert(appChain).values({ appId, chainId, address: SHOP });
-
-    // the factory's views, answered as the contract would
-    fakeNearActor.view.mockImplementation(async (...args: unknown[]) => {
-      const [, contractId, method, params] = args as [
-        Caip2Id,
-        string,
-        string,
-        { transfer?: NearKiteTransfer; account_id?: string },
-      ];
-      if (contractId === FACTORY && method === "implementation")
-        return IMPLEMENTATION;
-      if (contractId === FACTORY && method === "predict_address")
-        return kiteNear.predictAddress(FACTORY, params.transfer!);
-      if (contractId === FACTORY && method === "deploy_deposit")
-        return "35000000000000000000000";
-      if (method === "get_status") return "Open";
-      if (method === "get_progress") return { wrapped: false };
-      if (method === "storage_balance_of")
-        return params.account_id === SHOP
-          ? null
-          : { total: "1", available: "0" };
-      if (method === "storage_balance_bounds")
-        return { min: "1250000000000000000000" };
-      throw new Error(`unexpected view ${contractId}.${method}`);
-    });
+    ({ appId, chainId, usdcId, nearId } = await setupNearChain());
   });
 
   const create = async (

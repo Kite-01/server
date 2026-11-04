@@ -55,6 +55,9 @@ export class NearActor implements OnchainActor {
 
   getPublicKey = () => this.getKeyPair().getPublicKey().toString();
 
+  /** The operator's secret key, for the x402 relayer, which signs its own transactions. */
+  getSecretKey = () => this.getKeyPair().toString() as KeyPairString;
+
   provider = (caip2Id: Caip2Id, rpcUrls: string[] = []) => {
     const chain = getNearChain(caip2Id);
     const urls = [...new Set([...rpcUrls, ...chain.publicRpcUrls])];
@@ -72,7 +75,7 @@ export class NearActor implements OnchainActor {
   };
 
   /** Sends one at a time per chain, so concurrent jobs don't race for the access key's nonce. */
-  private serialize = <T>(caip2Id: Caip2Id, run: () => Promise<T>) => {
+  serialize = <T>(caip2Id: Caip2Id, run: () => Promise<T>) => {
     const previous = this.queue.get(caip2Id) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(run);
     this.queue.set(caip2Id, next);
@@ -91,6 +94,27 @@ export class NearActor implements OnchainActor {
       method,
       args,
     })) as T;
+  };
+
+  /** An access key's nonce, or null when the account has no such key. */
+  viewAccessKey = async (
+    caip2Id: Caip2Id,
+    accountId: string,
+    publicKey: string,
+    rpcUrls?: string[],
+  ) => {
+    try {
+      const key = await this.provider(caip2Id, rpcUrls).viewAccessKey({
+        accountId,
+        publicKey,
+        finalityQuery: { finality: "final" },
+      });
+      return { nonce: BigInt(key.nonce) };
+    } catch (e) {
+      if (/does not exist|UNKNOWN_ACCESS_KEY|UNKNOWN_ACCOUNT/i.test(String(e)))
+        return null;
+      throw e;
+    }
   };
 
   accountExists = async (

@@ -63,6 +63,11 @@ export const fakeNearActor = {
     throw new Error("view not stubbed");
   }),
   accountExists: vi.fn(async (..._args: unknown[]) => true),
+  viewAccessKey: vi.fn(
+    async (..._args: unknown[]): Promise<{ nonce: bigint } | null> => ({
+      nonce: 0n,
+    }),
+  ),
   functionCall: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
     throw new Error("functionCall not stubbed");
   }),
@@ -110,6 +115,8 @@ export const resetMocks = () => {
   fakeNearActor.getAddress.mockReturnValue(nearOperator);
   fakeNearActor.getBalance.mockResolvedValue(0n);
   fakeNearActor.accountExists.mockResolvedValue(true);
+  fakeNearActor.viewAccessKey.mockResolvedValue({ nonce: 0n });
+  fakeNearActor.getBlockNumber.mockResolvedValue(1000n);
   fakeNearActor.getConfirmations.mockResolvedValue(1n);
   fakeNearActor.view.mockRejectedValue(new Error("view not stubbed"));
   fakeNearActor.functionCall.mockRejectedValue(

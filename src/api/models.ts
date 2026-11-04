@@ -628,9 +628,10 @@ const x402PaymentRequirements = t.Object(
     amount: Digits,
     payTo: ChainAddress,
     maxTimeoutSeconds: Int,
+    // the EIP-3009 domain on EVM; nothing on NEAR
     extra: t.Object({
-      name: t.String(),
-      version: t.String(),
+      name: t.Optional(t.String()),
+      version: t.Optional(t.String()),
     }),
   },
   named("x402PaymentRequirements"),
