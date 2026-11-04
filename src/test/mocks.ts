@@ -66,7 +66,11 @@ export const fakeNearActor = {
   getAccount: vi.fn(
     async (
       ..._args: unknown[]
-    ): Promise<{ amount: bigint; storageUsage: number } | null> => null,
+    ): Promise<{
+      amount: bigint;
+      storageUsage: number;
+      contract: string | null;
+    } | null> => null,
   ),
   viewAccessKey: vi.fn(
     async (..._args: unknown[]): Promise<{ nonce: bigint } | null> => ({

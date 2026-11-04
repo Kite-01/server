@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
 import { quote as quoteTable, quoteFee, transfer } from "../../db/schema";
@@ -9,6 +9,7 @@ import {
   NEAR_SHOP as SHOP,
   NEAR_USDC as USDC,
   createNearQuoteRow as createQuoteRowFor,
+  nearDeployedAccount as deployed,
   nearEvent as event,
   nearOutcome as outcome,
   setupNearChain,
@@ -66,7 +67,7 @@ describe("TransferService on NEAR", () => {
   };
 
   describe("createTransfer", () => {
-    it("creates the deposit account at the address the factory derives", async () => {
+    it("registers the account the factory derives on the pay-in token, without deploying it", async () => {
       const created = await create({ sourceAmount: 2_000_000n });
       const struct = created.kiteTransferInput as unknown as NearKiteTransfer;
 
@@ -91,13 +92,14 @@ describe("TransferService on NEAR", () => {
         implementation: IMPLEMENTATION,
       });
 
+      expect(fakeNearActor.functionCall).toHaveBeenCalledTimes(1);
       expect(fakeNearActor.functionCall).toHaveBeenCalledWith(
         CAIP2,
         expect.objectContaining({
           contractId: FACTORY,
-          method: "deploy",
+          method: "register",
           args: { transfer: struct },
-          deposit: 35_000_000_000_000_000_000_000n,
+          deposit: 2_500_000_000_000_000_000_000n,
         }),
         [],
       );
@@ -151,7 +153,22 @@ describe("TransferService on NEAR", () => {
       ).rejects.toThrow("The refund address is not a valid address");
     });
 
-    it("fails when the deposit account can't be created", async () => {
+    it("sends nothing on-chain for a native NEAR transfer", async () => {
+      const quote = await createQuoteRowFor({
+        appId,
+        chainId,
+        sourceTokenId: nearId,
+        targetTokenId: nearId,
+        sourceAmount: 10n ** 24n,
+      });
+
+      const created = await service.createTransfer(appId, quote.id, PAYER);
+
+      expect(created.payinAddress).toMatch(/^0s[0-9a-f]{40}$/);
+      expect(fakeNearActor.functionCall).not.toHaveBeenCalled();
+    });
+
+    it("fails when the deposit account can't be registered", async () => {
       const quote = await createQuoteRowFor({
         appId,
         chainId,
@@ -162,7 +179,7 @@ describe("TransferService on NEAR", () => {
 
       await expect(
         service.createTransfer(appId, quote.id, PAYER),
-      ).rejects.toThrow("Could not create the deposit account");
+      ).rejects.toThrow("Could not register the deposit account on usdc.near");
     });
   });
 
@@ -230,17 +247,15 @@ describe("TransferService on NEAR", () => {
         targetTokenId: nearId,
         sourceAmount: 10n ** 24n,
       });
-      fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
       return service.createTransfer(appId, quote.id, PAYER);
     };
 
     it("doesn't count the account's own reserve as native payment", async () => {
       const created = await nativeTransfer();
 
-      fakeNearActor.getAccount.mockResolvedValue({
-        amount: NearDepositReserve + 10n ** 24n - 1n,
-        storageUsage: 434,
-      });
+      fakeNearActor.getAccount.mockResolvedValue(
+        deployed(NearDepositReserve + 10n ** 24n - 1n),
+      );
       await service.settleTransfer(created.id);
 
       expect((await reload(created.id)).status).toBe(
@@ -252,24 +267,22 @@ describe("TransferService on NEAR", () => {
       const created = await nativeTransfer();
       const stake = 1_131n * 10n ** 19n;
 
-      fakeNearActor.getAccount.mockResolvedValue({
-        amount: NearDepositReserve + stake + 10n ** 24n - 1n,
-        storageUsage: 1_131,
-      });
+      fakeNearActor.getAccount.mockResolvedValue(
+        deployed(NearDepositReserve + stake + 10n ** 24n - 1n, 1_131),
+      );
       await service.settleTransfer(created.id);
       expect((await reload(created.id)).status).toBe(
         TransferStatus.AwaitingDeposit,
       );
 
-      fakeNearActor.getAccount.mockResolvedValue({
-        amount: NearDepositReserve + stake + 10n ** 24n,
-        storageUsage: 1_131,
-      });
+      fakeNearActor.getAccount.mockResolvedValue(
+        deployed(NearDepositReserve + stake + 10n ** 24n, 1_131),
+      );
       fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
       await service.settleTransfer(created.id);
-      expect(fakeNearActor.functionCall.mock.calls.at(-1)?.[1]).toMatchObject({
-        method: "settle",
-      });
+      expect(
+        fakeNearActor.functionCall.mock.calls.map(([, call]) => call),
+      ).toContainEqual(expect.objectContaining({ method: "settle" }));
     });
 
     it("registers the recipients, settles, and records the result", async () => {
@@ -296,6 +309,8 @@ describe("TransferService on NEAR", () => {
           ]),
         );
 
+      fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
+
       await service.settleTransfer(created.id);
 
       const calls = fakeNearActor.functionCall.mock.calls.slice(1);
@@ -311,10 +326,90 @@ describe("TransferService on NEAR", () => {
         contractId: FACTORY,
         method: "settle",
       });
+      // then gets back the reserve and registration deposits
+      expect(calls[2][1]).toMatchObject({
+        contractId: FACTORY,
+        method: "close",
+      });
 
       const row = await reload(created.id);
       expect(row.status).toBe(TransferStatus.Settled);
       expect(row.settlementBlockchainHash).toBe("TxHash111");
+    });
+
+    it("deploys the account once the payment is in, then settles", async () => {
+      const created = await create();
+      fakeNearActor.getAccount.mockResolvedValue(null);
+      fakeNearActor.getBalance.mockResolvedValue(1_000_000n);
+      fakeNearActor.functionCall
+        .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValueOnce(
+          outcome([
+            {
+              executor: created.payinAddress,
+              logs: [event("settled", { transfer_id: created.id })],
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(outcome([]));
+
+      await service.settleTransfer(created.id);
+
+      const methods = fakeNearActor.functionCall.mock.calls
+        .slice(1)
+        .map(([, call]) => (Array.isArray(call) ? call[0] : call).method);
+      expect(methods).toEqual(["deploy", "storage_deposit", "settle", "close"]);
+      expect(fakeNearActor.functionCall.mock.calls[1][1]).toMatchObject({
+        contractId: FACTORY,
+        deposit: 6_000_000_000_000_000_000_000n,
+      });
+      expect((await reload(created.id)).status).toBe(TransferStatus.Settled);
+    });
+
+    it("counts all of a plain account's NEAR, paid before the contract is deployed", async () => {
+      const created = await nativeTransfer();
+      fakeNearActor.getAccount.mockResolvedValue({
+        amount: 10n ** 24n,
+        storageUsage: 100,
+        contract: null,
+      });
+      fakeNearActor.functionCall
+        .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValueOnce(
+          outcome([
+            {
+              executor: created.payinAddress,
+              logs: [event("settled", { transfer_id: created.id })],
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(outcome([]));
+
+      await service.settleTransfer(created.id);
+
+      expect(
+        fakeNearActor.functionCall.mock.calls.map(([, call]) => call),
+      ).toMatchObject([
+        { method: "deploy" },
+        { method: "settle" },
+        { method: "close" },
+      ]);
+    });
+
+    it("cancels an unpaid transfer at expiry without deploying anything", async () => {
+      const created = await create();
+      fakeNearActor.getAccount.mockResolvedValue(null);
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+
+      await service
+        .settleTransfer(created.id)
+        .finally(() => vi.useRealTimers());
+
+      expect((await reload(created.id)).status).toBe(TransferStatus.Cancelled);
+      // only the registration made when it was created
+      expect(fakeNearActor.functionCall).toHaveBeenCalledTimes(1);
     });
 
     it("fails and refunds when the swap fails", async () => {
@@ -437,6 +532,27 @@ describe("TransferService on NEAR", () => {
         method: "refund",
       });
       expect((await reload(created.id)).status).toBe(TransferStatus.Refunded);
+    });
+
+    it("deploys an account that was paid but never deployed, then refunds", async () => {
+      const created = await create();
+      fakeNearActor.getAccount.mockResolvedValue(null);
+      fakeNearActor.getBalance.mockResolvedValue(700n);
+      fakeNearActor.functionCall
+        .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValueOnce(outcome([]))
+        .mockResolvedValueOnce(outcome([]));
+
+      expect(await service.refundTransfer(created.id)).toEqual({
+        refunded: true,
+      });
+      expect(
+        fakeNearActor.functionCall.mock.calls.slice(1).map(([, call]) => call),
+      ).toMatchObject([
+        { method: "deploy" },
+        { method: "refund" },
+        { method: "close" },
+      ]);
     });
 
     it("has nothing to refund from an empty account", async () => {

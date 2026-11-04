@@ -9,8 +9,12 @@ import { AppError } from "./errors";
  *
  * A deposit account's id is `0s` + the last 20 bytes of keccak256(borsh(StateInit)), where the
  * StateInit runs the transfer's `implementation` (a global contract code hash) with
- * `{factory, transfer, status: Open, progress: default}` stored under `STATE` (NEP-616). The
- * serializer below must match `kite_types::DepositState` field for field.
+ * `{factory, transfer, status: Uninitialized, progress: default}` stored under `STATE`
+ * (NEP-616). The serializer below must match `kite_types::DepositState` field for field.
+ *
+ * The account is only deployed once there is a payment: `register` puts the predicted id on the
+ * pay-in token before it exists, and `deploy` creates it before the first settle, refund or
+ * recover. `close` returns the reserve and registration deposits once it's finished.
  */
 
 export type NearAsset = "Native" | { Token: string };
@@ -36,8 +40,20 @@ export type NearKiteStatus =
 
 export { NearNativeToken, isNearAccountId };
 
-/** `DEPOSIT_RESERVE` in kite-types: NEAR a deposit account keeps for its own storage. */
-export const NearDepositReserve = 30n * 10n ** 21n;
+/** `DEPOSIT_RESERVE` in kite-types: NEAR a deposit account keeps for its token calls. */
+export const NearDepositReserve = 10n ** 21n;
+
+/**
+ * kite-deposit versions from before accounts were deployed lazily: they start `Open`, keep a
+ * 0.03 NEAR reserve, and have no `close`.
+ */
+const LegacyImplementations = new Set([
+  "6enzFVmxd6A9uWCLfstYVt4Qjc8zxEq8adVcFzGUfnUi",
+]);
+const LegacyDepositReserve = 30n * 10n ** 21n;
+
+export const isLegacyNearImplementation = (implementation: string) =>
+  LegacyImplementations.has(implementation);
 
 /** `ZERO_BALANCE_STORAGE_LIMIT` in kite-types: up to this many bytes, no storage stake. */
 const ZeroBalanceStorageLimit = 770;
@@ -45,14 +61,24 @@ const StorageByteCost = 10n ** 19n;
 
 /**
  * Native NEAR a deposit account holds as payment: its balance beyond the reserve and the
- * storage stake its StateInit kept, as `native_available` in kite-deposit computes it.
+ * storage stake its StateInit kept, as `native_available` in kite-deposit computes it. Before
+ * it's deployed, the account is a plain one holding only what was paid.
  */
-export const nearNativeAvailable = (amount: bigint, storageUsage: number) => {
+export const nearNativeAvailable = (
+  account: { amount: bigint; storageUsage: number; contract: string | null },
+  implementation: string,
+) => {
+  const { amount, storageUsage } = account;
+  if (!account.contract) return amount;
+
+  const reserve = isLegacyNearImplementation(implementation)
+    ? LegacyDepositReserve
+    : NearDepositReserve;
   const stake =
     storageUsage <= ZeroBalanceStorageLimit
       ? 0n
       : BigInt(storageUsage) * StorageByteCost;
-  const available = amount - NearDepositReserve - stake;
+  const available = amount - reserve - stake;
   return available > 0n ? available : 0n;
 };
 
@@ -163,8 +189,8 @@ class KiteNearContract {
     }
     w.fixed(this.codeHash(t.implementation));
 
-    // status: Open
-    w.u8(1);
+    // status: Uninitialized, which `fund` opens; earlier versions started Open
+    w.u8(isLegacyNearImplementation(t.implementation) ? 1 : 0);
     // progress: step, excess, out_before, amount_out, wrapped, paid, lock_until
     w.u8(0).u128(0n).u128(0n).u128(0n).u8(0).uint(0n, 2).u64(0n);
 

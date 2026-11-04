@@ -46,7 +46,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On NEAR**:
   - Deposits are found by the balance check, as on chains without a notifier.
   - Swap quotes come from Rhea's spot price rather than a time-weighted average, though the deposit contract still enforces the minimum it settles for.
-  - Each transfer's deposit account is created when the transfer opens, and keeps a 0.03 NEAR reserve.
+  - A token transfer costs one registration on the pay-in token (about 0.00125 NEAR) when it opens; a native NEAR one costs nothing. The deposit account is only created once there's a payment to settle or refund, and its reserve and registration deposits come back when it's finished.
 
 ## What Kite does
 

@@ -223,7 +223,10 @@ export class NearActor implements OnchainActor {
     };
   };
 
-  /** A NEAR account's balance and storage, or null when it doesn't exist. */
+  /**
+   * A NEAR account's balance, storage and global contract, or null when it doesn't exist.
+   * `contract` is null for a plain account, such as a deposit account paid before it's deployed.
+   */
   getAccount = async (
     caip2Id: Caip2Id,
     accountId: string,
@@ -234,9 +237,12 @@ export class NearActor implements OnchainActor {
         accountId,
         blockQuery: { finality: "final" },
       });
+      const global = (account as { global_contract_hash?: string })
+        .global_contract_hash;
       return {
         amount: BigInt(account.amount),
         storageUsage: Number(account.storage_usage),
+        contract: global ?? null,
       };
     } catch (e) {
       if (/does not exist|UNKNOWN_ACCOUNT/i.test(String(e))) return null;

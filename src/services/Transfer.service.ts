@@ -52,6 +52,7 @@ import { PaymentLinkService } from "./PaymentLink.service";
 import { runProviderMethod } from "../shared/providers";
 import { getNearActor, getOnchainActor } from "../shared/onchainActor";
 import {
+  isLegacyNearImplementation,
   kiteNear,
   nearNativeAvailable,
   NearNativeToken,
@@ -98,6 +99,7 @@ type PreparedTransfer = {
 /** Gas for a factory call that runs the deposit's steps: the most a transaction can attach. */
 const NearFactoryCallGas = 300_000_000_000_000n;
 const NearDeployGas = 100_000_000_000_000n;
+const NearRegisterCallGas = 50_000_000_000_000n;
 const NearRegisterGas = 10_000_000_000_000n;
 const NearSettleAttempts = 3;
 
@@ -767,30 +769,34 @@ export class TransferService {
       );
     }
 
-    const deposit = await actor.view<string>(
-      caip2Id,
-      factory,
-      "deploy_deposit",
-      { transfer: struct },
-      rpcUrls,
-    );
-
-    const result = await actor.functionCall(
-      caip2Id,
-      {
-        contractId: factory,
-        method: "deploy",
-        args: { transfer: struct },
-        deposit: BigInt(deposit),
-        gas: NearDeployGas,
-      },
-      rpcUrls,
-    );
-
-    if (result.status !== "success") {
-      throw new AppError(
-        `Could not create the deposit account: ${result.failure ?? "unknown error"}`,
+    // Nothing is deployed until there's a payment. A token can only be sent to a registered
+    // account, so the predicted one is registered on the pay-in token; native NEAR needs nothing.
+    if (struct.pay_in !== "Native") {
+      const deposit = await actor.view<string>(
+        caip2Id,
+        factory,
+        "register_deposit",
+        { transfer: struct },
+        rpcUrls,
       );
+
+      const result = await actor.functionCall(
+        caip2Id,
+        {
+          contractId: factory,
+          method: "register",
+          args: { transfer: struct },
+          deposit: BigInt(deposit),
+          gas: NearRegisterCallGas,
+        },
+        rpcUrls,
+      );
+
+      if (result.status !== "success") {
+        throw new AppError(
+          `Could not register the deposit account on ${struct.pay_in.Token}: ${result.failure ?? "unknown error"}`,
+        );
+      }
     }
 
     return {
@@ -841,13 +847,20 @@ export class TransferService {
   private nearBalance = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
     token: string,
-  ) => this.nearPayinBalance(ctx.caip2Id, token, ctx.row.payinAddress);
+  ) =>
+    this.nearPayinBalance(
+      ctx.caip2Id,
+      token,
+      ctx.row.payinAddress,
+      ctx.struct.implementation,
+    );
 
   /** What a NEAR deposit account holds of a token, leaving out its reserve and storage stake. */
   private nearPayinBalance = async (
     caip2Id: Caip2Id,
     token: string,
     address: string,
+    implementation: string,
   ) => {
     const actor = getNearActor();
     if (token !== NearNativeToken) {
@@ -855,23 +868,20 @@ export class TransferService {
     }
 
     const account = await actor.getAccount(caip2Id, address);
-    return account
-      ? nearNativeAvailable(account.amount, account.storageUsage)
-      : 0n;
+    return account ? nearNativeAvailable(account, implementation) : 0n;
   };
 
+  /** The deposit contract's status, or null while it isn't deployed. */
   private nearStatus = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
-    if (
-      !(await ctx.actor.accountExists(
-        ctx.caip2Id,
-        ctx.row.payinAddress,
-        ctx.rpcUrls,
-      ))
-    ) {
-      return null;
-    }
+    // a payment of native NEAR creates a plain account before the contract is deployed
+    const account = await ctx.actor.getAccount(
+      ctx.caip2Id,
+      ctx.row.payinAddress,
+      ctx.rpcUrls,
+    );
+    if (!account?.contract) return null;
 
     return ctx.actor.view<NearKiteStatus>(
       ctx.caip2Id,
@@ -880,6 +890,67 @@ export class TransferService {
       {},
       ctx.rpcUrls,
     );
+  };
+
+  /** Creates the deposit account; it registers it on the tokens it will hold and funds it. */
+  private deployNearDeposit = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    const deposit = await ctx.actor.view<string>(
+      ctx.caip2Id,
+      ctx.factory,
+      "deploy_deposit",
+      { transfer: ctx.struct },
+      ctx.rpcUrls,
+    );
+
+    const result = await ctx.actor.functionCall(
+      ctx.caip2Id,
+      {
+        contractId: ctx.factory,
+        method: "deploy",
+        args: { transfer: ctx.struct },
+        deposit: BigInt(deposit),
+        gas: NearDeployGas,
+      },
+      ctx.rpcUrls,
+    );
+
+    if (result.status !== "success") {
+      throw new AppError(
+        `Could not create the deposit account: ${result.failure ?? "unknown error"}`,
+      );
+    }
+  };
+
+  /**
+   * Gets back the reserve and registration deposits of a finished transfer. A failure only
+   * leaves them in the account, so it's logged rather than thrown.
+   */
+  private closeNearDeposit = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    if (isLegacyNearImplementation(ctx.struct.implementation)) return;
+
+    const failed = (reason: unknown) =>
+      console.warn(
+        `Could not close the deposit account of transfer ${ctx.row.id}: ${reason}`,
+      );
+    try {
+      const result = await ctx.actor.functionCall(
+        ctx.caip2Id,
+        {
+          contractId: ctx.factory,
+          method: "close",
+          args: { transfer: ctx.struct },
+          gas: NearFactoryCallGas,
+        },
+        ctx.rpcUrls,
+      );
+      if (result.status !== "success") failed(result.failure);
+    } catch (error) {
+      failed(error);
+    }
   };
 
   private sendNearFactoryCall = async (
@@ -979,10 +1050,6 @@ export class TransferService {
       return this.reconcileClosedTransfer(ctx, status);
     }
 
-    if (status === null) {
-      throw new AppError("The transfer's deposit account doesn't exist");
-    }
-
     // a settlement that stopped after its swap resumes; nothing is checked again
     const resuming = status === "Executing";
     const amountIn = BigInt(ctx.struct.amount_in);
@@ -1055,6 +1122,10 @@ export class TransferService {
       };
     }
 
+    if (status === null || status === "Uninitialized") {
+      await this.deployNearDeposit(ctx);
+    }
+
     await this.registerNearRecipients(ctx);
 
     // a settlement that stops after its swap (out of gas, or the swap's output not landed
@@ -1070,7 +1141,10 @@ export class TransferService {
       if (!stop || stop.status !== "Executing") break;
     }
 
-    if (!stop) return;
+    if (!stop) {
+      await this.closeNearDeposit(ctx);
+      return;
+    }
 
     if (stop.status === "Open") {
       if (stop.reason.startsWith("InsufficientPayment")) {
@@ -1131,11 +1205,16 @@ export class TransferService {
       };
     }
 
+    if (status === null || status === "Uninitialized") {
+      await this.deployNearDeposit(ctx);
+    }
+
     const result = await this.sendNearFactoryCall(ctx, "refund");
     if (result.status !== "success") {
       throw new AppError(`Refund failed: ${result.failure}`);
     }
 
+    await this.closeNearDeposit(ctx);
     return { refunded: true };
   };
 
@@ -1182,6 +1261,10 @@ export class TransferService {
     await this.registerOnNearToken(ctx, tokenAddress, [
       destination ?? ctx.struct.refund_account,
     ]);
+
+    if (status === null || status === "Uninitialized") {
+      await this.deployNearDeposit(ctx);
+    }
 
     const result = await this.sendNearFactoryCall(ctx, "recover", {
       token: tokenAddress === NearNativeToken ? null : tokenAddress,
@@ -1907,6 +1990,8 @@ export class TransferService {
                   item.caip2Id,
                   sourceToken,
                   transfer_.payinAddress,
+                  (transfer_.kiteTransferInput as unknown as NearKiteTransfer)
+                    .implementation,
                 )
               : await getOnchainActor(chainType).getBalance(
                   item.caip2Id,

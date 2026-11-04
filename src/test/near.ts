@@ -73,7 +73,9 @@ export const setupNearChain = async () => {
     if (contractId === NEAR_FACTORY && method === "predict_address")
       return kiteNear.predictAddress(NEAR_FACTORY, params.transfer!);
     if (contractId === NEAR_FACTORY && method === "deploy_deposit")
-      return "35000000000000000000000";
+      return "6000000000000000000000";
+    if (contractId === NEAR_FACTORY && method === "register_deposit")
+      return "2500000000000000000000";
     if (method === "get_status") return "Open";
     if (method === "get_progress") return { wrapped: false };
     if (method === "storage_balance_of")
@@ -85,8 +87,17 @@ export const setupNearChain = async () => {
     throw new Error(`unexpected view ${contractId}.${method}`);
   });
 
+  // a deployed deposit account holding no NEAR; tests of undeployed ones override it
+  fakeNearActor.getAccount.mockResolvedValue(nearDeployedAccount());
+
   return { appId, chainId, usdcId: usdc.id, nearId: near.id };
 };
+
+export const nearDeployedAccount = (amount = 0n, storageUsage = 434) => ({
+  amount,
+  storageUsage,
+  contract: NEAR_IMPLEMENTATION as string | null,
+});
 
 export const createNearQuoteRow = async (input: {
   appId: string;
