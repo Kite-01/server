@@ -6,7 +6,6 @@ import { version } from "../../package.json";
 
 export class SystemService {
   getInfo = async () => {
-    const operatorAddress = getOnchainActor(ChainType.Evm).getAddress();
     const chains = await new ChainService().getChains();
 
     return {
@@ -17,6 +16,7 @@ export class SystemService {
       })),
       chains: chains.map((chain) => {
         const registry = getChain(chain.caip2Id);
+        const operatorAddress = getOnchainActor(registry.type).getAddress();
         return {
           id: chain.id,
           caip2Id: chain.caip2Id,

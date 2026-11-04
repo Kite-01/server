@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { shortAddress } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 import None from "@/components/none";
+import { ChainName, useSupportedChains } from "./chains";
 
 const AddressForm = ({
   chain,
@@ -78,6 +79,7 @@ export const AppChains = () => {
     success: "Payments turned off",
   });
 
+  const supported = useSupportedChains();
   const addressOf = (chainId: string) =>
     accepted.data?.data.find((row) => row.chainId === chainId)?.address;
 
@@ -101,7 +103,11 @@ export const AppChains = () => {
         columns={[
           {
             header: "Chain",
-            cell: (row) => <p className="font-medium">{row.name}</p>,
+            cell: (row) => (
+              <p className="font-medium">
+                <ChainName caip2Id={row.caip2Id} supported={supported.data} />
+              </p>
+            ),
           },
           {
             header: "Settlement token",

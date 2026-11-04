@@ -4,7 +4,9 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
-import { KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
+import { ChainType, KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
+
+const NearDisplayDecimals = 6;
 import { AppError, NotFoundError } from "../shared/errors";
 import { formatUnits, parseUnits } from "viem";
 import { quote, quoteFee, fee } from "../db/schema";
@@ -17,7 +19,7 @@ import { ChainService } from "./Chain.service";
 import { FeeService } from "./Fee.service";
 import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
-import { Uniswap } from "../sdks/Uniswap";
+import { swapQuoter } from "../shared/swapQuoter";
 import { common } from "../shared/common";
 import { db } from "../db";
 
@@ -66,13 +68,15 @@ export class QuoteService {
     slippageBps: number,
     operatorAddress: string,
     appAddress: string,
+    chainType: ChainType,
   ) => {
     const fees_ = fees
       .map((f) => ({
         fee: f,
         amount: new FeeService().computeFeeAmount(f, targetAmount),
         // system fees are the operator's; an app's own fees go where the app settles
-        feeAddress: common.normalizeAddress(
+        feeAddress: common.normalizeAddressFor(
+          chainType,
           f.feeAddress ?? (f.appId ? appAddress : null) ?? operatorAddress,
         ),
       }))
@@ -93,6 +97,12 @@ export class QuoteService {
     }
 
     return fees_;
+  };
+
+  private roundUpTo = (amount: bigint, decimals: number, keep: number) => {
+    if (decimals <= keep) return amount;
+    const unit = common.pow10(decimals - keep);
+    return common.ceilDiv(amount, unit) * unit;
   };
 
   private insertQuote = async (input: {
@@ -150,11 +160,12 @@ export class QuoteService {
 
     let targetAmount: bigint;
     let feeTier: Maybe<number> = null;
+    let swapPool: Maybe<string> = null;
 
     if (settlementToken.id === sourceToken.id) {
       targetAmount = sourceAmount;
     } else {
-      const best = await new Uniswap().quoteExactInput({
+      const best = await swapQuoter.quoteExactInput({
         caip2Id: chain.caip2Id,
         tokenIn: sourceToken.address,
         amountIn: sourceAmount,
@@ -166,6 +177,7 @@ export class QuoteService {
 
       targetAmount = best.amount;
       feeTier = best.feeTier;
+      swapPool = best.pool;
     }
 
     let sourceUsdAmount: string;
@@ -181,7 +193,7 @@ export class QuoteService {
       targetUsdAmount = formatUnits(targetAmount, settlementToken.decimals);
       sourceUsdAmount = targetUsdAmount;
     } else {
-      const usd = await new Uniswap().quoteExactInput({
+      const usd = await swapQuoter.quoteExactInput({
         caip2Id: chain.caip2Id,
         tokenIn: sourceToken.address,
         amountIn: sourceAmount,
@@ -209,6 +221,7 @@ export class QuoteService {
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
         appAddress,
+        getChain(chain.caip2Id).type,
       ),
       quote: {
         appId,
@@ -225,6 +238,7 @@ export class QuoteService {
           { amount: targetAmount, decimals: settlementToken.decimals },
         ),
         uniswapPoolFeeTier: feeTier,
+        swapPool,
         reference: input.reference,
         meta: input.meta,
         expiresAt: new Date(Date.now() + common.toMs(QuoteTTLSeconds)),
@@ -281,14 +295,12 @@ export class QuoteService {
       common.pow10(AmountDecimals + fxPrice.decimals),
     );
 
-    const uniswap = new Uniswap();
-
     let targetAmount: bigint;
 
     if (settlementToken.id === chainUsdToken.id) {
       targetAmount = usdTokenAmount;
     } else {
-      const settlement = await uniswap.quoteExactInput({
+      const settlement = await swapQuoter.quoteExactInput({
         caip2Id: chain.caip2Id,
         tokenIn: chainUsdToken.address,
         amountIn: usdTokenAmount,
@@ -306,11 +318,12 @@ export class QuoteService {
 
     let sourceAmount: bigint;
     let feeTier: number | null = null;
+    let swapPool: string | null = null;
 
     if (sourceToken.id === settlementToken.id) {
       sourceAmount = targetAmount;
     } else {
-      const best = await uniswap.quoteExactOutput({
+      const best = await swapQuoter.quoteExactOutput({
         caip2Id: chain.caip2Id,
         tokenIn: sourceToken.address,
         amountOut: targetAmount,
@@ -322,6 +335,17 @@ export class QuoteService {
 
       sourceAmount = best.amount;
       feeTier = best.feeTier;
+      swapPool = best.pool;
+
+      // NEAR tokens have up to 24 decimals: round the amount to pay up to 6, so it reads
+      // as 0.007326 wNEAR; the extra goes into the swap
+      if (getChain(chain.caip2Id).type === ChainType.Near) {
+        sourceAmount = this.roundUpTo(
+          sourceAmount,
+          sourceToken.decimals,
+          NearDisplayDecimals,
+        );
+      }
     }
 
     const targetUsdAmount = formatUnits(usdTokenAmount, chainUsdToken.decimals);
@@ -346,6 +370,7 @@ export class QuoteService {
         chain.config.slippageBps,
         getOnchainActor(getChain(chain.caip2Id).type).getAddress(),
         appAddress,
+        getChain(chain.caip2Id).type,
       ),
       quote: {
         appId,
@@ -363,6 +388,7 @@ export class QuoteService {
           { amount: targetAmount, decimals: settlementToken.decimals },
         ),
         uniswapPoolFeeTier: feeTier,
+        swapPool,
         reference: input.reference,
         meta: input.meta,
         expiresAt: new Date(Date.now() + common.toMs(QuoteTTLSeconds)),

@@ -109,8 +109,9 @@ export type ConfiguredChainList = {
 export type SupportedChain = {
   caip2Id: string;
   name: string;
-  chainId: number;
+  chainId: number | null;
   testnet: boolean;
+  beta: boolean;
   nativeCurrency: {
     name: string;
     symbol: string;
@@ -297,6 +298,7 @@ export type Quote = {
   targetUsdAmount: string;
   rate: string;
   uniswapPoolFeeTier: number | null;
+  swapPool: string | null;
   reference: string | null;
   meta: {
     [key: string]: unknown;
@@ -331,6 +333,7 @@ export type QuoteDetails = {
   targetUsdAmount: string;
   rate: string;
   uniswapPoolFeeTier: number | null;
+  swapPool: string | null;
   reference: string | null;
   meta: {
     [key: string]: unknown;
@@ -377,6 +380,34 @@ export type Transfer = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
+  } | {
+    id: string;
+    pay_in: 'Native' | {
+      Token: string;
+    };
+    amount_in: string;
+    settlement_token: 'Native' | {
+      Token: string;
+    };
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      id: string;
+      recipient: string;
+      amount: string;
+    }>;
+    refund_account: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      pool: {
+        Dcl: string;
+      } | {
+        RefV1: string;
+      };
+      wrap: string;
+    } | null;
     implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
@@ -458,6 +489,34 @@ export type TransferDetails = {
     routerAddress: string;
     poolFeeTier: number;
     implementation: string;
+  } | {
+    id: string;
+    pay_in: 'Native' | {
+      Token: string;
+    };
+    amount_in: string;
+    settlement_token: 'Native' | {
+      Token: string;
+    };
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      id: string;
+      recipient: string;
+      amount: string;
+    }>;
+    refund_account: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      pool: {
+        Dcl: string;
+      } | {
+        RefV1: string;
+      };
+      wrap: string;
+    } | null;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -501,6 +560,34 @@ export type TransferListItem = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
+  } | {
+    id: string;
+    pay_in: 'Native' | {
+      Token: string;
+    };
+    amount_in: string;
+    settlement_token: 'Native' | {
+      Token: string;
+    };
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      id: string;
+      recipient: string;
+      amount: string;
+    }>;
+    refund_account: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      pool: {
+        Dcl: string;
+      } | {
+        RefV1: string;
+      };
+      wrap: string;
+    } | null;
     implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
@@ -557,6 +644,34 @@ export type CreatedTransfer = {
     expiresAt: string;
     routerAddress: string;
     poolFeeTier: number;
+    implementation: string;
+  } | {
+    id: string;
+    pay_in: 'Native' | {
+      Token: string;
+    };
+    amount_in: string;
+    settlement_token: 'Native' | {
+      Token: string;
+    };
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      id: string;
+      recipient: string;
+      amount: string;
+    }>;
+    refund_account: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      pool: {
+        Dcl: string;
+      } | {
+        RefV1: string;
+      };
+      wrap: string;
+    } | null;
     implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
@@ -689,7 +804,7 @@ export type ProviderStatusList = Array<ProviderStatus>;
 export type SystemInfo = {
   version: string;
   operators: Array<{
-    chainType: 'Evm';
+    chainType: 'Evm' | 'Near';
     address: string;
   }>;
   chains: Array<{
@@ -759,8 +874,8 @@ export type X402PaymentRequirements = {
   payTo: string;
   maxTimeoutSeconds: number;
   extra: {
-    name: string;
-    version: string;
+    name?: string;
+    version?: string;
   };
 };
 
@@ -827,7 +942,8 @@ export type Checkout = {
     id: string;
     caip2Id: string;
     name: string;
-    chainId: number;
+    chainType: 'Evm' | 'Near';
+    chainId: number | null;
     testnet: boolean;
     icon: string;
     nativeCurrency: {

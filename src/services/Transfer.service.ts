@@ -1,11 +1,6 @@
+import { formatUnits, getAddress, zeroAddress, type Hex } from "viem";
 import {
-  formatUnits,
-  getAddress,
-  isAddress,
-  zeroAddress,
-  type Hex,
-} from "viem";
-import {
+  chainConfig,
   customer,
   event,
   quote,
@@ -24,6 +19,7 @@ import {
 } from "../shared/errors";
 import {
   CancelledTransferWatchSeconds,
+  ChainType,
   OneMinute,
   PayoutDeadlineMarginSeconds,
   Provider,
@@ -54,17 +50,57 @@ import { OperatorForwardService } from "./OperatorForward.service";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { PaymentLinkService } from "./PaymentLink.service";
 import { runProviderMethod } from "../shared/providers";
-import { getOnchainActor } from "../shared/onchainActor";
+import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import {
+  isLegacyNearImplementation,
+  kiteNear,
+  nearNativeAvailable,
+  NearNativeToken,
+  type NearKiteStatus,
+  type NearKiteTransfer,
+} from "../shared/kiteNearContract";
 import { PayoutService } from "./Payout.service";
 import { ChainService } from "./Chain.service";
 import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
 import { KvService } from "./Kv.service";
 import { Scheduler } from "../shared/scheduler";
-import { getChain } from "../shared/chains";
+import { getChain, getEvmChain, getNearChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { kite } from "../shared/kiteContract";
 import { omit } from "lodash";
+
+type PrepareTransferInput = {
+  transferId: string;
+  quote: {
+    sourceAmount: bigint;
+    expiresAt: Date;
+    uniswapPoolFeeTier: number | null;
+    swapPool: string | null;
+    sourceToken: { id: string; address: string };
+    targetToken: { id: string; address: string };
+    fees: Array<{ id: string; feeAddress: string; amount: bigint }>;
+    chain: { caip2Id: Caip2Id };
+  };
+  config: typeof chainConfig.$inferSelect;
+  settlementRecipient: string;
+  refundAddress: string;
+  minAmountOut: bigint;
+};
+
+type PreparedTransfer = {
+  kiteTransferInput: unknown;
+  payinAddress: string;
+  trackedBy: Provider[];
+  refundAddress: string;
+  settlementRecipient: string;
+};
+
+const NearFactoryCallGas = 300_000_000_000_000n;
+const NearDeployGas = 100_000_000_000_000n;
+const NearRegisterCallGas = 50_000_000_000_000n;
+const NearRegisterGas = 10_000_000_000_000n;
+const NearSettleAttempts = 3;
 
 export class TransferService {
   private sdkOptions = async (): Promise<SdkOptions> => {
@@ -274,10 +310,9 @@ export class TransferService {
   };
 
   private reconcileClosedTransfer = async (
-    ctx: Awaited<ReturnType<TransferService["getOnchainTransfer"]>>,
+    ctx: { row: { id: string; status: TransferStatus; payinAddress: string } },
+    status: string | null,
   ) => {
-    const status = await kite.readStatus(ctx.client, ctx.row.payinAddress);
-
     if (status === "Settled") {
       await this.transitionTransferStatus(
         ctx.row.id,
@@ -328,7 +363,7 @@ export class TransferService {
         row.quote.sourceToken.address,
         row.quote.targetToken.address,
         ...row.deposits.map((d) => d.token.address),
-      ].map((address) => getAddress(address)),
+      ].map((address) => common.normalizeAddress(address)),
     );
 
     for (const tokenAddress of tokens) {
@@ -342,6 +377,14 @@ export class TransferService {
     destinationAddress: string,
     useGasSponsor = true,
   ) => {
+    if (await this.isNearTransfer(transferId)) {
+      return this.recoverNearToken(
+        transferId,
+        tokenAddress,
+        destinationAddress,
+      );
+    }
+
     const ctx = await this.getOnchainTransfer(transferId);
     const balance = await ctx.onchainActor.getBalance(
       ctx.caip2Id,
@@ -573,68 +616,15 @@ export class TransferService {
     });
   };
 
-  createTransfer = async (
-    appId: string,
-    quoteId: string,
-    refundAddress: string,
-  ) => {
-    const result = await db
-      .select({ count: count() })
-      .from(transfer)
-      .where(eq(transfer.quoteId, quoteId));
-
-    const hasQuoteBeenUsed = result[0].count > 0;
-    if (hasQuoteBeenUsed)
-      throw new AppError("Quote has been consumed, create a new one");
-
-    const quote_ = await db.query.quote.findFirst({
-      where: and(eq(quote.id, quoteId), eq(quote.appId, appId)),
-      with: {
-        sourceToken: true,
-        targetToken: true,
-        paymentLink: true,
-        fees: {
-          orderBy: [asc(quoteFee.id)],
-        },
-        chain: {
-          with: {
-            config: true,
-          },
-        },
-      },
-    });
-
-    if (!quote_) throw new NotFoundError("quote", quoteId);
-    if (quote_.paymentLink)
-      await new PaymentLinkService().assertPayable(quote_.paymentLink);
-    if (quote_.expiresAt.getTime() <= Date.now())
-      throw new QuoteExpiredError(quote_.id);
-
-    const config = quote_.chain.config;
-    if (!config) throw new AppError("Selected chain is not configured");
-    if (!isAddress(refundAddress, { strict: false }))
-      throw new AppError("The refund address is not a valid address");
-
+  private prepareEvmTransfer = async (
+    input: PrepareTransferInput,
+  ): Promise<PreparedTransfer> => {
+    const { quote: quote_, config } = input;
     const caip2Id = quote_.chain.caip2Id;
-    const chain = getChain(caip2Id);
+    const chain = getEvmChain(caip2Id);
     const onchainActor = getOnchainActor(chain.type);
+    const settlementRecipient = getAddress(input.settlementRecipient);
 
-    const settlement = await new PayoutService().planSettlement({
-      appId,
-      chainId: quote_.chain.id,
-      caip2Id,
-      slippageBps: config.slippageBps,
-      settlementToken: quote_.targetToken,
-      amount:
-        quote_.targetAmount -
-        quote_.fees.reduce((total, fee) => total + fee.amount, 0n),
-    });
-
-    const settlementRecipient = getAddress(settlement.recipient);
-    const minAmountOut =
-      (quote_.targetAmount * (10000n - BigInt(config.slippageBps))) / 10000n;
-
-    const transferId = common.uuidv4();
     const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
     const router =
       quote_.uniswapPoolFeeTier === 0
@@ -649,18 +639,18 @@ export class TransferService {
     );
 
     const struct = kite.buildTransferInput({
-      transferId,
+      transferId: input.transferId,
       payInTokenAddress: quote_.sourceToken.address,
       amountIn: quote_.sourceAmount,
       settlementTokenAddress: quote_.targetToken.address,
       settlementRecipient,
-      minAmountOut,
+      minAmountOut: input.minAmountOut,
       fees: quote_.fees.map((fee) => ({
         id: fee.id,
         recipient: fee.feeAddress,
         amount: fee.amount,
       })),
-      refundAddress,
+      refundAddress: input.refundAddress,
       expiresAt: quote_.expiresAt,
       routerAddress: isSameToken || !router ? zeroAddress : router,
       poolFeeTier: quote_.uniswapPoolFeeTier ?? 0,
@@ -700,6 +690,669 @@ export class TransferService {
       config.onchainNotifierProviders ?? [],
     );
 
+    return {
+      kiteTransferInput: kite.serializeTransferInput(struct),
+      payinAddress,
+      trackedBy,
+      refundAddress: struct.refundAddress,
+      settlementRecipient,
+    };
+  };
+
+  private prepareNearTransfer = async (
+    input: PrepareTransferInput,
+  ): Promise<PreparedTransfer> => {
+    const { quote: quote_, config } = input;
+    const caip2Id = quote_.chain.caip2Id;
+    const chain = getNearChain(caip2Id);
+    const actor = getNearActor();
+    const rpcUrls = config.rpcUrls ?? [];
+    const factory = config.kiteFactoryAddress;
+
+    const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
+    const dcl = chain.contracts.Rhea?.dcl;
+    if (!isSameToken && (!dcl || !quote_.swapPool))
+      throw new AppError("This chain has no swap route for this token");
+
+    const implementation = await actor.view<string>(
+      caip2Id,
+      factory,
+      "implementation",
+      {},
+      rpcUrls,
+    );
+
+    const struct = kiteNear.buildTransferInput({
+      transferId: input.transferId,
+      payInToken: quote_.sourceToken.address,
+      amountIn: quote_.sourceAmount,
+      settlementToken: quote_.targetToken.address,
+      settlementRecipient: input.settlementRecipient,
+      minAmountOut: input.minAmountOut,
+      fees: quote_.fees.map((fee) => ({
+        id: fee.id,
+        recipient: fee.feeAddress,
+        amount: fee.amount,
+      })),
+      refundAccount: input.refundAddress,
+      expiresAt: quote_.expiresAt,
+      swap:
+        isSameToken || !dcl || !quote_.swapPool
+          ? null
+          : {
+              router: dcl,
+              pool: { Dcl: quote_.swapPool },
+              wrap: chain.contracts.wrapNear,
+            },
+      implementation,
+    });
+
+    const error = kiteNear.validateTransferInput(struct);
+    if (error) throw new AppError(error);
+
+    const payinAddress = kiteNear.predictAddress(factory, struct);
+    const derived = await actor.view<string>(
+      caip2Id,
+      factory,
+      "predict_address",
+      { transfer: struct },
+      rpcUrls,
+    );
+    if (derived !== payinAddress) {
+      throw new AppError(
+        `The Kite factory derives ${derived} for this transfer, not ${payinAddress}`,
+      );
+    }
+
+    // Nothing is deployed until there's a payment. A token can only be sent to a registered
+    // account, so the predicted one is registered on the pay-in token; native NEAR needs nothing.
+    if (struct.pay_in !== "Native") {
+      // the token's own minimum, so it has nothing to refund
+      const bounds = await actor.view<{ min: string }>(
+        caip2Id,
+        struct.pay_in.Token,
+        "storage_balance_bounds",
+        {},
+        rpcUrls,
+      );
+
+      const result = await actor.functionCall(
+        caip2Id,
+        {
+          contractId: factory,
+          method: "register",
+          args: { transfer: struct },
+          deposit: BigInt(bounds.min),
+          gas: NearRegisterCallGas,
+        },
+        rpcUrls,
+      );
+
+      if (result.status !== "success") {
+        throw new AppError(
+          `Could not register the deposit account on ${struct.pay_in.Token}: ${result.failure ?? "unknown error"}`,
+        );
+      }
+    }
+
+    return {
+      kiteTransferInput: struct,
+      payinAddress,
+      trackedBy: [],
+      refundAddress: input.refundAddress,
+      settlementRecipient: input.settlementRecipient,
+    };
+  };
+
+  private isNearTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    return !!row && getChain(row.quote.chain.caip2Id).type === ChainType.Near;
+  };
+
+  private getNearTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    if (!row) throw new NotFoundError("transfer", transferId);
+
+    const config = row.quote.chain.config;
+    if (!config) throw new AppError("Selected chain is not configured");
+
+    const struct = row.kiteTransferInput as unknown as NearKiteTransfer;
+    const predicted = kiteNear.predictAddress(
+      config.kiteFactoryAddress,
+      struct,
+    );
+    if (predicted !== row.payinAddress) {
+      throw new TransferStructMismatchError(
+        row.id,
+        row.payinAddress,
+        predicted,
+      );
+    }
+
+    return {
+      row,
+      caip2Id: row.quote.chain.caip2Id,
+      factory: config.kiteFactoryAddress,
+      rpcUrls: config.rpcUrls ?? [],
+      struct,
+      actor: getNearActor(),
+    };
+  };
+
+  private nearBalance = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+    token: string,
+  ) =>
+    this.nearPayinBalance(
+      ctx.caip2Id,
+      token,
+      ctx.row.payinAddress,
+      ctx.struct.implementation,
+    );
+
+  private nearPayinBalance = async (
+    caip2Id: Caip2Id,
+    token: string,
+    address: string,
+    implementation: string,
+  ) => {
+    const actor = getNearActor();
+    if (token !== NearNativeToken) {
+      return actor.getBalance(caip2Id, token, address);
+    }
+
+    const account = await actor.getAccount(caip2Id, address);
+    return account ? nearNativeAvailable(account, implementation) : 0n;
+  };
+
+  private nearStatus = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    // a payment of native NEAR creates a plain account before the contract is deployed
+    const account = await ctx.actor.getAccount(
+      ctx.caip2Id,
+      ctx.row.payinAddress,
+      ctx.rpcUrls,
+    );
+    if (!account?.contract) return null;
+
+    return ctx.actor.view<NearKiteStatus>(
+      ctx.caip2Id,
+      ctx.row.payinAddress,
+      "get_status",
+      {},
+      ctx.rpcUrls,
+    );
+  };
+
+  private deployNearDeposit = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    const deposit = await ctx.actor.view<string>(
+      ctx.caip2Id,
+      ctx.factory,
+      "deploy_deposit",
+      { transfer: ctx.struct },
+      ctx.rpcUrls,
+    );
+
+    const result = await ctx.actor.functionCall(
+      ctx.caip2Id,
+      {
+        contractId: ctx.factory,
+        method: "deploy",
+        args: { transfer: ctx.struct },
+        deposit: BigInt(deposit),
+        gas: NearDeployGas,
+      },
+      ctx.rpcUrls,
+    );
+
+    if (result.status !== "success") {
+      throw new AppError(
+        `Could not create the deposit account: ${result.failure ?? "unknown error"}`,
+      );
+    }
+  };
+
+  // a failed close only leaves the deposits in the account, so it's logged, not thrown
+  private closeNearDeposit = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    if (isLegacyNearImplementation(ctx.struct.implementation)) return;
+
+    const failed = (reason: unknown) =>
+      console.warn(
+        `Could not close the deposit account of transfer ${ctx.row.id}: ${reason}`,
+      );
+    try {
+      const result = await ctx.actor.functionCall(
+        ctx.caip2Id,
+        {
+          contractId: ctx.factory,
+          method: "close",
+          args: { transfer: ctx.struct },
+          gas: NearFactoryCallGas,
+        },
+        ctx.rpcUrls,
+      );
+      if (result.status !== "success") failed(result.failure);
+    } catch (error) {
+      failed(error);
+    }
+  };
+
+  private sendNearFactoryCall = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+    method: "settle" | "refund" | "recover",
+    args: Record<string, unknown> = {},
+  ) => {
+    const result = await ctx.actor.functionCall(
+      ctx.caip2Id,
+      {
+        contractId: ctx.factory,
+        method,
+        args: { transfer: ctx.struct, ...args },
+        gas: NearFactoryCallGas,
+      },
+      ctx.rpcUrls,
+    );
+
+    const parsed = kiteNear.parseEvents(ctx.caip2Id, result.outcome);
+    await this.handleOnchainNotifierCallback(
+      parsed.items.filter((item) => item.payinAddress === ctx.row.payinAddress),
+    );
+
+    return { ...result, stopped: parsed.stopped };
+  };
+
+  private registerNearRecipients = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    await this.registerOnNearToken(ctx, kiteNear.settlementToken(ctx.struct), [
+      ctx.struct.settlement_recipient,
+      ...ctx.struct.fees.map((fee) => fee.recipient),
+    ]);
+  };
+
+  private registerOnNearToken = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+    token: string,
+    recipients: string[],
+  ) => {
+    if (token === NearNativeToken) return;
+    const accounts = [...new Set(recipients)];
+
+    const unregistered: string[] = [];
+    for (const account of accounts) {
+      const balance = await ctx.actor.view<unknown>(
+        ctx.caip2Id,
+        token,
+        "storage_balance_of",
+        { account_id: account },
+        ctx.rpcUrls,
+      );
+      if (!balance) unregistered.push(account);
+    }
+
+    if (!unregistered.length) return;
+
+    const bounds = await ctx.actor.view<{ min: string }>(
+      ctx.caip2Id,
+      token,
+      "storage_balance_bounds",
+      {},
+      ctx.rpcUrls,
+    );
+
+    const result = await ctx.actor.functionCall(
+      ctx.caip2Id,
+      unregistered.map((account) => ({
+        contractId: token,
+        method: "storage_deposit",
+        args: { account_id: account, registration_only: true },
+        deposit: BigInt(bounds.min),
+        gas: NearRegisterGas,
+      })),
+      ctx.rpcUrls,
+    );
+
+    if (result.status !== "success") {
+      throw new AppError(
+        `Could not register ${unregistered.join(", ")} on ${token}: ${result.failure}`,
+      );
+    }
+  };
+
+  private settleNearTransfer = async (transferId: string) => {
+    const ctx = await this.getNearTransfer(transferId);
+    let row = ctx.row;
+
+    if (!SettleableTransferStatuses.includes(row.status)) {
+      return;
+    }
+
+    const status = await this.nearStatus(ctx);
+    if (status === "Settled" || status === "Refunded") {
+      return this.reconcileClosedTransfer(ctx, status);
+    }
+
+    // a settlement that stopped after its swap resumes; nothing is checked again
+    const resuming = status === "Executing";
+    const amountIn = BigInt(ctx.struct.amount_in);
+    const balance = await this.nearBalance(
+      ctx,
+      kiteNear.payInToken(ctx.struct),
+    );
+
+    if (!resuming) {
+      const expired =
+        BigInt(Math.floor(Date.now() / 1000)) > BigInt(ctx.struct.expires_at);
+
+      if (balance < amountIn) {
+        if (expired) {
+          return this.abandonSettlement(
+            row,
+            "Transfer expired before it was paid in full",
+            balance,
+          );
+        }
+
+        if (row.status === TransferStatus.AwaitingDeposit) {
+          return;
+        }
+
+        throw new AppError("Transfer is awaiting full deposit");
+      }
+
+      if (expired) {
+        return this.abandonSettlement(
+          row,
+          "Transfer expired before it was settled",
+          balance,
+        );
+      }
+
+      const payout_ = await db.query.payout.findFirst({
+        where: eq(payout.transferId, row.id),
+        columns: { deadline: true },
+      });
+
+      if (
+        payout_ &&
+        payout_.deadline.getTime() - Date.now() <
+          common.toMs(PayoutDeadlineMarginSeconds)
+      ) {
+        return this.abandonSettlement(
+          row,
+          "The NEAR Intents deposit address for the payout is about to expire",
+          balance,
+        );
+      }
+    }
+
+    if (row.status !== TransferStatus.Processing) {
+      const moved = await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Processing,
+        "Transfer settlement submitted",
+      );
+
+      if (!moved) {
+        return;
+      }
+
+      row = {
+        ...row,
+        status: TransferStatus.Processing,
+      };
+    }
+
+    if (status === null || status === "Uninitialized") {
+      await this.deployNearDeposit(ctx);
+    }
+
+    await this.registerNearRecipients(ctx);
+
+    // a settlement that stops after its swap (out of gas, or the swap's output not landed
+    // yet) resumes straight away; past a few attempts it's left to the job's retry
+    let stop;
+    for (let attempt = 0; attempt < NearSettleAttempts; attempt++) {
+      const result = await this.sendNearFactoryCall(ctx, "settle");
+      if (result.status !== "success") {
+        throw new AppError(`Settlement failed: ${result.failure}`);
+      }
+
+      stop = result.stopped.at(-1);
+      if (!stop || stop.status !== "Executing") break;
+    }
+
+    if (!stop) {
+      await this.closeNearDeposit(ctx);
+      return;
+    }
+
+    if (stop.status === "Open") {
+      if (stop.reason.startsWith("InsufficientPayment")) {
+        throw new AppError("Deposit not visible to the contract yet");
+      }
+
+      return this.abandonSettlement(row, stop.reason, balance);
+    }
+
+    throw new AppError(
+      `Settlement stopped at ${stop.step} (${stop.reason}); it resumes on the next attempt`,
+    );
+  };
+
+  private refundNearTransfer = async (
+    transferId: string,
+  ): Promise<{ refunded: true } | { refunded: false; reason: string }> => {
+    const ctx = await this.getNearTransfer(transferId);
+    const row = ctx.row;
+
+    const closed = this.closedReason(row);
+    if (closed) return { refunded: false, reason: closed };
+
+    const status = await this.nearStatus(ctx);
+    if (status === "Settled" || status === "Refunded") {
+      await this.reconcileClosedTransfer(ctx, status);
+      return {
+        refunded: false,
+        reason: "The transfer has already closed on-chain",
+      };
+    }
+
+    if (status === "Executing") {
+      throw new AppError("The transfer is settling; it can't be refunded now");
+    }
+
+    const progress =
+      status === "Open"
+        ? await ctx.actor.view<{ wrapped: boolean }>(
+            ctx.caip2Id,
+            row.payinAddress,
+            "get_progress",
+            {},
+            ctx.rpcUrls,
+          )
+        : null;
+
+    const balance = await this.nearBalance(
+      ctx,
+      kiteNear.payInToken(ctx.struct),
+    );
+
+    // a swap that failed after wrapping native NEAR leaves the payment as wNEAR
+    if (balance === 0n && !progress?.wrapped) {
+      return {
+        refunded: false,
+        reason: `There is nothing to refund: the pay-in address holds no ${row.quote.sourceToken.symbol}`,
+      };
+    }
+
+    if (status === null || status === "Uninitialized") {
+      await this.deployNearDeposit(ctx);
+    }
+
+    const result = await this.sendNearFactoryCall(ctx, "refund");
+    if (result.status !== "success") {
+      throw new AppError(`Refund failed: ${result.failure}`);
+    }
+
+    await this.closeNearDeposit(ctx);
+    return { refunded: true };
+  };
+
+  private recoverNearToken = async (
+    transferId: string,
+    tokenAddress: string,
+    destinationAddress: string,
+  ) => {
+    const ctx = await this.getNearTransfer(transferId);
+    const balance = await this.nearBalance(ctx, tokenAddress);
+
+    if (balance === 0n) {
+      return {
+        status: "empty",
+      } as const;
+    }
+
+    const revert = (errorName: string) =>
+      ({
+        status: "failed",
+        failure: {
+          ok: false,
+          kind: "revert",
+          errorName,
+          message: errorName,
+        },
+      }) as const;
+
+    const status = await this.nearStatus(ctx);
+    if (status === "Executing") return revert("InvoiceNotOpen");
+
+    const ownTokens = [
+      kiteNear.payInToken(ctx.struct),
+      kiteNear.settlementToken(ctx.struct),
+    ];
+    if (status === "Open" && ownTokens.includes(tokenAddress)) {
+      return revert("RecoveryNotAllowed");
+    }
+
+    const destination =
+      !destinationAddress || common.isZeroAddress(destinationAddress)
+        ? null
+        : destinationAddress;
+    await this.registerOnNearToken(ctx, tokenAddress, [
+      destination ?? ctx.struct.refund_account,
+    ]);
+
+    if (status === null || status === "Uninitialized") {
+      await this.deployNearDeposit(ctx);
+    }
+
+    const result = await this.sendNearFactoryCall(ctx, "recover", {
+      token: tokenAddress === NearNativeToken ? null : tokenAddress,
+      destination,
+    });
+
+    if (result.status !== "success") {
+      return {
+        status: "failed",
+        failure: {
+          ok: false,
+          kind: "revert",
+          errorName: "Unknown",
+          message: result.failure ?? "Recovery failed",
+        },
+      } as const;
+    }
+
+    return {
+      status: "sent",
+    } as const;
+  };
+
+  createTransfer = async (
+    appId: string,
+    quoteId: string,
+    refundAddress: string,
+  ) => {
+    const result = await db
+      .select({ count: count() })
+      .from(transfer)
+      .where(eq(transfer.quoteId, quoteId));
+
+    const hasQuoteBeenUsed = result[0].count > 0;
+    if (hasQuoteBeenUsed)
+      throw new AppError("Quote has been consumed, create a new one");
+
+    const quote_ = await db.query.quote.findFirst({
+      where: and(eq(quote.id, quoteId), eq(quote.appId, appId)),
+      with: {
+        sourceToken: true,
+        targetToken: true,
+        paymentLink: true,
+        fees: {
+          orderBy: [asc(quoteFee.id)],
+        },
+        chain: {
+          with: {
+            config: true,
+          },
+        },
+      },
+    });
+
+    if (!quote_) throw new NotFoundError("quote", quoteId);
+    if (quote_.paymentLink)
+      await new PaymentLinkService().assertPayable(quote_.paymentLink);
+    if (quote_.expiresAt.getTime() <= Date.now())
+      throw new QuoteExpiredError(quote_.id);
+
+    const config = quote_.chain.config;
+    if (!config) throw new AppError("Selected chain is not configured");
+
+    const caip2Id = quote_.chain.caip2Id;
+    const chain = getChain(caip2Id);
+    if (!common.isValidAddress(chain.type, refundAddress))
+      throw new AppError("The refund address is not a valid address");
+
+    const settlement = await new PayoutService().planSettlement({
+      appId,
+      chainId: quote_.chain.id,
+      caip2Id,
+      slippageBps: config.slippageBps,
+      settlementToken: quote_.targetToken,
+      amount:
+        quote_.targetAmount -
+        quote_.fees.reduce((total, fee) => total + fee.amount, 0n),
+    });
+
+    const minAmountOut =
+      (quote_.targetAmount * (10000n - BigInt(config.slippageBps))) / 10000n;
+    const transferId = common.uuidv4();
+
+    const prepare =
+      chain.type === ChainType.Near
+        ? this.prepareNearTransfer
+        : this.prepareEvmTransfer;
+    const prepared = await prepare({
+      transferId,
+      quote: quote_,
+      config,
+      settlementRecipient: common.normalizeAddressFor(
+        chain.type,
+        settlement.recipient,
+      ),
+      refundAddress: common.normalizeAddressFor(chain.type, refundAddress),
+      minAmountOut,
+    });
+
+    const { payinAddress, trackedBy, settlementRecipient } = prepared;
+
     const paymentInstructions = {
       caip2Id,
       address: payinAddress,
@@ -717,10 +1370,11 @@ export class TransferService {
           quoteId,
           settlementRecipient,
           minAmountOut,
-          refundAddress: struct.refundAddress,
+          refundAddress: prepared.refundAddress,
           payinAddress,
           trackedBy,
-          kiteTransferInput: kite.serializeTransferInput(struct),
+          kiteTransferInput:
+            prepared.kiteTransferInput as typeof transfer.$inferInsert.kiteTransferInput,
           status: TransferStatus.AwaitingDeposit,
         })
         .returning();
@@ -784,6 +1438,10 @@ export class TransferService {
   };
 
   settleTransfer = async (transferId: string) => {
+    if (await this.isNearTransfer(transferId)) {
+      return this.settleNearTransfer(transferId);
+    }
+
     const ctx = await this.getOnchainTransfer(transferId);
     let row = ctx.row;
 
@@ -872,7 +1530,10 @@ export class TransferService {
         throw new AppError(simulation.message);
 
       if (simulation.errorName === "InvoiceNotOpen")
-        return this.reconcileClosedTransfer({ ...ctx, row });
+        return this.reconcileClosedTransfer(
+          { row },
+          await kite.readStatus(ctx.client, row.payinAddress),
+        );
 
       if (simulation.errorName === "InsufficientPayment")
         throw new AppError("Deposit not visible to the contract yet");
@@ -916,6 +1577,10 @@ export class TransferService {
     transferId: string,
     useGasSponsor = true,
   ): Promise<{ refunded: true } | { refunded: false; reason: string }> => {
+    if (await this.isNearTransfer(transferId)) {
+      return this.refundNearTransfer(transferId);
+    }
+
     const ctx = await this.getOnchainTransfer(transferId);
     const row = ctx.row;
 
@@ -948,7 +1613,10 @@ export class TransferService {
         throw new AppError(simulation.message);
 
       if (simulation.errorName === "InvoiceNotOpen") {
-        await this.reconcileClosedTransfer(ctx);
+        await this.reconcileClosedTransfer(
+          ctx,
+          await kite.readStatus(ctx.client, ctx.row.payinAddress),
+        );
         return {
           refunded: false,
           reason: "The transfer has already closed on-chain",
@@ -1045,6 +1713,13 @@ export class TransferService {
   };
 
   getRecoveryBalance = async (transferId: string, tokenAddress: string) => {
+    if (await this.isNearTransfer(transferId)) {
+      return this.nearBalance(
+        await this.getNearTransfer(transferId),
+        common.normalizeAddress(tokenAddress),
+      );
+    }
+
     const ctx = await this.getOnchainTransfer(transferId);
     return ctx.onchainActor.getBalance(
       ctx.caip2Id,
@@ -1294,12 +1969,22 @@ export class TransferService {
             transfer_.quote.sourceToken.decimals,
           );
 
-          const onchainActor = getOnchainActor(getChain(item.caip2Id).type);
-          const balance = await onchainActor.getBalance(
-            item.caip2Id,
-            transfer_.quote.sourceToken.address,
-            transfer_.payinAddress,
-          );
+          const chainType = getChain(item.caip2Id).type;
+          const sourceToken = transfer_.quote.sourceToken.address;
+          const balance =
+            chainType === ChainType.Near
+              ? await this.nearPayinBalance(
+                  item.caip2Id,
+                  sourceToken,
+                  transfer_.payinAddress,
+                  (transfer_.kiteTransferInput as unknown as NearKiteTransfer)
+                    .implementation,
+                )
+              : await getOnchainActor(chainType).getBalance(
+                  item.caip2Id,
+                  sourceToken,
+                  transfer_.payinAddress,
+                );
 
           const undelivered = item.amountRefunded === 0n && balance > 0n;
           const description = undelivered

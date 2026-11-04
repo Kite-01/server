@@ -17,6 +17,7 @@ import { Badge } from "./ui/badge";
 
 const chainTypeLabels = {
   Evm: "EVM",
+  Near: "NEAR",
 };
 
 export const ProfileMenu = () => {

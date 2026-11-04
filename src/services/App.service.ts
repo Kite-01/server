@@ -8,8 +8,8 @@ import { app, appChain, chain as chainTable } from "../db/schema";
 import { AppError, NotFoundError } from "../shared/errors";
 import { PayoutService } from "./Payout.service";
 import { ChainService } from "./Chain.service";
-import { isAddress } from "viem";
 import { common } from "../shared/common";
+import { getChain } from "../shared/chains";
 import { db } from "../db";
 
 type PayoutFields = Partial<
@@ -164,15 +164,17 @@ export class AppService {
   };
 
   setChain = async (appId: string, chainId: string, address: string) => {
-    if (!isAddress(address)) {
-      throw new AppError("The address is not a valid address");
-    }
-
     const chain = await new ChainService().getChainById(chainId);
     if (!chain) throw new NotFoundError("chain", chainId);
+
+    const { type: chainType, name } = getChain(chain.caip2Id);
+    if (!common.isValidAddress(chainType, address)) {
+      throw new AppError(`The address is not a valid address on ${name}`);
+    }
+
     if (!chain.config) throw new AppError("This chain is not configured yet");
 
-    const normalized = common.normalizeAddress(address);
+    const normalized = common.normalizeAddressFor(chainType, address);
     const [row] = await db
       .insert(appChain)
       .values({ appId, chainId, address: normalized })

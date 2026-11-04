@@ -26,11 +26,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { shortAddress } from "@/lib/format";
+import { shortAddress, txUrl } from "@/lib/format";
+import { EvmWalletProvider, useConnectEvmWallet } from "@/lib/evm-wallet";
+import {
+  connectNearWallet,
+  isNearAccountId,
+  nearNetworkOf,
+  sendNearPayment,
+  type NearWallet,
+} from "@/lib/near-wallet";
 import { cn } from "@/lib/utils";
 import {
   connectWallet,
-  discoverWallets,
   sendToken,
   switchChain,
   walletMessage,
@@ -63,11 +70,17 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
 
+const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
+const EthereumLogo =
+  "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/info/logo.png";
+const isNearWallet = (wallet: Wallet | NearWallet): wallet is NearWallet =>
+  "kind" in wallet && wallet.kind === "near";
+
 type Token = CheckoutChain["tokens"][number];
 
 type Step =
   | { kind: "method" }
-  | { kind: "wallets"; wallets: Wallet[] }
+  | { kind: "families" }
   | { kind: "wallet" }
   | { kind: "token" }
   | { kind: "review" }
@@ -279,6 +292,7 @@ const IconTile = ({
 const Option = ({
   icon,
   title,
+  badge,
   description,
   onClick,
   disabled,
@@ -286,6 +300,7 @@ const Option = ({
 }: {
   icon: ReactNode;
   title: string;
+  badge?: string;
   description?: string;
   onClick: () => void;
   disabled?: boolean;
@@ -299,7 +314,14 @@ const Option = ({
   >
     {icon}
     <span className="min-w-0 flex-1">
-      <span className="block text-[15px] font-medium">{title}</span>
+      <span className="flex items-center gap-2 text-[15px] font-medium">
+        {title}
+        {badge && (
+          <span className="rounded-full bg-soft px-2 py-0.5 text-[11px] leading-4 font-medium text-muted">
+            {badge}
+          </span>
+        )}
+      </span>
       {description && (
         <span className="mt-0.5 block text-[13px] leading-snug text-muted">
           {description}
@@ -472,7 +494,9 @@ const Total = ({
         <>
           <p className="font-display text-[28px] leading-tight font-semibold tracking-tight break-all tabular-nums">
             {formatUnits(BigInt(quote.sourceAmount), token.decimals)}{" "}
-            <span className="text-muted">{token.symbol}</span>
+            <span className="text-muted break-normal whitespace-nowrap">
+              {token.symbol}
+            </span>
           </p>
           <p className="mt-1 text-xs text-muted">
             ≈{formatMoney(quote.sourceUsdAmount, "USD")}
@@ -903,7 +927,10 @@ const InstructionsStep = ({
       <div className="mt-8 text-center">
         <p className="text-sm text-muted">Send exactly</p>
         <p className="mt-1 font-display text-4xl font-semibold tracking-tight break-all tabular-nums">
-          {amount} <span className="text-muted">{token.symbol}</span>
+          {amount}{" "}
+          <span className="text-muted break-normal whitespace-nowrap">
+            {token.symbol}
+          </span>
         </p>
         <CopyButton
           value={amount}
@@ -939,7 +966,11 @@ const InstructionsStep = ({
           <div className="mt-3 flex flex-col items-center gap-2">
             <div className="rounded-xl bg-white p-3">
               <QRCodeSVG
-                value={paymentUri(pay, chain.chainId)}
+                value={
+                  isNear(chain) || chain.chainId === null
+                    ? pay.address
+                    : paymentUri(pay, chain.chainId)
+                }
                 size={176}
                 marginSize={0}
                 title={pay.address}
@@ -1017,7 +1048,7 @@ const StatusStep = ({
     data?.settlementBlockchainHash ?? data?.x402BlockchainHash ?? txHash;
   const explorer =
     chain?.blockExplorer && hash
-      ? `${chain.blockExplorer.url}/tx/${hash}`
+      ? txUrl(chain.blockExplorer.url, hash)
       : undefined;
 
   const view = statusView(data, expired, checkout.app.name);
@@ -1204,21 +1235,32 @@ const Loading = () => (
   />
 );
 
-export const Pay = () => (
-  <>
-    <PayFlow />
-    {embedded && (
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={() => notify({ type: "close" })}
-        className="fixed top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft"
-      >
-        <IconX className="size-5" />
-      </button>
-    )}
-  </>
-);
+export const Pay = () => {
+  const { id = "" } = useParams();
+  const checkout = useQuery({
+    ...checkoutGetOptions({ path: { id } }),
+    enabled: /^[0-9a-f-]{36}$/i.test(id),
+  });
+  const evmChains = (checkout.data?.chains ?? []).filter(
+    (item) => !isNear(item),
+  );
+
+  return (
+    <EvmWalletProvider chains={evmChains}>
+      <PayFlow />
+      {embedded && (
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={() => notify({ type: "close" })}
+          className="fixed top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft"
+        >
+          <IconX className="size-5" />
+        </button>
+      )}
+    </EvmWalletProvider>
+  );
+};
 
 const PayFlow = () => {
   const { id = "" } = useParams();
@@ -1241,15 +1283,23 @@ const PayFlow = () => {
   const [chainId, setChainId] = useState("");
   const [token, setToken] = useState<Token | null>(null);
   const [imported, setImported] = useState<Record<string, Token[]>>({});
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [account, setAccount] = useState<Address | null>(null);
+  const [wallet, setWallet] = useState<Wallet | NearWallet | null>(null);
+  const [account, setAccount] = useState<string | null>(null);
   const [refundAddress, setRefundAddress] = useState("");
   // the transfer this page opened that nobody has paid yet
   const [openedId, setOpenedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const chains = useMemo(() => checkout.data?.chains ?? [], [checkout.data]);
+  const allChains = useMemo(() => checkout.data?.chains ?? [], [checkout.data]);
+  const chains = useMemo(
+    () =>
+      wallet
+        ? allChains.filter((item) => isNear(item) === isNearWallet(wallet))
+        : allChains,
+    [allChains, wallet],
+  );
+  const nearChain = allChains.find(isNear);
   const chain = chains.find((item) => item.id === chainId) ?? chains[0];
 
   const payToken =
@@ -1350,7 +1400,10 @@ const PayFlow = () => {
       .request({ method: "eth_chainId" })
       .then(Number)
       .catch(() => 0);
-    const start = chains.find((item) => item.chainId === current) ?? chains[0];
+    const evmChains = allChains.filter((item) => !isNear(item));
+    const start =
+      evmChains.find((item) => item.chainId === current) ?? evmChains[0];
+    if (!start) throw new Error("This link can't be paid on an EVM chain");
 
     setWallet(choice);
     setAccount(address);
@@ -1359,13 +1412,58 @@ const PayFlow = () => {
     setStep({ kind: "token" });
   };
 
+  const chooseNearWallet = () =>
+    run("near-wallet", async (progress) => {
+      if (!nearChain) return;
+      progress("Waiting for your NEAR wallet…");
+      const near = await connectNearWallet(nearNetworkOf(nearChain.caip2Id));
+      if (!near) return;
+
+      setWallet(near);
+      setAccount(near.accountId);
+      setChainId(nearChain.id);
+      setToken(null);
+      setStep({ kind: "token" });
+    });
+
+  const families = [
+    {
+      type: "Evm",
+      name: "EVM",
+      icon: (
+        <img
+          src={EthereumLogo}
+          alt=""
+          className="size-10 shrink-0 rounded-full"
+        />
+      ),
+      connect: () => chooseWallet(),
+    },
+    {
+      type: "Near",
+      name: "NEAR",
+      badge: "Beta",
+      icon: (
+        <IconTile className="bg-ink">
+          {nearChain && <img src={nearChain.icon} alt="" className="size-6" />}
+        </IconTile>
+      ),
+      connect: () => chooseNearWallet(),
+    },
+  ].filter((family) =>
+    allChains.some((item) => item.chainType === family.type),
+  );
+
+  const connect = () =>
+    families.length === 1 ? families[0].connect() : go({ kind: "families" });
+
+  const connectEvmWallet = useConnectEvmWallet();
+
   const chooseWallet = () =>
     run("wallet", async (progress) => {
-      progress("Looking for wallets…");
-      const found = await discoverWallets();
-
-      if (found.length === 1) await connectTo(found[0], progress);
-      else setStep({ kind: "wallets", wallets: found });
+      progress("Waiting for your wallet…");
+      const found = await connectEvmWallet();
+      if (found) await connectTo(found, progress);
     });
 
   const openTransfer = async (q: Quote, refund: string) => {
@@ -1406,6 +1504,23 @@ const PayFlow = () => {
     run("pay", async (progress) => {
       if (!wallet || !account || !chain) return;
 
+      if (isNearWallet(wallet)) {
+        progress("Preparing payment…");
+        const transfer = await openTransfer(q, wallet.accountId);
+        const { address, tokenAddress, amount } = transfer.paymentInstructions;
+
+        progress("Confirm in your wallet…");
+        const txHash = await sendNearPayment(
+          wallet,
+          tokenAddress,
+          address,
+          amount,
+        );
+
+        setStep({ kind: "status", transferId: transfer.id, txHash });
+        return;
+      }
+
       progress(`Switching to ${chain.name}…`);
       await switchChain(wallet, chain);
 
@@ -1416,7 +1531,7 @@ const PayFlow = () => {
       progress("Confirm in your wallet…");
       const txHash = await sendToken(
         wallet,
-        account,
+        account as Address,
         chain,
         tokenAddress,
         address,
@@ -1512,9 +1627,12 @@ const PayFlow = () => {
                   </IconTile>
                 }
                 title="Connect wallet"
-                onClick={chooseWallet}
-                disabled={!!busy}
-                busy={busy?.on === "wallet"}
+                onClick={connect}
+                disabled={!!busy || !families.length}
+                busy={
+                  families.length === 1 &&
+                  (busy?.on === "wallet" || busy?.on === "near-wallet")
+                }
               />
               <Option
                 icon={
@@ -1549,7 +1667,7 @@ const PayFlow = () => {
         )}
       </div>
     );
-  } else if (step.kind === "wallets") {
+  } else if (step.kind === "families") {
     body = (
       <div>
         <SheetHeader
@@ -1557,54 +1675,25 @@ const PayFlow = () => {
           onBack={() => go({ kind: "method" })}
         />
 
-        {step.wallets.length ? (
-          <div className="mt-6">
-            <Group>
-              {step.wallets.map((item) => (
-                <Option
-                  key={item.id}
-                  icon={
-                    item.icon ? (
-                      <img
-                        src={item.icon}
-                        alt=""
-                        className="size-10 shrink-0 rounded-xl"
-                      />
-                    ) : (
-                      <IconTile className="bg-ink">
-                        <IconWallet />
-                      </IconTile>
-                    )
-                  }
-                  title={item.name}
-                  onClick={() =>
-                    run(item.id, (progress) => connectTo(item, progress))
-                  }
-                  disabled={!!busy}
-                  busy={busy?.on === item.id}
-                />
-              ))}
-            </Group>
-            {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center py-12 text-center">
-            <IconTile className="size-14 rounded-full bg-soft text-muted [&_svg]:size-7">
-              <IconWallet />
-            </IconTile>
-            <p className="mt-5 text-lg font-semibold">No wallet found</p>
-            <p className="mt-1.5 max-w-xs text-sm text-muted">
-              Install a browser wallet and reload this page, or pay with
-              instructions instead
-            </p>
-            <Button
-              className="mt-7 h-11 px-5"
-              onClick={() => go({ kind: "token" })}
-            >
-              Use payment instructions
-            </Button>
-          </div>
-        )}
+        <div className="mt-6">
+          <Group>
+            {families.map((family) => (
+              <Option
+                key={family.type}
+                icon={family.icon}
+                title={family.name}
+                badge={"badge" in family ? family.badge : undefined}
+                onClick={family.connect}
+                disabled={!!busy}
+                busy={
+                  busy?.on ===
+                  (family.type === "Near" ? "near-wallet" : "wallet")
+                }
+              />
+            ))}
+          </Group>
+          {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
+        </div>
       </div>
     );
   } else if (step.kind === "wallet" && chain && token && wallet && account) {
@@ -1684,7 +1773,9 @@ const PayFlow = () => {
     );
   } else if (step.kind === "review" && chain && token) {
     const refund = refundAddress.trim();
-    const refundValid = isAddress(refund);
+    const refundValid = isNear(chain)
+      ? isNearAccountId(refund)
+      : isAddress(refund);
 
     body = (
       <>

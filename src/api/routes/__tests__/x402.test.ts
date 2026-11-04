@@ -6,7 +6,12 @@ import {
   address,
   USDC,
 } from "../../../test/factories";
-import { fakeActor, operatorAddress, resetMocks } from "../../../test/mocks";
+import {
+  fakeActor,
+  nearOperator,
+  operatorAddress,
+  resetMocks,
+} from "../../../test/mocks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { client, rootCredentials } from "../../../test/api";
 import { createQuoteRow, createTransferRow } from "../../../test/transfers";
@@ -134,6 +139,7 @@ describe("x402 API", () => {
 
     expect(res.json.signers).toEqual({
       "eip155:*": [operatorAddress],
+      "near:*": [nearOperator],
     });
   });
 

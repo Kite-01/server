@@ -12,7 +12,7 @@ import {
   WebhookCategory,
 } from "../shared/constants";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
-import { Digits, EvmAddress, t, Uuid } from "./schema";
+import { Digits, ChainAddress, t, Uuid } from "./schema";
 import { Elysia } from "elysia";
 
 const named = (name: string) => {
@@ -63,7 +63,7 @@ const App = t.Object(
 const AppChain = t.Object(
   {
     chainId: Uuid,
-    address: EvmAddress,
+    address: ChainAddress,
     createdAt: Timestamp,
     updatedAt: Timestamp,
   },
@@ -102,7 +102,7 @@ const Token = t.Object(
   {
     id: Uuid,
     chainId: Uuid,
-    address: EvmAddress,
+    address: ChainAddress,
     symbol: t.String(),
     decimals: Int,
     name: t.String(),
@@ -128,7 +128,7 @@ const ChainConfig = t.Object(
     chainId: Uuid,
     rpcUrls: Nullable(t.Array(t.String())),
     slippageBps: Int,
-    kiteFactoryAddress: EvmAddress,
+    kiteFactoryAddress: ChainAddress,
     usdPeggedTokenId: Uuid,
     settlementTokenId: Uuid,
     onchainNotifierProviders: t.Array(t.Enum(Provider)),
@@ -163,8 +163,9 @@ const SupportedChain = t.Object(
   {
     caip2Id: t.String(),
     name: t.String(),
-    chainId: Int,
+    chainId: Nullable(Int),
     testnet: t.Boolean(),
+    beta: t.Boolean(),
     nativeCurrency: t.Object({
       name: t.String(),
       symbol: t.String(),
@@ -205,7 +206,7 @@ const Fee = t.Object(
     minAmountToCharge: Nullable(BigIntString),
     maxAmountToCharge: Nullable(BigIntString),
     condition: Json,
-    feeAddress: Nullable(EvmAddress),
+    feeAddress: Nullable(ChainAddress),
     createdAt: Timestamp,
     updatedAt: Timestamp,
   },
@@ -252,7 +253,7 @@ const PriceFeed = t.Object(
     chainId: Uuid,
     baseCurrency: t.String(),
     quoteCurrency: t.String(),
-    address: EvmAddress,
+    address: ChainAddress,
     decimals: Int,
     createdAt: Timestamp,
     updatedAt: Timestamp,
@@ -284,6 +285,7 @@ const Quote = t.Object(
     targetUsdAmount: t.String(),
     rate: t.String(),
     uniswapPoolFeeTier: Nullable(Int),
+    swapPool: Nullable(t.String()),
     reference: Nullable(t.String()),
     meta: t.Unsafe<unknown>(Nullable(Json)),
     expiresAt: Timestamp,
@@ -300,7 +302,7 @@ const QuoteFee = t.Object(
     feeId: Nullable(Uuid),
     label: t.String(),
     amount: BigIntString,
-    feeAddress: EvmAddress,
+    feeAddress: ChainAddress,
     blockchainHash: Nullable(t.String()),
     createdAt: Timestamp,
   },
@@ -320,35 +322,77 @@ const QuoteDetails = t.Object(
   named("QuoteDetails"),
 );
 
+const EvmKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    payInTokenAddress: ChainAddress,
+    amountIn: Digits,
+    settlementTokenAddress: ChainAddress,
+    settlementRecipient: ChainAddress,
+    minAmountOut: Digits,
+    fees: t.Array(
+      t.Object({
+        id: t.String(),
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refundAddress: ChainAddress,
+    expiresAt: Digits,
+    routerAddress: ChainAddress,
+    poolFeeTier: Int,
+    implementation: ChainAddress,
+  },
+  named("EvmKiteTransferInput"),
+);
+
+const NearAsset = t.Union([
+  t.Literal("Native"),
+  t.Object({ Token: ChainAddress }),
+]);
+
+const NearKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    pay_in: NearAsset,
+    amount_in: Digits,
+    settlement_token: NearAsset,
+    settlement_recipient: ChainAddress,
+    min_amount_out: Digits,
+    fees: t.Array(
+      t.Object({
+        id: t.String(),
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refund_account: ChainAddress,
+    expires_at: Digits,
+    swap: Nullable(
+      t.Object({
+        router: ChainAddress,
+        pool: t.Union([
+          t.Object({ Dcl: t.String() }),
+          t.Object({ RefV1: Digits }),
+        ]),
+        wrap: ChainAddress,
+      }),
+    ),
+    implementation: t.String(),
+  },
+  named("NearKiteTransferInput"),
+);
+
 const Transfer = t.Object(
   {
     id: Uuid,
     appId: Uuid,
     quoteId: Uuid,
-    settlementRecipient: EvmAddress,
+    settlementRecipient: ChainAddress,
     minAmountOut: BigIntString,
-    refundAddress: EvmAddress,
-    payinAddress: EvmAddress,
-    kiteTransferInput: t.Object({
-      id: t.String(),
-      payInTokenAddress: EvmAddress,
-      amountIn: Digits,
-      settlementTokenAddress: EvmAddress,
-      settlementRecipient: EvmAddress,
-      minAmountOut: Digits,
-      fees: t.Array(
-        t.Object({
-          id: t.String(),
-          recipient: EvmAddress,
-          amount: Digits,
-        }),
-      ),
-      refundAddress: EvmAddress,
-      expiresAt: Digits,
-      routerAddress: EvmAddress,
-      poolFeeTier: Int,
-      implementation: EvmAddress,
-    }),
+    refundAddress: ChainAddress,
+    payinAddress: ChainAddress,
+    kiteTransferInput: t.Union([EvmKiteTransferInput, NearKiteTransferInput]),
     status: t.Enum(TransferStatus),
     settlementBlockchainHash: Nullable(t.String()),
     refundBlockchainHash: Nullable(t.String()),
@@ -380,12 +424,12 @@ const TransferTimelineEntry = t.Object(
 const Payout = t.Object(
   {
     transferId: Uuid,
-    depositAddress: EvmAddress,
+    depositAddress: ChainAddress,
     destinationAsset: t.String(),
     destinationSymbol: t.String(),
     destinationChain: t.String(),
     recipient: t.String(),
-    refundTo: EvmAddress,
+    refundTo: ChainAddress,
     deadline: Timestamp,
     status: t.Enum(PayoutStatus),
     amountOut: Nullable(BigIntString),
@@ -437,8 +481,8 @@ const CreatedTransfer = t.Object(
     ...Transfer.properties,
     paymentInstructions: t.Object({
       caip2Id: t.String(),
-      address: EvmAddress,
-      tokenAddress: EvmAddress,
+      address: ChainAddress,
+      tokenAddress: ChainAddress,
       amount: Digits,
       expiresAt: Timestamp,
     }),
@@ -551,7 +595,7 @@ const SystemInfo = t.Object(
         name: t.String(),
         isActive: t.Boolean(),
         isConfigured: t.Boolean(),
-        operatorAddress: EvmAddress,
+        operatorAddress: ChainAddress,
         explorerUrl: t.Union([t.String(), t.Null()]),
       }),
     ),
@@ -591,7 +635,7 @@ const Stats = t.Object(
         name: t.String(),
         icon: Nullable(t.String()),
         decimals: Int,
-        address: EvmAddress,
+        address: ChainAddress,
         chainId: Uuid,
         chainName: Nullable(t.String()),
         chainIcon: Nullable(t.String()),
@@ -614,7 +658,7 @@ const x402Supported = t.Object(
       }),
     ),
     extensions: t.Array(t.Unknown()),
-    signers: t.Record(t.String(), t.Array(EvmAddress)),
+    signers: t.Record(t.String(), t.Array(ChainAddress)),
   },
   named("x402Supported"),
 );
@@ -623,13 +667,14 @@ const x402PaymentRequirements = t.Object(
   {
     scheme: t.Literal("exact"),
     network: t.String(),
-    asset: EvmAddress,
+    asset: ChainAddress,
     amount: Digits,
-    payTo: EvmAddress,
+    payTo: ChainAddress,
     maxTimeoutSeconds: Int,
+    // the EIP-3009 domain on EVM; nothing on NEAR
     extra: t.Object({
-      name: t.String(),
-      version: t.String(),
+      name: t.Optional(t.String()),
+      version: t.Optional(t.String()),
     }),
   },
   named("x402PaymentRequirements"),
@@ -687,14 +732,15 @@ const Checkout = t.Object(
         id: Uuid,
         caip2Id: t.String(),
         name: t.String(),
-        chainId: Int,
+        chainType: t.Union([t.Literal("Evm"), t.Literal("Near")]),
+        chainId: Nullable(Int),
         testnet: t.Boolean(),
         icon: t.String(),
         nativeCurrency: SupportedChain.properties.nativeCurrency,
         blockExplorer: SupportedChain.properties.blockExplorer,
         rpcUrls: t.Array(t.String()),
         settlementToken: t.Object({
-          address: EvmAddress,
+          address: ChainAddress,
           symbol: t.String(),
           name: t.String(),
           decimals: Int,
@@ -703,7 +749,7 @@ const Checkout = t.Object(
         }),
         tokens: t.Array(
           t.Object({
-            address: EvmAddress,
+            address: ChainAddress,
             symbol: t.String(),
             name: t.String(),
             decimals: Int,
@@ -721,7 +767,7 @@ const CheckoutTransfer = t.Object(
   {
     id: Uuid,
     status: t.Enum(TransferStatus),
-    payinAddress: EvmAddress,
+    payinAddress: ChainAddress,
     x402BlockchainHash: Nullable(t.String()),
     settlementBlockchainHash: Nullable(t.String()),
     refundBlockchainHash: Nullable(t.String()),

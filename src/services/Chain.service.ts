@@ -9,8 +9,9 @@ import { chain, chainConfig, token } from "../db/schema";
 import { AppError, NotFoundError } from "../shared/errors";
 import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
-import { getOnchainActor } from "../shared/onchainActor";
-import { ProviderAction } from "../shared/constants";
+import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import { isNearAccountId } from "../shared/kiteNearContract";
+import { ChainType, ProviderAction } from "../shared/constants";
 import { NearIntents } from "../sdks/NearIntents";
 import { KvService } from "./Kv.service";
 import { common } from "../shared/common";
@@ -104,6 +105,79 @@ export class ChainService {
     });
   };
 
+  private assertEvmFactory = async (
+    caip2Id: Caip2Id,
+    input: Omit<typeof chainConfig.$inferInsert, "chainId">,
+  ) => {
+    const onchainActor = getOnchainActor(ChainType.Evm);
+    const client = await onchainActor.publicClient(
+      caip2Id,
+      input.rpcUrls ?? [],
+    );
+
+    if (!isAddress(input.kiteFactoryAddress)) {
+      throw new AppError("The KiteFactory address is not a valid address");
+    }
+
+    const operatorAddress = onchainActor.getAddress();
+    const hasRole = await client
+      .readContract({
+        abi: KiteFactory__factory.abi,
+        address: common.normalizeEvmAddress(input.kiteFactoryAddress),
+        functionName: "hasRole",
+        args: [keccak256(toHex("OPERATOR_ROLE")), operatorAddress as Address],
+      })
+      .catch(() => {
+        throw new AppError("Is this a valid KiteFactory contract?");
+      });
+
+    if (!hasRole) {
+      throw new AppError(
+        "Server wallet is not a configured operator on provided KiteFactory",
+      );
+    }
+  };
+
+  private assertNearFactory = async (
+    caip2Id: Caip2Id,
+    input: Omit<typeof chainConfig.$inferInsert, "chainId">,
+  ) => {
+    if (!isNearAccountId(input.kiteFactoryAddress)) {
+      throw new AppError(
+        "The Kite factory account is not a valid NEAR account",
+      );
+    }
+
+    if (input.onchainNotifierProviders?.length) {
+      throw new AppError(
+        "NEAR has no onchain notifier; deposits are found by the balance check",
+      );
+    }
+
+    if (input.gasSponsorProviders?.length) {
+      throw new AppError("NEAR has no gas sponsor; the operator pays gas");
+    }
+
+    const actor = getNearActor();
+    const isOperator = await actor
+      .view<boolean>(
+        caip2Id,
+        input.kiteFactoryAddress,
+        "is_operator",
+        { account_id: actor.getAddress() },
+        input.rpcUrls ?? [],
+      )
+      .catch(() => {
+        throw new AppError("Is this a valid Kite factory contract?");
+      });
+
+    if (!isOperator) {
+      throw new AppError(
+        `The server's NEAR account ${actor.getAddress()} is not an operator on the provided Kite factory`,
+      );
+    }
+  };
+
   upsertChainConfig = async (
     chainId: string,
     input: Omit<typeof chainConfig.$inferInsert, "chainId">,
@@ -117,31 +191,11 @@ export class ChainService {
 
     const internalChain = getChain(chain.caip2Id);
     const onchainActor = getOnchainActor(internalChain.type);
-    const client = await onchainActor.publicClient(
-      chain.caip2Id,
-      input.rpcUrls ?? [],
-    );
 
-    if (!isAddress(input.kiteFactoryAddress)) {
-      throw new AppError("The KiteFactory address is not a valid address");
-    }
-
-    const operatorAddress = onchainActor.getAddress();
-    const hasRole = await client
-      .readContract({
-        abi: KiteFactory__factory.abi,
-        address: common.normalizeAddress(input.kiteFactoryAddress),
-        functionName: "hasRole",
-        args: [keccak256(toHex("OPERATOR_ROLE")), operatorAddress as Address],
-      })
-      .catch(() => {
-        throw new AppError("Is this a valid KiteFactory contract?");
-      });
-
-    if (!hasRole) {
-      throw new AppError(
-        "Server wallet is not a configured operator on provided KiteFactory",
-      );
+    if (internalChain.type === ChainType.Near) {
+      await this.assertNearFactory(chain.caip2Id, input);
+    } else {
+      await this.assertEvmFactory(chain.caip2Id, input);
     }
 
     const variables = await new KvService().getSdkOptionVariables();

@@ -1,4 +1,4 @@
-import { Digits, EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
+import { Digits, ChainAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { ApiKeyScope, FeeType } from "../../shared/constants";
 import { FeeService } from "../../services/Fee.service";
 import { HttpError } from "../../shared/errors";
@@ -20,7 +20,7 @@ const EqIn = (
 };
 
 const Currency = t.Object(
-  { contractAddress: t.Optional(EqIn(EvmAddress)) },
+  { contractAddress: t.Optional(EqIn(ChainAddress)) },
   { additionalProperties: false },
 );
 
@@ -55,7 +55,7 @@ const FeeFields = {
   minAmountToCharge: t.Optional(t.Union([Digits, t.Null()])),
   maxAmountToCharge: t.Optional(t.Union([Digits, t.Null()])),
   condition: Condition,
-  feeAddress: t.Optional(t.Union([EvmAddress, t.Null()])),
+  feeAddress: t.Optional(t.Union([ChainAddress, t.Null()])),
 };
 
 type FeeInput = {

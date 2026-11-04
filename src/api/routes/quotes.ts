@@ -1,4 +1,4 @@
-import { Digits, EvmAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
+import { Digits, ChainAddress, UuidIdParams, PageQuery, Uuid } from "../schema";
 import { QuoteService } from "../../services/Quote.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { HttpError } from "../../shared/errors";
@@ -28,7 +28,7 @@ export const quoteRoutes = new Elysia({ name: "QuotesRoute" })
       parse: "json",
       body: t.Object({
         chainId: Uuid,
-        sourceTokenAddress: EvmAddress,
+        sourceTokenAddress: ChainAddress,
         amount: Digits,
         customerId: t.Optional(Uuid),
         reference: t.Optional(

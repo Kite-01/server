@@ -31,6 +31,7 @@ import {
   formatUsd,
   shortAddress,
   shortId,
+  txUrl,
 } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
 import { useSupportedChains } from "./chains";
@@ -124,7 +125,7 @@ export const NewTransferDialog = ({
 const Hash = ({
   value,
   explorer,
-  href = explorer && `${explorer}/tx/${value}`,
+  href = explorer && txUrl(explorer, value),
 }: {
   value: string;
   explorer?: string;

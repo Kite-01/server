@@ -34,6 +34,22 @@ export const useSupportedChains = () => useQuery(chainsListSupportedOptions());
 export const chainName = (caip2Id: string, supported?: SupportedChain[]) =>
   supported?.find((chain) => chain.caip2Id === caip2Id)?.name ?? caip2Id;
 
+const isBeta = (caip2Id: string, supported?: SupportedChain[]) =>
+  !!supported?.find((chain) => chain.caip2Id === caip2Id)?.beta;
+
+export const ChainName = ({
+  caip2Id,
+  supported,
+}: {
+  caip2Id: string;
+  supported?: SupportedChain[];
+}) => (
+  <span className="inline-flex items-center gap-2">
+    {chainName(caip2Id, supported)}
+    {isBeta(caip2Id, supported) && <Badge>Beta</Badge>}
+  </span>
+);
+
 export const Chains = () => {
   const navigate = useNavigate();
   const chains = useQuery(chainsListFullOptions());
@@ -98,7 +114,7 @@ export const Chains = () => {
             header: "Chain",
             cell: (row) => (
               <p className="font-medium">
-                {chainName(row.caip2Id, supported.data)}
+                <ChainName caip2Id={row.caip2Id} supported={supported.data} />
               </p>
             ),
           },
@@ -162,11 +178,19 @@ export const Chains = () => {
             >
               {available?.map((chain) => (
                 <option key={chain.caip2Id} value={chain.caip2Id}>
-                  {chain.name}
+                  {chain.beta ? `${chain.name} (Beta)` : chain.name}
                 </option>
               ))}
             </Select>
           </Field>
+          {isBeta(selected, available) && (
+            <p className="text-xs flex items-center gap-0.5 text-muted">
+              <IconInfoCircle className="size-4" strokeWidth={1.5} />
+              <span>
+                This network is in beta: payments on it are still being tested
+              </span>
+            </p>
+          )}
           {available?.length === 0 && (
             <p className="text-xs flex items-center gap-0.5 text-muted">
               <IconInfoCircle className="size-4" strokeWidth={1.5} />

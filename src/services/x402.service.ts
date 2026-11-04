@@ -22,15 +22,25 @@ import {
   x402_MinTimeoutSeconds,
   x402_SettlementLeaseSeconds,
 } from "../shared/constants";
-import { getAddress, keccak256, parseAbiItem, type Hex } from "viem";
+import { getAddress, keccak256, parseAbiItem, toHex, type Hex } from "viem";
 import { x402EvmFacilitatorSigner } from "../sdks/x402EvmFacilitatorSigner";
-import { deposit, token, transfer } from "../db/schema";
+import { deposit, quote, token, transfer } from "../db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { withX402Observer } from "../shared/context/x402";
 import { x402Facilitator } from "@x402/core/facilitator";
-import { getOnchainActor } from "../shared/onchainActor";
+import { getNearActor, getOnchainActor } from "../shared/onchainActor";
 import { TransferService } from "./Transfer.service";
 import { ExactEvmScheme } from "@x402/evm/exact/facilitator";
+import { ExactNearScheme } from "@x402/near/exact/facilitator";
+import {
+  ESTIMATED_BLOCK_SECONDS,
+  decodeSignedDelegateB64,
+  fromBase64,
+  parseFtTransferArgs,
+} from "@x402/near";
+import { x402NearFacilitatorSigner } from "../sdks/x402NearFacilitatorSigner";
+import { getChain } from "../shared/chains";
+import { NearNativeToken } from "../shared/kiteNearContract";
 import { TokenService } from "./Token.service";
 import { ChainService } from "./Chain.service";
 import { AppService } from "./App.service";
@@ -52,6 +62,21 @@ export class x402Service {
     }
 
     let facilitator = this.facilitators.get(caip2Id);
+
+    if (!facilitator && getChain(caip2Id).type === ChainType.Near) {
+      facilitator = new x402Facilitator().register(
+        caip2Id,
+        new ExactNearScheme(
+          x402NearFacilitatorSigner(
+            caip2Id,
+            getNearActor(),
+            chain.config.rpcUrls ?? [],
+          ),
+        ),
+      );
+
+      this.facilitators.set(caip2Id, facilitator);
+    }
 
     if (!facilitator) {
       const signer = new x402EvmFacilitatorSigner(
@@ -128,6 +153,65 @@ export class x402Service {
     }
   };
 
+  private authorizationOf = async (
+    payload: ReturnType<typeof x402_PaymentPayloadSchema.parse>["payload"],
+    requirements: ReturnType<typeof x402_RequirementSchema.parse>,
+  ) => {
+    if ("authorization" in payload) {
+      return {
+        ...payload.authorization,
+        from: common.normalizeAddress(payload.authorization.from),
+        nonce: payload.authorization.nonce.toLowerCase(),
+        hash: keccak256(payload.signature as Hex),
+      };
+    }
+
+    let delegate;
+    try {
+      delegate = decodeSignedDelegateB64(payload.signedDelegateAction).delegate;
+    } catch {
+      throw new PreconditionError(
+        "The signed delegate action can't be decoded",
+      );
+    }
+
+    const call = delegate.functionCall;
+    if (
+      delegate.actionCount !== 1 ||
+      !call ||
+      call.methodName !== "ft_transfer"
+    ) {
+      throw new PreconditionError(
+        "The delegate action must be a single ft_transfer",
+      );
+    }
+
+    if (delegate.receiverId !== requirements.asset) {
+      throw new PreconditionError("Payment asset does not match source token");
+    }
+
+    const args = parseFtTransferArgs(call.args);
+    const height = await getNearActor().getBlockNumber(
+      requirements.network as Caip2Id,
+    );
+    const blocksLeft =
+      delegate.maxBlockHeight > height ? delegate.maxBlockHeight - height : 0n;
+
+    return {
+      from: delegate.senderId,
+      to: args.receiver_id,
+      value: args.amount,
+      // NEAR has no expiry time, only a block height; this is when it should pass
+      validBefore: String(
+        Math.ceil(
+          Date.now() / 1000 + Number(blocksLeft) * ESTIMATED_BLOCK_SECONDS,
+        ),
+      ),
+      nonce: `${delegate.publicKey}:${delegate.nonce}`,
+      hash: keccak256(toHex(fromBase64(payload.signedDelegateAction))),
+    };
+  };
+
   private validatePayment = async (
     appId: string,
     paymentPayload: PaymentPayload,
@@ -137,10 +221,13 @@ export class x402Service {
     const payment = x402_PaymentPayloadSchema.parse(paymentPayload);
     const requirements = x402_RequirementSchema.parse(paymentRequirements);
 
-    const authorization = payment.payload.authorization;
-    const payer = common.normalizeAddress(authorization.from);
-    const nonce = authorization.nonce.toLowerCase();
-    const authorizationHash = keccak256(payment.payload.signature as Hex);
+    const authorization = await this.authorizationOf(
+      payment.payload,
+      requirements,
+    );
+    const payer = authorization.from;
+    const nonce = authorization.nonce;
+    const authorizationHash = authorization.hash;
     const transfer_ = await new TransferService().getTransferByPayinAddress(
       appId,
       requirements.payTo,
@@ -398,6 +485,10 @@ export class x402Service {
       };
     }
 
+    if (getChain(caip2Id).type === ChainType.Near) {
+      return this.resolveNearReservation(ctx, row, holdsLease);
+    }
+
     if (row.x402BlockchainHash) {
       const paid = await this.paysAuthorization(
         caip2Id,
@@ -498,6 +589,62 @@ export class x402Service {
     };
   };
 
+  // A NEAR reservation without an outcome never landed or landed unseen; a used nonce means
+  // it landed.
+  private resolveNearReservation = async (
+    ctx: ValidatedPayment,
+    row: {
+      id: string;
+      x402BlockchainHash: string | null;
+      x402LeaseExpiresAt: Date | null;
+    },
+    holdsLease: boolean,
+  ): Promise<
+    | { kind: "settled"; transactionHash: string }
+    | { kind: "pending"; transactionHash?: string }
+    | { kind: "unpaid" }
+  > => {
+    const caip2Id = ctx.payment.transfer.quote.chain.caip2Id;
+    const actor = getNearActor();
+
+    if (row.x402BlockchainHash) {
+      const outcome = await actor
+        .getOutcome(caip2Id, row.x402BlockchainHash)
+        .catch(() => null);
+
+      if (outcome?.status === "success" && !outcome.failure) {
+        return { kind: "settled", transactionHash: row.x402BlockchainHash };
+      }
+
+      if (!outcome) {
+        return { kind: "pending", transactionHash: row.x402BlockchainHash };
+      }
+    }
+
+    // `ed25519:<key>:<nonce>`
+    const split = ctx.payment.nonce.lastIndexOf(":");
+    const publicKey = ctx.payment.nonce.slice(0, split);
+    const nonce = ctx.payment.nonce.slice(split + 1);
+
+    const key = await actor
+      .viewAccessKey(caip2Id, ctx.payment.payer, publicKey)
+      .catch(() => undefined);
+
+    if (key === undefined) return { kind: "pending" };
+    if (key && key.nonce >= BigInt(nonce)) return { kind: "pending" };
+
+    if (
+      !holdsLease &&
+      row.x402LeaseExpiresAt &&
+      row.x402LeaseExpiresAt > new Date()
+    ) {
+      return { kind: "pending" };
+    }
+
+    await this.clearReservation(row.id, ctx.payment.nonce);
+    return { kind: "unpaid" };
+  };
+
   private acceptSettlement = async (
     ctx: ValidatedPayment,
     transactionHash: string,
@@ -586,7 +733,22 @@ export class x402Service {
       }
 
       const tokens = await new TokenService().getTokensByChainId(chain.id);
+      const near = getChain(chain.caip2Id).type === ChainType.Near;
+
       for (const token of tokens) {
+        if (near) {
+          if (token.address !== NearNativeToken) {
+            kinds.push({
+              x402Version: 2,
+              scheme: "exact",
+              network: chain.caip2Id,
+              extra: { asset: token.address },
+            });
+          }
+
+          continue;
+        }
+
         if (!token.supportsEIP3009 || !token.version) {
           continue;
         }
@@ -609,12 +771,22 @@ export class x402Service {
       extensions: [],
       signers: {
         "eip155:*": [getOnchainActor(ChainType.Evm).getAddress()],
+        "near:*": [getNearActor().getAddress()],
       },
     };
   };
 
   createTransfer = async (appId: string, quoteId: string) => {
-    const operatorAddress = getOnchainActor(ChainType.Evm).getAddress();
+    const quote_ = await db.query.quote.findFirst({
+      where: eq(quote.id, quoteId),
+      with: { chain: { columns: { caip2Id: true } } },
+      columns: { id: true },
+    });
+    if (!quote_) throw new NotFoundError("quote", quoteId);
+
+    const operatorAddress = getOnchainActor(
+      getChain(quote_.chain.caip2Id).type,
+    ).getAddress();
     return new TransferService().createTransfer(
       appId,
       quoteId,
@@ -651,6 +823,24 @@ export class x402Service {
       throw new PreconditionError(
         "The quote expires too soon to take an x402 payment; create a new quote",
       );
+    }
+
+    if (getChain(caip2Id).type === ChainType.Near) {
+      if (transfer_.quote.sourceToken.address === NearNativeToken) {
+        throw new PreconditionError(
+          "x402 on NEAR pays with a token's ft_transfer, not native NEAR",
+        );
+      }
+
+      return {
+        scheme: "exact" as const,
+        network: caip2Id,
+        asset: transfer_.quote.sourceToken.address,
+        amount: transfer_.quote.sourceAmount.toString(),
+        payTo: transfer_.payinAddress,
+        maxTimeoutSeconds,
+        extra: {},
+      };
     }
 
     const domain = await new TokenService().readTokenDomain(

@@ -22,6 +22,7 @@ import {
 } from "../../test/transfers";
 import {
   fakeActor,
+  nearOperator,
   operatorAddress,
   resetMocks,
   schedulerMock,
@@ -228,7 +229,10 @@ describe("x402Service", () => {
           extra: { asset: USDC, name: "USD Coin", version: "2" },
         },
       ]);
-      expect(supported.signers).toEqual({ "eip155:*": [operatorAddress] });
+      expect(supported.signers).toEqual({
+        "eip155:*": [operatorAddress],
+        "near:*": [nearOperator],
+      });
     });
 
     it("includes chains without a gas sponsor, where the operator pays gas", async () => {

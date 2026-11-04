@@ -90,8 +90,8 @@ class KiteContract {
         functionName: "recover",
         args: [
           t,
-          common.normalizeAddress(token),
-          common.normalizeAddress(destination),
+          common.normalizeEvmAddress(token),
+          common.normalizeEvmAddress(destination),
         ],
       });
     },
@@ -133,27 +133,29 @@ class KiteContract {
   }) => {
     return {
       id: common.uuidToBytes32(input.transferId),
-      payInTokenAddress: common.normalizeAddress(input.payInTokenAddress),
+      payInTokenAddress: common.normalizeEvmAddress(input.payInTokenAddress),
       amountIn: input.amountIn,
-      settlementTokenAddress: common.normalizeAddress(
+      settlementTokenAddress: common.normalizeEvmAddress(
         input.settlementTokenAddress,
       ),
-      settlementRecipient: common.normalizeAddress(input.settlementRecipient),
+      settlementRecipient: common.normalizeEvmAddress(
+        input.settlementRecipient,
+      ),
       minAmountOut: input.minAmountOut,
       fees: [...input.fees]
         .sort((a, b) => a.id.localeCompare(b.id))
         .map((fee) => {
           return {
             id: common.uuidToBytes32(fee.id),
-            recipient: common.normalizeAddress(fee.recipient),
+            recipient: common.normalizeEvmAddress(fee.recipient),
             amount: fee.amount,
           };
         }),
-      refundAddress: common.normalizeAddress(input.refundAddress),
+      refundAddress: common.normalizeEvmAddress(input.refundAddress),
       expiresAt: BigInt(Math.floor(input.expiresAt.getTime() / 1000)),
-      routerAddress: common.normalizeAddress(input.routerAddress),
+      routerAddress: common.normalizeEvmAddress(input.routerAddress),
       poolFeeTier: input.poolFeeTier,
-      implementation: common.normalizeAddress(input.implementation),
+      implementation: common.normalizeEvmAddress(input.implementation),
     };
   };
 
@@ -208,28 +210,28 @@ class KiteContract {
     if (error) throw new AppError(error);
 
     const address = await client.readContract({
-      address: common.normalizeAddress(factoryAddress),
+      address: common.normalizeEvmAddress(factoryAddress),
       abi: KiteFactory__factory.abi,
       functionName: "predictAddress",
       args: [t],
     });
 
-    return common.normalizeAddress(address);
+    return common.normalizeEvmAddress(address);
   };
 
   getImplementation = async (client: PublicClient, factoryAddress: string) => {
     const implementation = await client.readContract({
-      address: common.normalizeAddress(factoryAddress),
+      address: common.normalizeEvmAddress(factoryAddress),
       abi: KiteFactory__factory.abi,
       functionName: "implementation",
     });
 
-    return common.normalizeAddress(implementation);
+    return common.normalizeEvmAddress(implementation);
   };
 
   readStatus = async (client: PublicClient, cloneAddress: string) => {
     const code = await client.getCode({
-      address: common.normalizeAddress(cloneAddress),
+      address: common.normalizeEvmAddress(cloneAddress),
     });
 
     if (!code || code === "0x") {
@@ -237,7 +239,7 @@ class KiteContract {
     }
 
     const status = await client.readContract({
-      address: common.normalizeAddress(cloneAddress),
+      address: common.normalizeEvmAddress(cloneAddress),
       abi: Kite__factory.abi,
       functionName: "status",
     });
@@ -335,8 +337,8 @@ class KiteContract {
   > => {
     try {
       await client.call({
-        account: common.normalizeAddress(operatorAddress),
-        to: common.normalizeAddress(factoryAddress),
+        account: common.normalizeEvmAddress(operatorAddress),
+        to: common.normalizeEvmAddress(factoryAddress),
         data,
       });
 
@@ -360,9 +362,9 @@ class KiteContract {
     }
 
     return {
-      token: common.normalizeAddress(log.address),
-      from: common.normalizeAddress(common.topicToAddress(from)),
-      to: common.normalizeAddress(common.topicToAddress(to)),
+      token: common.normalizeEvmAddress(log.address),
+      from: common.normalizeEvmAddress(common.topicToAddress(from)),
+      to: common.normalizeEvmAddress(common.topicToAddress(to)),
       amount: BigInt(log.data),
     };
   };
@@ -388,7 +390,7 @@ class KiteContract {
         caip2Id,
         blockchainHash: (log.transactionHash ?? "").toLowerCase(),
         logIndex: BigInt(log.logIndex ?? 0).toString(),
-        payinAddress: common.normalizeAddress(log.address),
+        payinAddress: common.normalizeEvmAddress(log.address),
       };
 
       switch (decoded.eventName) {
@@ -417,7 +419,9 @@ class KiteContract {
             type: "Refunded",
             transferId: decoded.args.transferId,
             amountRefunded: decoded.args.amountRefunded,
-            refundAddress: common.normalizeAddress(decoded.args.refundAddress),
+            refundAddress: common.normalizeEvmAddress(
+              decoded.args.refundAddress,
+            ),
           });
 
           break;
@@ -427,15 +431,15 @@ class KiteContract {
             ...base,
             type: "ExcessRefunded",
             transferId: decoded.args.transferId,
-            tokenAddress: common.normalizeAddress(decoded.args.token),
+            tokenAddress: common.normalizeEvmAddress(decoded.args.token),
             amount: decoded.args.amount,
-            to: common.normalizeAddress(decoded.args.to),
+            to: common.normalizeEvmAddress(decoded.args.to),
           });
 
           break;
 
         case "Recovered": {
-          const token = common.normalizeAddress(decoded.args.token);
+          const token = common.normalizeEvmAddress(decoded.args.token);
           const sent = transfers.find(
             (t) =>
               !!t &&
@@ -450,7 +454,7 @@ class KiteContract {
             transferId: decoded.args.transferId,
             tokenAddress: token,
             amount: decoded.args.amount,
-            to: sent?.to ?? common.normalizeAddress(decoded.args.to),
+            to: sent?.to ?? common.normalizeEvmAddress(decoded.args.to),
           });
 
           break;

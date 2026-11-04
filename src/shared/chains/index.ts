@@ -31,6 +31,24 @@ export const getChain = (caip2Id: Caip2Id) => {
   return chain;
 };
 
+export const getEvmChain = (caip2Id: Caip2Id) => {
+  const chain = getChain(caip2Id);
+  if (chain.type !== ChainType.Evm) {
+    throw new AppError("Only EVM-compatible chains are allowed");
+  }
+
+  return chain;
+};
+
+export const getNearChain = (caip2Id: Caip2Id) => {
+  const chain = getChain(caip2Id);
+  if (chain.type !== ChainType.Near) {
+    throw new AppError(`${chain.name} is not a NEAR chain`);
+  }
+
+  return chain;
+};
+
 export const getRpcsTransport = (urls: string[]) => {
   return fallback(
     urls.map((url) => http(url)),
@@ -39,10 +57,7 @@ export const getRpcsTransport = (urls: string[]) => {
 };
 
 export const getViemChain = (caip2Id: Caip2Id) => {
-  const chain = getChain(caip2Id);
-  if (chain.type !== ChainType.Evm) {
-    throw new AppError("Only EVM-compatible chains are allowed");
-  }
+  const chain = getEvmChain(caip2Id);
 
   return defineChain({
     id: chain.chainId,
@@ -65,7 +80,7 @@ export const readContracts = async <const contracts extends readonly unknown[]>(
   client: PublicClient,
   contracts: MulticallParameters<contracts>["contracts"],
 ): Promise<MulticallReturnType<contracts>> => {
-  if (getChain(caip2Id).contracts.multicall3) {
+  if (getEvmChain(caip2Id).contracts.multicall3) {
     return client.multicall<contracts, true>({
       allowFailure: true,
       contracts,

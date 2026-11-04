@@ -1,4 +1,4 @@
-import { EvmAddress, PageQuery, Uuid, UuidIdParams } from "../schema";
+import { ChainAddress, PageQuery, Uuid, UuidIdParams } from "../schema";
 import { TokenService } from "../../services/Token.service";
 import { NearIntents } from "../../sdks/NearIntents";
 import { KvService } from "../../services/Kv.service";
@@ -26,7 +26,7 @@ export const tokenRoutes = new Elysia({ name: "TokensRoute" })
     {
       params: t.Object({
         chainId: Uuid,
-        address: EvmAddress,
+        address: ChainAddress,
       }),
       response: {
         200: "TokenWithChain",

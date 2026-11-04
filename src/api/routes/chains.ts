@@ -1,4 +1,4 @@
-import { Digits, EvmAddress, t, Uuid, UuidIdParams } from "../schema";
+import { Digits, ChainAddress, t, Uuid, UuidIdParams } from "../schema";
 import { getChain, getSupportedChains } from "../../shared/chains";
 import { ChainService } from "../../services/Chain.service";
 import { HttpError } from "../../shared/errors";
@@ -67,8 +67,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       return getSupportedChains().map((chain) => ({
         caip2Id: chain.caip2Id,
         name: chain.name,
-        chainId: chain.chainId,
+        chainId: "chainId" in chain ? chain.chainId : null,
         testnet: !!chain.testnet,
+        beta: !!chain.beta,
         nativeCurrency: chain.nativeCurrency,
         blockExplorer: chain.blockExplorer,
         confirmations: chain.confirmations,
@@ -100,7 +101,9 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
     {
       parse: "json",
       body: t.Object({
-        caip2Id: t.String({ pattern: "^eip155:[0-9]+$" }),
+        caip2Id: t.String({
+          pattern: "^(eip155:[0-9]+|near:(mainnet|testnet))$",
+        }),
       }),
       response: {
         201: "Chain",
@@ -177,7 +180,7 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
           minimum: 0,
           maximum: 9900,
         }),
-        kiteFactoryAddress: EvmAddress,
+        kiteFactoryAddress: ChainAddress,
         usdPeggedTokenId: Uuid,
         settlementTokenId: Uuid,
         onchainNotifierProviders: Providers,

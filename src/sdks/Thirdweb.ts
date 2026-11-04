@@ -12,7 +12,7 @@ import { type GasSponsor } from "./interfaces/GasSponsor";
 import { getOnchainActor } from "../shared/onchainActor";
 import { SdkRequestError } from "../shared/errors";
 import { randomBytes } from "node:crypto";
-import { getChain } from "../shared/chains";
+import { getChain, getEvmChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { Http } from "./Http";
 
@@ -28,7 +28,7 @@ const ExecutedTopic = toEventSelector(
 export class Thirdweb implements GasSponsor {
   private getClient = (caip2Id: Caip2Id, options: SdkOptions) => {
     return new Http(
-      `https://${getChain(caip2Id).chainId}.bundler.thirdweb.com/v2`,
+      `https://${getEvmChain(caip2Id).chainId}.bundler.thirdweb.com/v2`,
       {
         "x-secret-key": common.requireVar(options, KeyVars.ThirdwebSecretKey),
         "Content-Type": "application/json",
@@ -89,7 +89,7 @@ export class Thirdweb implements GasSponsor {
     signer: LocalAccount,
     options: SdkOptions,
   ): Promise<{ callId: string }> => {
-    const chain = getChain(input.caip2Id);
+    const chain = getEvmChain(input.caip2Id);
     const client = await getOnchainActor(chain.type).publicClient(
       input.caip2Id,
     );

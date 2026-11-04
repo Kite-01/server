@@ -63,6 +63,7 @@ export const quote = pgTable(
       mode: "string",
     }).notNull(),
     uniswapPoolFeeTier: integer("uniswap_pool_fee_tier"),
+    swapPool: text("swap_pool"),
     reference: text("reference"),
     meta: jsonb("meta"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

@@ -55,7 +55,7 @@ import {
 import { runProviderMethod } from "../../shared/providers";
 import { TransferService } from "../Transfer.service";
 import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
-import { getChain } from "../../shared/chains";
+import { getEvmChain } from "../../shared/chains";
 import { common } from "../../shared/common";
 import { kite } from "../../shared/kiteContract";
 import { eq } from "drizzle-orm";
@@ -297,7 +297,7 @@ describe("TransferService", () => {
 
       expect(created.kiteTransferInput).toMatchObject({
         poolFeeTier: 0,
-        routerAddress: getChain(CAIP2).contracts.Uniswap?.UniswapV2Router02,
+        routerAddress: getEvmChain(CAIP2).contracts.Uniswap?.UniswapV2Router02,
         implementation: IMPLEMENTATION,
       });
       expect(spies.implementation).toHaveBeenCalledWith(
@@ -332,7 +332,7 @@ describe("TransferService", () => {
         payInTokenAddress: WETH,
         settlementTokenAddress: USDC,
         poolFeeTier: 500,
-        routerAddress: getChain(CAIP2).contracts.Uniswap?.SwapRouter02,
+        routerAddress: getEvmChain(CAIP2).contracts.Uniswap?.SwapRouter02,
         implementation: IMPLEMENTATION,
         fees: [
           {
