@@ -483,7 +483,9 @@ const Total = ({
         <>
           <p className="font-display text-[28px] leading-tight font-semibold tracking-tight break-all tabular-nums">
             {formatUnits(BigInt(quote.sourceAmount), token.decimals)}{" "}
-            <span className="text-muted">{token.symbol}</span>
+            <span className="text-muted break-normal whitespace-nowrap">
+              {token.symbol}
+            </span>
           </p>
           <p className="mt-1 text-xs text-muted">
             ≈{formatMoney(quote.sourceUsdAmount, "USD")}
@@ -914,7 +916,10 @@ const InstructionsStep = ({
       <div className="mt-8 text-center">
         <p className="text-sm text-muted">Send exactly</p>
         <p className="mt-1 font-display text-4xl font-semibold tracking-tight break-all tabular-nums">
-          {amount} <span className="text-muted">{token.symbol}</span>
+          {amount}{" "}
+          <span className="text-muted break-normal whitespace-nowrap">
+            {token.symbol}
+          </span>
         </p>
         <CopyButton
           value={amount}
@@ -1390,6 +1395,7 @@ const PayFlow = () => {
       if (!nearChain) return;
       progress("Waiting for your NEAR wallet…");
       const near = await connectNearWallet(nearNetworkOf(nearChain.caip2Id));
+      if (!near) return;
 
       setWallet(near);
       setAccount(near.accountId);

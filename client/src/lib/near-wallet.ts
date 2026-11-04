@@ -34,6 +34,15 @@ const load = (network: NearNetwork) => {
   let found = selectors.get(network);
   if (!found) {
     found = (async () => {
+      // the wallets' dependencies expect Node's Buffer and global, which browsers don't have
+      const { Buffer } = await import("buffer");
+      globalThis.Buffer ??= Buffer;
+      (globalThis as { global?: typeof globalThis }).global ??= globalThis;
+      (globalThis as { process?: unknown }).process ??= {
+        env: {},
+        browser: true,
+      };
+
       const [core, modalUi, meteor, intear, here, myNear] = await Promise.all([
         import("@near-wallet-selector/core"),
         import("@near-wallet-selector/modal-ui"),
@@ -86,9 +95,10 @@ const current = async (
   };
 };
 
+/** Null when the payer closes the picker without choosing a wallet. */
 export const connectNearWallet = async (
   network: NearNetwork,
-): Promise<NearWallet> => {
+): Promise<NearWallet | null> => {
   const { selector, modal } = await load(network);
   const signedIn = selector.isSignedIn()
     ? await current(selector, network)
@@ -108,7 +118,7 @@ export const connectNearWallet = async (
       if (hideReason !== "user-triggered") return;
       onSignedIn.remove();
       onHide.remove();
-      reject(new Error("You closed the wallet picker"));
+      resolve(null);
     });
 
     modal.show();

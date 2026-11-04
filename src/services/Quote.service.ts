@@ -4,11 +4,9 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
-import {
-  type ChainType,
-  KiteMaxFees,
-  QuoteTTLSeconds,
-} from "../shared/constants";
+import { ChainType, KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
+
+const NearDisplayDecimals = 6;
 import { AppError, NotFoundError } from "../shared/errors";
 import { formatUnits, parseUnits } from "viem";
 import { quote, quoteFee, fee } from "../db/schema";
@@ -99,6 +97,12 @@ export class QuoteService {
     }
 
     return fees_;
+  };
+
+  private roundUpTo = (amount: bigint, decimals: number, keep: number) => {
+    if (decimals <= keep) return amount;
+    const unit = common.pow10(decimals - keep);
+    return common.ceilDiv(amount, unit) * unit;
   };
 
   private insertQuote = async (input: {
@@ -332,6 +336,16 @@ export class QuoteService {
       sourceAmount = best.amount;
       feeTier = best.feeTier;
       swapPool = best.pool;
+
+      // NEAR tokens have up to 24 decimals: round the amount to pay up to 6, so it reads
+      // as 0.007326 wNEAR; the extra goes into the swap
+      if (getChain(chain.caip2Id).type === ChainType.Near) {
+        sourceAmount = this.roundUpTo(
+          sourceAmount,
+          sourceToken.decimals,
+          NearDisplayDecimals,
+        );
+      }
     }
 
     const targetUsdAmount = formatUnits(usdTokenAmount, chainUsdToken.decimals);

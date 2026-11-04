@@ -505,6 +505,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
     descriptors: {
       NearIntents: "near",
+      TrustWallet: "near",
     },
     contracts: {
       wrapNear: "wrap.near",
@@ -528,6 +529,9 @@ export const Chains: Record<Caip2Id, Chain> = {
       url: "https://testnet.nearblocks.io",
     },
     nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
+    descriptors: {
+      TrustWallet: "near",
+    },
     contracts: {
       wrapNear: "wrap.testnet",
       Rhea: {
