@@ -40,7 +40,8 @@
 
 html,
 body,
-#root {
+#root,
+#root > [data-rk] {
   height: 100%;
 }
 
