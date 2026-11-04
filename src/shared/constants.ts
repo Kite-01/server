@@ -38,6 +38,7 @@ export enum ApiKeyScope {
   QuoteWrite = "quotes:write",
   TransferRead = "Transfer:Read",
   TransferWrite = "Transfer:Write",
+  TransferRecover = "Transfer:Recover",
   WebhookRead = "Webhook:Read",
   WebhookWrite = "Webhook:Write",
   WebhookDelete = "Webhook:Delete",

@@ -86,6 +86,7 @@ const scopeGroups: { label: string; scopes: [string, Scope][] }[] = [
     scopes: [
       ["read", "Transfer:Read"],
       ["write", "Transfer:Write"],
+      ["recover", "Transfer:Recover"],
     ],
   },
   {
