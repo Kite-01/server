@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Rhea } from "../Rhea";
 import { fakeNearActor, resetMocks } from "../../test/mocks";
+import { env } from "../../shared/env";
 
-const CAIP2 = "near:mainnet" as Caip2Id;
+const CAIP2 = "near:testnet" as Caip2Id;
 const USDC = "usdc.near";
 
 describe("Rhea", () => {
   beforeEach(() => {
     resetMocks();
+    // NEAR is testnet-only for now
+    env.KITE_IS_TESTNET = true;
   });
 
   // amounts each fee tier's pool would give, or take
@@ -27,11 +30,11 @@ describe("Rhea", () => {
   };
 
   it("names DCL pools with their tokens sorted", () => {
-    expect(new Rhea().poolIds("wrap.near", USDC)).toEqual([
-      "usdc.near|wrap.near|100",
-      "usdc.near|wrap.near|400",
-      "usdc.near|wrap.near|2000",
-      "usdc.near|wrap.near|10000",
+    expect(new Rhea().poolIds("wrap.testnet", USDC)).toEqual([
+      "usdc.near|wrap.testnet|100",
+      "usdc.near|wrap.testnet|400",
+      "usdc.near|wrap.testnet|2000",
+      "usdc.near|wrap.testnet|10000",
     ]);
   });
 
@@ -45,14 +48,14 @@ describe("Rhea", () => {
         tokenOut: USDC,
         amountIn: 10n ** 24n,
       }),
-    ).toEqual({ pool: "usdc.near|wrap.near|100", amount: 3_838_327n });
+    ).toEqual({ pool: "usdc.near|wrap.testnet|100", amount: 3_838_327n });
 
     expect(fakeNearActor.view).toHaveBeenCalledWith(
       CAIP2,
-      "dclv2.ref-labs.near",
+      "dclv2.ref-dev.testnet",
       "quote",
       expect.objectContaining({
-        input_token: "wrap.near",
+        input_token: "wrap.testnet",
         output_token: USDC,
         input_amount: "1000000000000000000000000",
       }),
@@ -69,7 +72,7 @@ describe("Rhea", () => {
         tokenOut: USDC,
         amountOut: 1_000_000n,
       }),
-    ).toEqual({ pool: "usdc.near|wrap.near|400", amount: 250n });
+    ).toEqual({ pool: "usdc.near|wrap.testnet|400", amount: 250n });
   });
 
   it("has no quote when no pool has liquidity", async () => {

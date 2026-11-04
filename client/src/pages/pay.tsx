@@ -292,6 +292,7 @@ const IconTile = ({
 const Option = ({
   icon,
   title,
+  badge,
   description,
   onClick,
   disabled,
@@ -299,6 +300,7 @@ const Option = ({
 }: {
   icon: ReactNode;
   title: string;
+  badge?: string;
   description?: string;
   onClick: () => void;
   disabled?: boolean;
@@ -312,7 +314,14 @@ const Option = ({
   >
     {icon}
     <span className="min-w-0 flex-1">
-      <span className="block text-[15px] font-medium">{title}</span>
+      <span className="flex items-center gap-2 text-[15px] font-medium">
+        {title}
+        {badge && (
+          <span className="rounded-full bg-soft px-2 py-0.5 text-[11px] leading-4 font-medium text-muted">
+            {badge}
+          </span>
+        )}
+      </span>
       {description && (
         <span className="mt-0.5 block text-[13px] leading-snug text-muted">
           {description}
@@ -1434,6 +1443,7 @@ const PayFlow = () => {
     {
       type: "Near",
       name: "NEAR",
+      badge: "Beta",
       icon: (
         <IconTile className="bg-ink">
           {nearChain && <img src={nearChain.icon} alt="" className="size-6" />}
@@ -1675,6 +1685,7 @@ const PayFlow = () => {
                 key={family.type}
                 icon={family.icon}
                 title={family.name}
+                badge={"badge" in family ? family.badge : undefined}
                 onClick={family.connect}
                 disabled={!!busy}
                 busy={

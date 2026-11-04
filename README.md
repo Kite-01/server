@@ -42,6 +42,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On chains without a gas sponsor**, the operator wallet pays the gas.
 - **x402 needs EIP-3009** on EVM chains: where the settlement token doesn't support it, agents can't pay. On NEAR, agents pay any NEP-141 token with a delegated `ft_transfer`, not native NEAR.
 - **NEAR Intents has no testnet**, so payouts only happen on mainnet.
+- **NEAR is in beta, on testnet only**: a mainnet server doesn't offer it yet.
 - **On NEAR**:
   - Deposits are found by the balance check, as on chains without a notifier.
   - Swap quotes come from Rhea's spot price rather than a time-weighted average, though the deposit contract still enforces the minimum it settles for.
@@ -54,7 +55,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **Agent payments**: a payment link is also an [x402](https://www.x402.org) resource. An agent that requests `/pay/<id>` with GET or POST gets a `402` offering every network that takes x402, signs one and pays by repeating the request.
 - **Any token in, your token out**: payments in another token are swapped through Uniswap V3, or V2 where a chain has no V3. They're priced from time-weighted averages, so a pool someone just moved can't skew a quote.
 - **Settlement on-chain**: each payment runs through its own [Kite contract](https://github.com/Kite-01/contracts), which settles, pays fees or refunds.
-- **NEAR as a chain**: on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
+- **NEAR as a chain** (beta, testnet only): on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
   - The account's id is derived from the transfer, before it exists (a [NEP-616](https://github.com/near/NEPs/pull/616) `0s…` account running the `kite-deposit` global contract).
   - Swaps go through Rhea Finance.
   - Agents pay with x402.
@@ -237,7 +238,7 @@ Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World
 
 - payouts through NEAR Intents ([how they work](#what-near-intents-does-in-kite)), with the apps' payout settings and accepted chains, and payout tracking in the dashboard;
 - support for Aurora, NEAR's EVM, with a [Kite factory on its testnet](https://github.com/Kite-01/contracts/blob/main/ignition/deployments/chain-1313161555/deployed_addresses.json);
-- NEAR itself as a chain Kite runs on, matching the EVM design:
+- NEAR itself as a chain Kite runs on, matching the EVM design, in beta on testnet:
   - `kite-factory` and the per-transfer `kite-deposit` contracts ([`near/` in the contracts repository](https://github.com/Kite-01/contracts/tree/main/near)), each transfer at an account derived from it before it exists (NEP-616 with NEP-591 global contracts);
   - settlement through Rhea;
   - NEAR wallets at checkout;

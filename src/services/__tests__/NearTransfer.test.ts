@@ -115,7 +115,7 @@ describe("TransferService on NEAR", () => {
       });
       await db
         .update(quoteTable)
-        .set({ swapPool: `${USDC}|wrap.near|100` })
+        .set({ swapPool: `${USDC}|wrap.testnet|100` })
         .where(eq(quoteTable.id, quote.id));
       await db.insert(quoteFee).values({
         quoteId: quote.id,
@@ -130,9 +130,9 @@ describe("TransferService on NEAR", () => {
       expect(created.kiteTransferInput).toMatchObject({
         pay_in: "Native",
         swap: {
-          router: "dclv2.ref-labs.near",
-          pool: { Dcl: `${USDC}|wrap.near|100` },
-          wrap: "wrap.near",
+          router: "dclv2.ref-dev.testnet",
+          pool: { Dcl: `${USDC}|wrap.testnet|100` },
+          wrap: "wrap.testnet",
         },
         fees: [{ recipient: nearOperator, amount: "9000" }],
       });

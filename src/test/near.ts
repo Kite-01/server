@@ -3,16 +3,20 @@ import { appChain, chain, chainConfig, quote, token } from "../db/schema";
 import { kiteNear, type NearKiteTransfer } from "../shared/kiteNearContract";
 import { createApp } from "./factories";
 import { fakeNearActor } from "./mocks";
+import { env } from "../shared/env";
 
-export const NEAR_CAIP2 = "near:mainnet" as Caip2Id;
+// NEAR is testnet-only for now, so NEAR tests run as a testnet server
+export const NEAR_CAIP2 = "near:testnet" as Caip2Id;
 export const NEAR_FACTORY = "kite-factory.near";
 export const NEAR_USDC = "usdc.near";
 export const NEAR_IMPLEMENTATION =
   "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ";
 export const NEAR_SHOP = "shop.near";
 
-/** An app taking payments on NEAR mainnet in USDC, with kite-factory's views stubbed. */
+/** An app taking payments on NEAR testnet in USDC, with kite-factory's views stubbed. */
 export const setupNearChain = async () => {
+  env.KITE_IS_TESTNET = true;
+
   const appId = (await createApp()).id;
   const [row] = await db
     .insert(chain)

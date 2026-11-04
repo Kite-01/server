@@ -34,7 +34,7 @@ describe("quotes on NEAR", () => {
     expect(quote.sourceAmount).toBe(7_326_000_000_000_000_000_000n);
     expect(quote.targetAmount).toBe(50_000n);
     expect(quote.swapPool).toMatch(
-      new RegExp(`^${NEAR_USDC}\\|wrap\\.near\\|`),
+      new RegExp(`^${NEAR_USDC}\\|wrap\\.testnet\\|`),
     );
   });
 });
