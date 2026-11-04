@@ -35,7 +35,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { shortAddress } from "@/lib/format";
+import { NearNativeToken, shortAddress } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { ChainName, useSupportedChains } from "./chains";
@@ -302,6 +302,11 @@ const IconForm = ({
   );
 };
 
+const supportsX402 = (token: TokenWithChain) =>
+  token.chain.caip2Id.startsWith("near:")
+    ? token.address !== NearNativeToken
+    : token.supportsEIP3009 && !!token.version;
+
 const TokensTab = ({
   chainId,
   tokens,
@@ -402,8 +407,8 @@ const TokensTab = ({
           },
           { header: "Decimals", cell: (row) => row.decimals },
           {
-            header: "EIP-3009",
-            cell: (row) => (row.supportsEIP3009 ? "Yes" : "No"),
+            header: "Supports x402",
+            cell: (row) => (supportsX402(row) ? "Yes" : "No"),
           },
           {
             header: "",
