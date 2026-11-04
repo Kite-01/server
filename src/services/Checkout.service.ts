@@ -22,6 +22,7 @@ import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
 import { NearNativeToken } from "../shared/nearAccount";
 import { common } from "../shared/common";
+import { Scheduler } from "../shared/scheduler";
 import { db } from "../db";
 
 type SettlementToken = {
@@ -432,6 +433,14 @@ export class CheckoutService {
 
     if (!transfer || transfer.quote.paymentLinkId !== link.id) {
       throw new NotFoundError("transfer", transferId);
+    }
+
+    // NEAR has no deposit notifier, so a watched transfer is checked on each poll, not each sweep
+    if (
+      transfer.status === TransferStatus.AwaitingDeposit &&
+      getChain(transfer.quote.chain.caip2Id).type === ChainType.Near
+    ) {
+      await Scheduler.enqueueSettle(transfer.id);
     }
 
     return {
