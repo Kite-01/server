@@ -1,5 +1,5 @@
 {
-  "id": "f87648cf-570c-42d0-86b4-d19d3975574a",
+  "id": "7d50f377-9f60-40cb-af8f-5dda274bc7ca",
   "prevId": "2b330ee5-edef-45d3-ab89-5ea709d11c60",
   "version": "7",
   "dialect": "postgresql",
@@ -110,7 +110,7 @@
       "checkConstraints": {
         "kite_api_key_scopes_check": {
           "name": "kite_api_key_scopes_check",
-          "value": "\"kite_api_key\".\"scopes\" <@ ARRAY['Apikey:Write', 'Apikey:Delete', 'Apikey:Read', 'App:Write', 'App:Delete', 'Customer:Read', 'Customer:Write', 'Customer:Delete', 'Fee:Read', 'Fee:Write', 'Fee:Delete', 'PaymentLink:Read', 'PaymentLink:Write', 'PaymentLink:Delete', 'quotes:read', 'quotes:write', 'Transfer:Read', 'Transfer:Write', 'Webhook:Read', 'Webhook:Write', 'Webhook:Delete', 'x402']::text[]"
+          "value": "\"kite_api_key\".\"scopes\" <@ ARRAY['Apikey:Write', 'Apikey:Delete', 'Apikey:Read', 'App:Write', 'App:Delete', 'Customer:Read', 'Customer:Write', 'Customer:Delete', 'Fee:Read', 'Fee:Write', 'Fee:Delete', 'PaymentLink:Read', 'PaymentLink:Write', 'PaymentLink:Delete', 'quotes:read', 'quotes:write', 'Transfer:Read', 'Transfer:Write', 'Transfer:Recover', 'Webhook:Read', 'Webhook:Write', 'Webhook:Delete', 'x402']::text[]"
         }
       },
       "isRLSEnabled": false
@@ -1864,12 +1864,6 @@
         "uniswap_pool_fee_tier": {
           "name": "uniswap_pool_fee_tier",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "swap_pool": {
-          "name": "swap_pool",
-          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

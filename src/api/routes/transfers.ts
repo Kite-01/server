@@ -131,7 +131,7 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
       params: UuidIdParams,
       body: t.Object({ tokenAddress: ChainAddress }),
       response: { 200: t.Object({ balance: t.String() }) },
-      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferWrite }),
+      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferRecover }),
       detail: {
         operationId: "transfers.recoverBalance",
         tags: ["Transfers"],
@@ -160,7 +160,7 @@ export const transferRoutes = new Elysia({ name: "TransfersRoute" })
         useGasSponsor: t.Optional(t.Boolean()),
       }),
       response: { 200: t.Object({}) },
-      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferWrite }),
+      beforeHandle: Auth.access({ scope: ApiKeyScope.TransferRecover }),
       detail: {
         operationId: "transfers.recover",
         tags: ["Transfers"],

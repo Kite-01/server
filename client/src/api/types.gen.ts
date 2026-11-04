@@ -41,7 +41,7 @@ export type ApiKey = {
   appId: string;
   label: string;
   publicKey: string;
-  scopes: Array<'Apikey:Write' | 'Apikey:Delete' | 'Apikey:Read' | 'App:Write' | 'App:Delete' | 'Customer:Read' | 'Customer:Write' | 'Customer:Delete' | 'Fee:Read' | 'Fee:Write' | 'Fee:Delete' | 'PaymentLink:Read' | 'PaymentLink:Write' | 'PaymentLink:Delete' | 'quotes:read' | 'quotes:write' | 'Transfer:Read' | 'Transfer:Write' | 'Webhook:Read' | 'Webhook:Write' | 'Webhook:Delete' | 'x402'>;
+  scopes: Array<'Apikey:Write' | 'Apikey:Delete' | 'Apikey:Read' | 'App:Write' | 'App:Delete' | 'Customer:Read' | 'Customer:Write' | 'Customer:Delete' | 'Fee:Read' | 'Fee:Write' | 'Fee:Delete' | 'PaymentLink:Read' | 'PaymentLink:Write' | 'PaymentLink:Delete' | 'quotes:read' | 'quotes:write' | 'Transfer:Read' | 'Transfer:Write' | 'Transfer:Recover' | 'Webhook:Read' | 'Webhook:Write' | 'Webhook:Delete' | 'x402'>;
   lastUsedAt: string | null;
   revokedAt: string | null;
   expiresAt: string | null;
@@ -1164,7 +1164,7 @@ export type ApiKeysCreateData = {
   body: {
     label: string;
     publicKey: string;
-    scopes: Array<'Apikey:Write' | 'Apikey:Delete' | 'Apikey:Read' | 'App:Write' | 'App:Delete' | 'Customer:Read' | 'Customer:Write' | 'Customer:Delete' | 'Fee:Read' | 'Fee:Write' | 'Fee:Delete' | 'PaymentLink:Read' | 'PaymentLink:Write' | 'PaymentLink:Delete' | 'quotes:read' | 'quotes:write' | 'Transfer:Read' | 'Transfer:Write' | 'Webhook:Read' | 'Webhook:Write' | 'Webhook:Delete' | 'x402'>;
+    scopes: Array<'Apikey:Write' | 'Apikey:Delete' | 'Apikey:Read' | 'App:Write' | 'App:Delete' | 'Customer:Read' | 'Customer:Write' | 'Customer:Delete' | 'Fee:Read' | 'Fee:Write' | 'Fee:Delete' | 'PaymentLink:Read' | 'PaymentLink:Write' | 'PaymentLink:Delete' | 'quotes:read' | 'quotes:write' | 'Transfer:Read' | 'Transfer:Write' | 'Transfer:Recover' | 'Webhook:Read' | 'Webhook:Write' | 'Webhook:Delete' | 'x402'>;
     expiresAt?: string;
   };
   path?: never;
