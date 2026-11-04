@@ -77,6 +77,27 @@ describe("testnets", () => {
       expect(mainnet.status).toBe(422);
     });
 
+    it("adds NEAR testnet, with no EVM chain id", async () => {
+      const created = await root.post("/api/chains", {
+        caip2Id: "near:testnet",
+      });
+      expect(created.status).toBe(201);
+
+      const supported = await root.get("/api/chains/supported");
+      expect(supported.json).toContainEqual(
+        expect.objectContaining({
+          caip2Id: "near:testnet",
+          chainId: null,
+          nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
+        }),
+      );
+
+      const mainnet = await root.post("/api/chains", {
+        caip2Id: "near:mainnet",
+      });
+      expect(mainnet.status).toBe(422);
+    });
+
     it("hides mainnet chains already in the database instead of failing", async () => {
       await createConfiguredChain("eip155:8453");
       const sepolia = await createChain("eip155:11155111");

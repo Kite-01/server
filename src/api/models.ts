@@ -321,6 +321,68 @@ const QuoteDetails = t.Object(
   named("QuoteDetails"),
 );
 
+const EvmKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    payInTokenAddress: ChainAddress,
+    amountIn: Digits,
+    settlementTokenAddress: ChainAddress,
+    settlementRecipient: ChainAddress,
+    minAmountOut: Digits,
+    fees: t.Array(
+      t.Object({
+        id: t.String(),
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refundAddress: ChainAddress,
+    expiresAt: Digits,
+    routerAddress: ChainAddress,
+    poolFeeTier: Int,
+    implementation: ChainAddress,
+  },
+  named("EvmKiteTransferInput"),
+);
+
+const NearAsset = t.Union([
+  t.Literal("Native"),
+  t.Object({ Token: ChainAddress }),
+]);
+
+// the transfer kite-factory and kite-deposit take on NEAR (kite_types::Transfer)
+const NearKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    pay_in: NearAsset,
+    amount_in: Digits,
+    settlement_token: NearAsset,
+    settlement_recipient: ChainAddress,
+    min_amount_out: Digits,
+    fees: t.Array(
+      t.Object({
+        id: t.String(),
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refund_account: ChainAddress,
+    expires_at: Digits,
+    swap: Nullable(
+      t.Object({
+        router: ChainAddress,
+        pool: t.Union([
+          t.Object({ Dcl: t.String() }),
+          t.Object({ RefV1: Digits }),
+        ]),
+        wrap: ChainAddress,
+      }),
+    ),
+    implementation: t.String(),
+  },
+  named("NearKiteTransferInput"),
+);
+
 const Transfer = t.Object(
   {
     id: Uuid,
@@ -330,26 +392,7 @@ const Transfer = t.Object(
     minAmountOut: BigIntString,
     refundAddress: ChainAddress,
     payinAddress: ChainAddress,
-    kiteTransferInput: t.Object({
-      id: t.String(),
-      payInTokenAddress: ChainAddress,
-      amountIn: Digits,
-      settlementTokenAddress: ChainAddress,
-      settlementRecipient: ChainAddress,
-      minAmountOut: Digits,
-      fees: t.Array(
-        t.Object({
-          id: t.String(),
-          recipient: ChainAddress,
-          amount: Digits,
-        }),
-      ),
-      refundAddress: ChainAddress,
-      expiresAt: Digits,
-      routerAddress: ChainAddress,
-      poolFeeTier: Int,
-      implementation: ChainAddress,
-    }),
+    kiteTransferInput: t.Union([EvmKiteTransferInput, NearKiteTransferInput]),
     status: t.Enum(TransferStatus),
     settlementBlockchainHash: Nullable(t.String()),
     refundBlockchainHash: Nullable(t.String()),

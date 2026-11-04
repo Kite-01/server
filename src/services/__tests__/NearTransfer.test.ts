@@ -13,6 +13,7 @@ import {
   nearOutcome as outcome,
   setupNearChain,
 } from "../../test/near";
+import { createPaymentLink } from "../../test/factories";
 import {
   fakeNearActor,
   nearOperator,
@@ -27,6 +28,7 @@ import {
 } from "../../shared/kiteNearContract";
 import { TransferService } from "../Transfer.service";
 import { AppError } from "../../shared/errors";
+import { client, rootCredentials } from "../../test/api";
 
 const service = new TransferService();
 const PAYER = "payer.near";
@@ -161,6 +163,49 @@ describe("TransferService on NEAR", () => {
       await expect(
         service.createTransfer(appId, quote.id, PAYER),
       ).rejects.toThrow("Could not create the deposit account");
+    });
+  });
+
+  describe("through the API", () => {
+    it("returns a NEAR transfer under the strict response model", async () => {
+      const created = await create();
+      const api = client(rootCredentials(appId));
+
+      const res = await api.get(`/api/transfers/${created.id}`);
+
+      expect(res.status).toBe(200);
+      expect(res.json.kiteTransferInput).toMatchObject({
+        pay_in: { Token: USDC },
+        settlement_recipient: SHOP,
+        swap: null,
+      });
+    });
+
+    it("opens a NEAR transfer from a checkout", async () => {
+      const link = await createPaymentLink(appId, {});
+      const quote = await createQuoteRowFor({
+        appId,
+        chainId,
+        sourceTokenId: usdcId,
+        targetTokenId: usdcId,
+      });
+      await db
+        .update(quoteTable)
+        .set({ paymentLinkId: link.id })
+        .where(eq(quoteTable.id, quote.id));
+      fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
+
+      const res = await client(rootCredentials()).post(
+        `/api/checkout/${link.id}/transfer`,
+        { quoteId: quote.id, refundAddress: PAYER },
+      );
+
+      expect(res.status).toBe(201);
+      expect(res.json.payinAddress).toMatch(/^0s[0-9a-f]{40}$/);
+      expect(res.json.paymentInstructions).toMatchObject({
+        caip2Id: CAIP2,
+        tokenAddress: USDC,
+      });
     });
   });
 
