@@ -14,14 +14,15 @@ describe("Rhea", () => {
 
   const pools = (amounts: Record<number, string | null>) => {
     fakeNearActor.view.mockImplementation(async (...args: unknown[]) => {
-      const [, , , params] = args as [
+      const [, , method, params] = args as [
         Caip2Id,
         string,
         string,
-        { pool_ids: string[] },
+        { pool_ids?: string[]; pool_id?: string },
       ];
-      const fee = Number(params.pool_ids[0].split("|")[2]);
-      const amount = amounts[fee];
+      const pool = params.pool_id ?? params.pool_ids![0];
+      const amount = amounts[Number(pool.split("|")[2])];
+      if (method === "get_pool") return amount === undefined ? null : { pool };
       if (amount === null) throw new Error("no such pool");
       return { amount: amount ?? "0", tag: null };
     });
@@ -58,6 +59,22 @@ describe("Rhea", () => {
         input_amount: "1000000000000000000000000",
       }),
     );
+  });
+
+  it("quotes only the pools that exist", async () => {
+    pools({ 2000: "3811669" });
+
+    await new Rhea().quoteExactInput({
+      caip2Id: CAIP2,
+      tokenIn: "near",
+      tokenOut: USDC,
+      amountIn: 10n ** 24n,
+    });
+
+    const quoted = fakeNearActor.view.mock.calls
+      .filter(([, , method]) => method === "quote")
+      .map(([, , , params]) => (params as { pool_ids: string[] }).pool_ids[0]);
+    expect(quoted).toEqual(["usdc.near|wrap.testnet|2000"]);
   });
 
   it("asks the least for an exact output", async () => {
