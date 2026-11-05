@@ -3,6 +3,7 @@ import { type ExtractTablesWithRelations } from "drizzle-orm";
 import { type Sql } from "postgres";
 import { env } from "../shared/env";
 import * as schema from "./schema";
+import { parseJsonExact } from "./json";
 import postgres from "postgres";
 
 export const sql = postgres(env.KITE_PG_DB_URL, {
@@ -10,6 +11,15 @@ export const sql = postgres(env.KITE_PG_DB_URL, {
   prepare: false,
   connection: {
     options: "-c client_min_messages=warning",
+  },
+  types: {
+    // `json` only: drizzle's nested rows. `jsonb` columns keep the default parser.
+    nestedJson: {
+      to: 114,
+      from: [114],
+      serialize: (value: unknown) => JSON.stringify(value),
+      parse: parseJsonExact,
+    },
   },
 });
 
