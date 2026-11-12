@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { shortAddress, txUrl } from "@/lib/format";
+import { isNativeToken, shortAddress, txUrl } from "@/lib/format";
 import { EvmWalletProvider, useConnectEvmWallet } from "@/lib/evm-wallet";
 import {
   connectNearWallet,
@@ -743,9 +743,12 @@ const TokenRow = ({
       </span>
     </span>
 
-    {action ?? (
-      <span className="text-xs text-muted">{shortAddress(token.address)}</span>
-    )}
+    {action ??
+      (!isNativeToken(token.address) && (
+        <span className="text-xs text-muted">
+          {shortAddress(token.address)}
+        </span>
+      ))}
   </button>
 );
 
@@ -999,10 +1002,14 @@ const InstructionsStep = ({
         <Row label="Token">
           <TokenIcon token={token} className="size-5 text-[10px]" />
           {token.symbol}
-          <span className="text-xs font-normal text-muted">
-            {shortAddress(token.address)}
-          </span>
-          <CopyButton value={token.address} className="-mx-2" />
+          {!isNativeToken(token.address) && (
+            <>
+              <span className="text-xs font-normal text-muted">
+                {shortAddress(token.address)}
+              </span>
+              <CopyButton value={token.address} className="-mx-2" />
+            </>
+          )}
         </Row>
       </Rows>
 
