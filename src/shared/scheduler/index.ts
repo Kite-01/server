@@ -90,7 +90,7 @@ export class Scheduler {
       connectionString: env.KITE_PG_DB_URL,
       ...pgSslOptions,
       useListenNotify: true,
-      max: 20,
+      max: env.KITE_PG_BOSS_POOL_MAX,
     });
 
     boss.on("error", console.error);

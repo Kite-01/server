@@ -14,6 +14,8 @@ const EnvSchema = z.object({
     .optional()
     .refine(common.isValidPemCert, "Must be a valid PEM-encoded certificate")
     .transform((pem) => pem?.replace(/\\n/g, "\n").trim() || undefined),
+  KITE_PG_POOL_MAX: z.coerce.number().int().positive().default(10),
+  KITE_PG_BOSS_POOL_MAX: z.coerce.number().int().positive().default(20),
   KITE_ENCRYPTION_KEY: z
     .base64()
     .refine((value) => Buffer.from(value, "base64").length === 32),

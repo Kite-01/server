@@ -177,6 +177,10 @@ All settings come from environment variables, checked at startup:
 | `KITE_ENABLE_OPENAPI_UI_SPECS`    |          | Serve `/openapi`. Default `true`                                                                                                                   |
 | `KITE_ENABLE_OPENAPI_UI_PROVIDER` |          | `scalar` (default) or `swagger`                                                                                                                    |
 | `KITE_IS_TESTNET`                 |          | Run on testnets instead of mainnets. Default `false`                                                                                               |
+| `KITE_PG_POOL_MAX`                |          | Most connections the app's queries hold. Default `10`                                                                                              |
+| `KITE_PG_BOSS_POOL_MAX`           |          | Most connections the job queue holds, plus one it keeps for listening. Default `20`                                                                |
+
+Each running instance can hold `KITE_PG_POOL_MAX + KITE_PG_BOSS_POOL_MAX + 1` connections, and a deploy briefly runs two. On a database with few connections, size the pools to fit twice in its limit: with 20, for example, `KITE_PG_POOL_MAX=3` and `KITE_PG_BOSS_POOL_MAX=3`.
 
 Provider keys (QuickNode, Alchemy, thirdweb, NEAR Intents, etc) aren't environment variables: set them from the dashboard's **Providers** page, where they're stored encrypted.
 
