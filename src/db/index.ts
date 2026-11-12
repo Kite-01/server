@@ -7,7 +7,8 @@ import { parseJsonExact } from "./json";
 import postgres from "postgres";
 
 export const sql = postgres(env.KITE_PG_DB_URL, {
-  max: 10,
+  max: env.KITE_PG_POOL_MAX,
+  idle_timeout: 30,
   prepare: false,
   connection: {
     options: "-c client_min_messages=warning",
