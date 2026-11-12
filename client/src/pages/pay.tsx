@@ -1256,7 +1256,7 @@ export const Pay = () => {
           onClick={() => notify({ type: "close" })}
           className={cn(
             "fixed right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft",
-            isTestnet ? "top-11" : "top-3",
+            isTestnet ? "top-17" : "top-3",
           )}
         >
           <IconX className="size-5" />
