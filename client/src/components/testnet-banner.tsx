@@ -11,10 +11,10 @@ export const TestnetBanner = () => {
   if (!isTestnet) return null;
 
   return (
-    <div className="flex h-14 shrink-0 items-center justify-between gap-3 bg-pending px-4 text-sm font-medium text-white">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-pending px-4 py-2.5 text-sm font-medium text-white md:h-14 md:flex-nowrap">
       <span className="flex min-w-0 items-center gap-2">
         <IconInfoCircle className="size-4 shrink-0" />
-        <span className="leading-tight md:truncate">
+        <span className="md:truncate">
           You are on a testnet instance of Kite.
         </span>
       </span>
