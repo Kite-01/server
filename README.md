@@ -168,6 +168,7 @@ All settings come from environment variables, checked at startup:
 | --------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `KITE_PUBLIC_BASE_URL`            | yes      | The public URL of this server, used for provider callbacks and links                                                                               |
 | `KITE_PG_DB_URL`                  | yes      | Postgres connection URL                                                                                                                            |
+| `KITE_PG_DB_CERTIFICATE`          | no       | CA certificate (PEM) to verify Postgres over TLS, such as Aiven's `ca.pem`; `\n` escapes work. Leave `sslmode` out of the URL when it's set     |
 | `KITE_ENCRYPTION_KEY`             | yes      | 32 random bytes, base64 (`openssl rand -base64 32`); encrypts secrets at rest                                                                      |
 | `KITE_OPERATOR_MNEMONIC`          | yes      | BIP-39 mnemonic of the operator wallet that settles and refunds transfers. On NEAR the operator is the implicit account of its `m/44'/397'/0'` key |
 | `KITE_ROOT_KEY`                   | yes      | At least 16 characters; signs you into the dashboard and grants full API access                                                                    |

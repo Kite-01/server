@@ -1,7 +1,7 @@
 import { drizzle, type PostgresJsSession } from "drizzle-orm/postgres-js";
 import { type ExtractTablesWithRelations } from "drizzle-orm";
 import { type Sql } from "postgres";
-import { env } from "../shared/env";
+import { env, pgSslOptions } from "../shared/env";
 import * as schema from "./schema";
 import { parseJsonExact } from "./json";
 import postgres from "postgres";
@@ -12,9 +12,7 @@ export const sql = postgres(env.KITE_PG_DB_URL, {
   connection: {
     options: "-c client_min_messages=warning",
   },
-  ssl: {
-    ca: env.KITE_PG_DB_CERTIFICATE,
-  },
+  ...pgSslOptions,
   types: {
     // `json` only: drizzle's nested rows. `jsonb` columns keep the default parser.
     nestedJson: {
