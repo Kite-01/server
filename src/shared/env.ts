@@ -12,7 +12,8 @@ const EnvSchema = z.object({
   KITE_PG_DB_CERTIFICATE: z
     .string()
     .optional()
-    .refine(common.isValidPemCert, "Must be a valid PEM-encoded certificate"),
+    .refine(common.isValidPemCert, "Must be a valid PEM-encoded certificate")
+    .transform((pem) => pem?.replace(/\\n/g, "\n").trim() || undefined),
   KITE_ENCRYPTION_KEY: z
     .base64()
     .refine((value) => Buffer.from(value, "base64").length === 32),
@@ -29,3 +30,8 @@ const EnvSchema = z.object({
 });
 
 export const env = EnvSchema.parse(process.env);
+
+// left out without a certificate, so the URL's sslmode still applies
+export const pgSslOptions = env.KITE_PG_DB_CERTIFICATE
+  ? { ssl: { ca: env.KITE_PG_DB_CERTIFICATE } }
+  : {};
