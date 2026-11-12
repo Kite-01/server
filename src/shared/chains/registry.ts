@@ -151,7 +151,12 @@ export const Chains: Record<Caip2Id, Chain> = {
     chainId: bsc.id,
     name: bsc.name,
     icon: icon("binance"),
-    publicRpcUrls: bsc.rpcUrls.default.http,
+    // viem's default, thirdweb, rate limits requests without an API key
+    publicRpcUrls: [
+      "https://bsc-dataseed.bnbchain.org",
+      "https://bsc-rpc.publicnode.com",
+      ...bsc.rpcUrls.default.http,
+    ],
     confirmations: 6,
     blockExplorer: {
       name: bsc.blockExplorers.default.name,
