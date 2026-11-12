@@ -776,7 +776,11 @@ export class x402Service {
     };
   };
 
-  createTransfer = async (appId: string, quoteId: string) => {
+  createTransfer = async (
+    appId: string,
+    quoteId: string,
+    options?: { track?: boolean },
+  ) => {
     const quote_ = await db.query.quote.findFirst({
       where: eq(quote.id, quoteId),
       with: { chain: { columns: { caip2Id: true } } },
@@ -791,6 +795,7 @@ export class x402Service {
       appId,
       quoteId,
       operatorAddress,
+      options,
     );
   };
 
