@@ -1,59 +1,13 @@
 import { DropdownMenu as Primitive } from "radix-ui";
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
-const State = createContext({
-  open: false,
-  setOpen: (_open: boolean) => {},
-});
-
-export const DropdownMenu = ({ children }: { children: ReactNode }) => {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <State.Provider value={{ open, setOpen }}>
-      <Primitive.Root open={open} onOpenChange={setOpen}>
-        {children}
-      </Primitive.Root>
-    </State.Provider>
-  );
-};
-
-// Radix opens on pointerdown, which iOS can cancel when it takes the touch for
-// a scroll, so a touch opens the menu on the tap instead.
-export const DropdownMenuTrigger = ({
-  onPointerDown,
-  onClick,
-  ...props
-}: ComponentProps<typeof Primitive.Trigger>) => {
-  const { open, setOpen } = useContext(State);
-  // open when the touch began, as touching outside closes the menu before the tap
-  const touch = useRef<{ open: boolean } | null>(null);
-
-  return (
-    <Primitive.Trigger
-      {...props}
-      onPointerDown={(event) => {
-        onPointerDown?.(event);
-        touch.current = event.pointerType === "touch" ? { open } : null;
-        if (touch.current) event.preventDefault();
-      }}
-      onClick={(event) => {
-        onClick?.(event);
-        const started = touch.current;
-        touch.current = null;
-        if (started) setOpen(!started.open);
-      }}
-    />
-  );
-};
+// non-modal: the modal one locks page scroll, which on iOS can jump a scrolled
+// page so the menu opens off screen
+export const DropdownMenu = (props: ComponentProps<typeof Primitive.Root>) => (
+  <Primitive.Root modal={false} {...props} />
+);
+export const DropdownMenuTrigger = Primitive.Trigger;
 
 export const DropdownMenuContent = ({
   className,
