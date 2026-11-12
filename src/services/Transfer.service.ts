@@ -86,6 +86,7 @@ type PrepareTransferInput = {
   settlementRecipient: string;
   refundAddress: string;
   minAmountOut: bigint;
+  track: boolean;
 };
 
 type PreparedTransfer = {
@@ -684,11 +685,13 @@ export class TransferService {
       struct,
     );
 
-    const trackedBy = await this.trackAddress(
-      caip2Id,
-      payinAddress,
-      config.onchainNotifierProviders ?? [],
-    );
+    const trackedBy = input.track
+      ? await this.trackAddress(
+          caip2Id,
+          payinAddress,
+          config.onchainNotifierProviders ?? [],
+        )
+      : [];
 
     return {
       kiteTransferInput: kite.serializeTransferInput(struct),
@@ -1279,6 +1282,7 @@ export class TransferService {
     appId: string,
     quoteId: string,
     refundAddress: string,
+    { track = true } = {},
   ) => {
     const result = await db
       .select({ count: count() })
@@ -1349,6 +1353,7 @@ export class TransferService {
       ),
       refundAddress: common.normalizeAddressFor(chain.type, refundAddress),
       minAmountOut,
+      track,
     });
 
     const { payinAddress, trackedBy, settlementRecipient } = prepared;

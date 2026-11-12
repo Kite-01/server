@@ -44,6 +44,7 @@ import { common } from "../../../shared/common";
 import { kite } from "../../../shared/kiteContract";
 import { eq } from "drizzle-orm";
 import { db } from "../../../db";
+import { runProviderMethod } from "../../../shared/providers";
 
 const facilitator = vi.hoisted(() => ({
   verify: vi.fn(),
@@ -518,6 +519,21 @@ describe("checkout", () => {
 
       expect(second.accepts[0].payTo).toBe(first.accepts[0].payTo);
       expect(await db.$count(transferTable)).toBe(1);
+    });
+
+    it("doesn't watch an offer's pay-in address with a notifier", async () => {
+      vi.mocked(runProviderMethod).mockClear();
+
+      await challengeFor(link.id);
+
+      const [offer] = await db.select().from(transferTable);
+      expect(offer.trackedBy).toEqual([]);
+      expect(vi.mocked(runProviderMethod)).not.toHaveBeenCalledWith(
+        expect.anything(),
+        "trackAddressActivity",
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it("makes a new offer once the link changes", async () => {
