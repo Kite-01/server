@@ -91,3 +91,7 @@ export const txUrl = (explorer: string, hash: string) =>
   `${explorer}/${/nearblocks\.io/.test(explorer) ? "txns" : "tx"}/${hash}`;
 
 export const NearNativeToken = "near";
+
+// the zero address on EVM chains
+export const isNativeToken = (address: string) =>
+  address === NearNativeToken || /^0x0{40}$/i.test(address);
