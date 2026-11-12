@@ -7,5 +7,8 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: env.KITE_PG_DB_URL,
+    ssl: {
+      ca: env.KITE_PG_DB_CERTIFICATE,
+    },
   },
 });
