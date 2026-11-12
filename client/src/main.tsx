@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { App } from "./App";
 import { SessionProvider } from "./lib/session";
 import { TooltipProvider } from "./components/ui/tooltip";
+import { TestnetBanner } from "./components/testnet-banner";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -19,9 +20,12 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
         <BrowserRouter>
-          <TooltipProvider>
-            <App />
-          </TooltipProvider>
+          <TestnetBanner />
+          <div id="app">
+            <TooltipProvider>
+              <App />
+            </TooltipProvider>
+          </div>
           <Toaster position="bottom-right" richColors />
         </BrowserRouter>
       </SessionProvider>

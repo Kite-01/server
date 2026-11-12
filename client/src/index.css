@@ -41,8 +41,18 @@
 html,
 body,
 #root,
-#root > [data-rk] {
+#app > [data-rk] {
   height: 100%;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+#app {
+  flex: 1;
+  min-height: 0;
 }
 
 body {

@@ -20,6 +20,8 @@ const get = (app: Awaited<ReturnType<typeof loadApp>>, path: string) => {
   );
 };
 
+const Index = "<html><head></head>kite</html>";
+
 describe("dashboard", { timeout: 60_000 }, () => {
   let dir: string;
 
@@ -27,7 +29,7 @@ describe("dashboard", { timeout: 60_000 }, () => {
     dir = await mkdtemp(join(tmpdir(), "kite-dashboard-"));
 
     await mkdir(join(dir, "client/dist/assets"), { recursive: true });
-    await writeFile(join(dir, "client/dist/index.html"), "<html>kite</html>");
+    await writeFile(join(dir, "client/dist/index.html"), Index);
     await writeFile(join(dir, "client/dist/assets/test.js"), "console.log(1)");
 
     await writeFile(join(dir, "secret.txt"), "secret");
@@ -54,8 +56,26 @@ describe("dashboard", { timeout: 60_000 }, () => {
 
     expect(root.status).toBe(200);
     expect(root.headers.get("content-type")).toContain("text/html");
-    expect(await root.text()).toBe("<html>kite</html>");
+    expect(await root.text()).toBe(Index);
     expect(root.headers.get("cache-control")).toBe("no-cache");
+  });
+
+  it("marks every page of a testnet instance, the checkout included", async () => {
+    const app = await loadApp({
+      NODE_ENV: "production",
+      KITE_ENABLE_DASHBOARD: "true",
+      KITE_IS_TESTNET: "true",
+    });
+
+    try {
+      for (const path of ["/", "/apps/123", "/pay/123"]) {
+        expect(await (await get(app, path)).text()).toContain(
+          '<meta name="kite-testnet" />',
+        );
+      }
+    } finally {
+      process.env.KITE_IS_TESTNET = "false";
+    }
   });
 
   it("serves built assets with long-lived caching", async () => {
@@ -80,7 +100,7 @@ describe("dashboard", { timeout: 60_000 }, () => {
     const res = await get(app, "/apps/123/customers");
 
     expect(res.status).toBe(200);
-    expect(await res.text()).toBe("<html>kite</html>");
+    expect(await res.text()).toBe(Index);
   });
 
   it("returns 404 for missing files, traversal attempts and unknown api paths", async () => {
@@ -114,7 +134,7 @@ describe("dashboard", { timeout: 60_000 }, () => {
 
     const pay = await get(app, "/pay/11111111-2222-3333-4444-555555555555");
     expect(pay.status).toBe(200);
-    expect(await pay.text()).toBe("<html>kite</html>");
+    expect(await pay.text()).toBe(Index);
     expect((await get(app, "/assets/test.js")).status).toBe(200);
 
     expect((await get(app, "/")).status).toBe(404);

@@ -17,6 +17,7 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { Field } from "@/components/field";
 import { Logo } from "@/components/logo";
+import { isTestnet } from "@/components/testnet-banner";
 import SmartImage from "@/components/smart-image";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1253,7 +1254,10 @@ export const Pay = () => {
           type="button"
           aria-label="Close"
           onClick={() => notify({ type: "close" })}
-          className="fixed top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft"
+          className={cn(
+            "fixed right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft",
+            isTestnet ? "top-17" : "top-3",
+          )}
         >
           <IconX className="size-5" />
         </button>
