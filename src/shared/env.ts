@@ -9,6 +9,10 @@ const EnvSchema = z.object({
   KITE_PORT: z.coerce.number().int().positive().default(3000),
   KITE_PUBLIC_BASE_URL: z.url(),
   KITE_PG_DB_URL: z.url(),
+  KITE_PG_DB_CERTIFICATE: z
+    .string()
+    .optional()
+    .refine(common.isValidPemCert, "Must be a valid PEM-encoded certificate"),
   KITE_ENCRYPTION_KEY: z
     .base64()
     .refine((value) => Buffer.from(value, "base64").length === 32),

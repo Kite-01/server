@@ -12,11 +12,12 @@ import {
   zeroAddress,
   toHex,
 } from "viem";
+import { type ChainType, type KeyVars, type KvKey } from "./constants";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
+import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { AppError, SdkConfigError } from "./errors";
 import { timingSafeEqual } from "node:crypto";
-import { type ChainType, type KeyVars, type KvKey } from "./constants";
-import { isNearAccountId, NearNativeToken } from "./nearAccount";
+import { X509Certificate } from "node:crypto";
 import { english } from "viem/accounts";
 import { get } from "lodash";
 
@@ -199,6 +200,38 @@ class Common {
       raw.slice(16, 20),
       raw.slice(20),
     ].join("-");
+  };
+
+  isValidPemCert = (pem?: string) => {
+    if (!pem) {
+      return true;
+    }
+
+    const normalized = pem.replace(/\\n/g, "\n").trim();
+
+    if (
+      !/^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----$/.test(
+        normalized,
+      )
+    ) {
+      return false;
+    }
+
+    try {
+      const certificate = new X509Certificate(normalized);
+      const now = new Date();
+
+      if (
+        new Date(certificate.validTo) <= now ||
+        new Date(certificate.validFrom) > now
+      ) {
+        return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   isValidMnemonic = (value: string) => {

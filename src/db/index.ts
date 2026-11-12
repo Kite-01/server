@@ -12,6 +12,9 @@ export const sql = postgres(env.KITE_PG_DB_URL, {
   connection: {
     options: "-c client_min_messages=warning",
   },
+  ssl: {
+    ca: env.KITE_PG_DB_CERTIFICATE,
+  },
   types: {
     // `json` only: drizzle's nested rows. `jsonb` columns keep the default parser.
     nestedJson: {
