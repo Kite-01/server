@@ -1255,8 +1255,10 @@ export const Pay = () => {
           aria-label="Close"
           onClick={() => notify({ type: "close" })}
           className={cn(
-            "fixed right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft",
-            isTestnet ? "top-17" : "top-3",
+            "right-3 z-10 flex size-10 items-center justify-center rounded-full bg-surface text-ink shadow-sm transition-colors hover:bg-soft",
+            "top-3",
+            // below the testnet banner, whatever height it wraps to
+            isTestnet ? "absolute" : "fixed",
           )}
         >
           <IconX className="size-5" />
