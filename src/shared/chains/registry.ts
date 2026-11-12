@@ -1,23 +1,32 @@
 import {
   mainnet,
-  optimism,
-  bsc,
-  polygon,
-  robinhood,
-  base,
-  arbitrum,
-  monad,
   sepolia,
-  monadTestnet,
-  baseSepolia,
-  arbitrumSepolia,
+  optimism,
   optimismSepolia,
+  bsc,
+  bscTestnet,
+  polygon,
+  polygonAmoy,
+  robinhood,
+  robinhoodTestnet,
+  base,
+  baseSepolia,
+  arbitrum,
+  arbitrumSepolia,
+  monad,
+  monadTestnet,
   hardhat,
   aurora,
   auroraTestnet,
+  zora,
+  zoraSepolia,
+  unichain,
+  unichainSepolia,
+  arc,
+  arcTestnet,
 } from "viem/chains";
-import { ChainType } from "../constants";
 import { Address, zeroAddress } from "viem";
+import { ChainType } from "../constants";
 
 type ChainBase = {
   caip2Id: Caip2Id;
@@ -304,6 +313,85 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
   },
+  "eip155:7777777": {
+    caip2Id: "eip155:7777777",
+    type: ChainType.Evm,
+    chainId: zora.id,
+    name: zora.name,
+    icon: "https://icons.llamao.fi/icons/chains/rsz_zora.jpg",
+    publicRpcUrls: zora.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: zora.blockExplorers.default.name,
+      url: zora.blockExplorers.default.url,
+    },
+    nativeCurrency: zora.nativeCurrency,
+    descriptors: {
+      Alchemy: "ZORA_MAINNET",
+      QuickNode: "zora-mainnet",
+    },
+    contracts: {
+      multicall3: zora.contracts.multicall3,
+      WETH9: "0x4200000000000000000000000000000000000006",
+      Uniswap: {
+        SwapRouter02: "0x7De04c96BE5159c3b5CeffC82aa176dc81281557",
+        UniswapV2Router02: "0xa00F34A632630EFd15223B1968358bA4845bEEC7",
+      },
+    },
+  },
+  "eip155:130": {
+    caip2Id: "eip155:130",
+    type: ChainType.Evm,
+    chainId: unichain.id,
+    name: unichain.name,
+    icon: "https://icons.llamao.fi/icons/chains/rsz_unichain.jpg",
+    publicRpcUrls: unichain.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: unichain.blockExplorers.default.name,
+      url: unichain.blockExplorers.default.url,
+    },
+    nativeCurrency: unichain.nativeCurrency,
+    descriptors: {
+      Alchemy: "UNICHAIN_MAINNET",
+      QuickNode: "unichain-mainnet",
+    },
+    contracts: {
+      multicall3: unichain.contracts.multicall3,
+      WETH9: "0x4200000000000000000000000000000000000006",
+      Uniswap: {
+        SwapRouter02: "0x73855d06DE49d0fe4A9c42636Ba96c62da12FF9C",
+        UniswapV2Router02: "0x284F11109359a7e1306C3e447ef14D38400063FF",
+      },
+    },
+  },
+  "eip155:5042": {
+    caip2Id: "eip155:5042",
+    type: ChainType.Evm,
+    chainId: arc.id,
+    name: arc.name,
+    icon: icon("arc"),
+    publicRpcUrls: arc.rpcUrls.default.http,
+    confirmations: 1,
+    blockExplorer: {
+      name: arc.blockExplorers.default.name,
+      url: arc.blockExplorers.default.url,
+    },
+    nativeCurrency: arc.nativeCurrency,
+    descriptors: {
+      TrustWallet: "arc",
+      Alchemy: "ARC_MAINNET",
+      QuickNode: "arc-mainnet",
+    },
+    contracts: {
+      multicall3: arc.contracts.multicall3,
+      WETH9: "0x3600000000000000000000000000000000000000",
+      Uniswap: {
+        SwapRouter02: "0x53BF6B0684Ec7eF91e1387Da3D1a1769bC5A6F77",
+        UniswapV2Router02: "0x1f7d7550B1b028f7571E69A784071F0205FD2EfA",
+      },
+    },
+  },
   "eip155:1313161554": {
     caip2Id: "eip155:1313161554",
     type: ChainType.Evm,
@@ -379,12 +467,16 @@ export const Chains: Record<Caip2Id, Chain> = {
     contracts: {
       multicall3: monadTestnet.contracts.multicall3,
       /**
-       * @see https://github.com/portdeveloper/puddleswap#contracts-monad-testnet
+       *
+       * Puddleswap WMON address
        */
-      /** Puddleswap WMON address */
       WETH9: "0x97B3070F9Da6C002343862b35E68Bd8e22608943",
       Uniswap: {
-        /** PuddleSwap uniswap router address */
+        /**
+         *
+         * PuddleSwap uniswap router address
+         * @see https://github.com/portdeveloper/puddleswap#contracts-monad-testnet
+         */
         UniswapV2Router02: "0x430c23895c8D44883526e3E0B09327dAD8766660",
       },
     },
@@ -467,6 +559,179 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
   },
+  "eip155:46630": {
+    caip2Id: "eip155:46630",
+    type: ChainType.Evm,
+    chainId: robinhoodTestnet.id,
+    name: robinhoodTestnet.name,
+    icon: icon("robinhoodchain"),
+    testnet: robinhoodTestnet.testnet,
+    publicRpcUrls: robinhoodTestnet.rpcUrls.default.http,
+    confirmations: 45,
+    blockExplorer: {
+      name: robinhoodTestnet.blockExplorers.default.name,
+      url: robinhoodTestnet.blockExplorers.default.url,
+    },
+    nativeCurrency: robinhoodTestnet.nativeCurrency,
+    descriptors: {
+      Alchemy: "ROBINHOOD_TESTNET",
+      QuickNode: "robinhood-testnet",
+    },
+    contracts: {
+      multicall3: robinhoodTestnet.contracts.multicall3,
+      WETH9: "0x7943e237c7F95DA44E0301572D358911207852Fa",
+      Uniswap: {
+        /**
+         *
+         * Community Uniswap v2 deployment
+         */
+        UniswapV2Router02: "0x8A1A9197ED465023B1C0DC29282953f30C8bB23E",
+      },
+    },
+  },
+  "eip155:80002": {
+    caip2Id: "eip155:80002",
+    type: ChainType.Evm,
+    chainId: polygonAmoy.id,
+    name: polygonAmoy.name,
+    icon: icon("polygon"),
+    testnet: polygonAmoy.testnet,
+    publicRpcUrls: polygonAmoy.rpcUrls.default.http,
+    confirmations: 10,
+    blockExplorer: {
+      name: polygonAmoy.blockExplorers.default.name,
+      url: polygonAmoy.blockExplorers.default.url,
+    },
+    nativeCurrency: polygonAmoy.nativeCurrency,
+    descriptors: {
+      Alchemy: "MATIC_AMOY",
+    },
+    contracts: {
+      multicall3: polygonAmoy.contracts.multicall3,
+      /**
+       *
+       * DonaSwap's own WMATIC, which its router wraps with
+       */
+      WETH9: "0x0216a640C4d53F2a6603042d4E14A2B890efcD45",
+      Uniswap: {
+        /**
+         * DonaSwap V2
+         * @see https://docs.20lab.app/decentralized-exchanges/supported-exchanges
+         */
+        UniswapV2Router02: "0x6E682B51F8bb67294B522b75a1E79dDd4502cc94",
+      },
+    },
+  },
+  "eip155:999999999": {
+    caip2Id: "eip155:999999999",
+    type: ChainType.Evm,
+    chainId: zoraSepolia.id,
+    name: zoraSepolia.name,
+    icon: "https://icons.llamao.fi/icons/chains/rsz_zora.jpg",
+    testnet: zoraSepolia.testnet,
+    publicRpcUrls: zoraSepolia.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: zoraSepolia.blockExplorers.default.name,
+      url: zoraSepolia.blockExplorers.default.url,
+    },
+    nativeCurrency: zoraSepolia.nativeCurrency,
+    descriptors: {
+      Alchemy: "ZORA_SEPOLIA",
+    },
+    contracts: {
+      multicall3: zoraSepolia.contracts.multicall3,
+      WETH9: "0x4200000000000000000000000000000000000006",
+      Uniswap: {
+        SwapRouter02: "0x6B36d761981d82B1e07cF3c4daF4cB4615c4850a",
+      },
+    },
+  },
+  "eip155:5042002": {
+    caip2Id: "eip155:5042002",
+    type: ChainType.Evm,
+    chainId: arcTestnet.id,
+    name: arcTestnet.name,
+    icon: icon("arc"),
+    testnet: arcTestnet.testnet,
+    publicRpcUrls: arcTestnet.rpcUrls.default.http,
+    confirmations: 1,
+    blockExplorer: {
+      name: arcTestnet.blockExplorers.default.name,
+      url: arcTestnet.blockExplorers.default.url,
+    },
+    nativeCurrency: arcTestnet.nativeCurrency,
+    descriptors: {
+      Alchemy: "ARC_TESTNET",
+      QuickNode: "arc-testnet",
+    },
+    contracts: {
+      multicall3: arcTestnet.contracts.multicall3,
+      WETH9: "0x3600000000000000000000000000000000000000",
+      Uniswap: {
+        /**
+         *
+         * Community "Arc Swap" Uniswap V2 deployment
+         */
+        UniswapV2Router02: "0xE27d5D256B370604F1Ff060fB489c6A8E3F8A6D9",
+      },
+    },
+  },
+  "eip155:97": {
+    caip2Id: "eip155:97",
+    type: ChainType.Evm,
+    chainId: bscTestnet.id,
+    name: bscTestnet.name,
+    icon: icon("binance"),
+    testnet: bscTestnet.testnet,
+    publicRpcUrls: bscTestnet.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: bscTestnet.blockExplorers.default.name,
+      url: bscTestnet.blockExplorers.default.url,
+    },
+    nativeCurrency: bscTestnet.nativeCurrency,
+    descriptors: {
+      Alchemy: "BNB_TESTNET",
+    },
+    contracts: {
+      multicall3: bscTestnet.contracts.multicall3,
+      WETH9: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+      Uniswap: {
+        /**
+         * PancakeSwap V2
+         */
+        UniswapV2Router02: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+      },
+    },
+  },
+  "eip155:1301": {
+    caip2Id: "eip155:1301",
+    type: ChainType.Evm,
+    chainId: unichainSepolia.id,
+    name: unichainSepolia.name,
+    icon: "https://icons.llamao.fi/icons/chains/rsz_unichain.jpg",
+    testnet: unichainSepolia.testnet,
+    publicRpcUrls: unichainSepolia.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: unichainSepolia.blockExplorers.default.name,
+      url: unichainSepolia.blockExplorers.default.url,
+    },
+    nativeCurrency: unichainSepolia.nativeCurrency,
+    descriptors: {
+      Alchemy: "UNICHAIN_SEPOLIA",
+      QuickNode: "unichain-sepolia",
+    },
+    contracts: {
+      multicall3: unichainSepolia.contracts.multicall3,
+      WETH9: "0x4200000000000000000000000000000000000006",
+      Uniswap: {
+        SwapRouter02: "0xd1AAE39293221B77B0C71fBD6dCb7Ea29Bb5B166",
+        UniswapV2Router02: "0x6e8C9D62A16419357eA998229126D2fD6B1CCfbF",
+      },
+    },
+  },
   "eip155:1313161555": {
     caip2Id: "eip155:1313161555",
     type: ChainType.Evm,
@@ -505,7 +770,11 @@ export const Chains: Record<Caip2Id, Chain> = {
       name: "NearBlocks",
       url: "https://testnet.nearblocks.io",
     },
-    nativeCurrency: { name: "NEAR", symbol: "NEAR", decimals: 24 },
+    nativeCurrency: {
+      name: "NEAR",
+      symbol: "NEAR",
+      decimals: 24,
+    },
     descriptors: {
       TrustWallet: "near",
     },
