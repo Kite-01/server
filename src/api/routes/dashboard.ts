@@ -2,6 +2,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve, sep } from "node:path";
 import { Elysia, type AnyElysia } from "elysia";
 import { HttpError } from "../../shared/errors";
+import { env } from "../../shared/env";
 
 const readAsset = async (relative: string) => {
   const root = resolve(process.cwd(), "client/dist");
@@ -59,6 +60,13 @@ const respond = (
   });
 };
 
+// read by the client to show its testnet banner, on every page
+const markNetwork = (html: string) => {
+  return env.KITE_IS_TESTNET
+    ? html.replace("</head>", '<meta name="kite-testnet" /></head>')
+    : html;
+};
+
 const notFound = () => new Response("Not found", { status: 404 });
 
 // The checkout is a page of the same app, so it stays up with the dashboard off.
@@ -86,7 +94,10 @@ const serve = async (request: Request, dashboard: boolean) => {
   if (!dashboard && !isCheckout(pathname)) return notFound();
 
   const index = await readAsset("/index.html");
-  return index ? respond(index, false) : notFound();
+  if (!index) return notFound();
+
+  const html = markNetwork(index.body.toString());
+  return respond({ ...index, body: Buffer.from(html) }, false);
 };
 
 export const clientRoutes = (options: { dashboard: boolean }) =>
@@ -142,7 +153,8 @@ export const dashboardDevRoutes = async (
       }
 
       const html = await readFile(resolve(root, "index.html"), "utf8");
-      return new Response(await server.transformIndexHtml(request.url, html), {
+      const transformed = await server.transformIndexHtml(request.url, html);
+      return new Response(markNetwork(transformed), {
         headers: {
           "content-type": "text/html; charset=utf-8",
         },
