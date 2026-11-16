@@ -19,17 +19,24 @@ export const overviewRoutes = new Elysia({
   .use(Auth.plugin)
   .use(models)
   .onBeforeHandle(Auth.access({ root: true }))
-  .get("/info", () => systemService.getInfo(), {
-    response: {
-      200: "SystemInfo",
+  .get(
+    "/info",
+    async ({ actor }) => ({
+      ...(await systemService.getInfo()),
+      demo: actor.kind === "root" && !!actor.demo,
+    }),
+    {
+      response: {
+        200: "SystemInfo",
+      },
+      detail: {
+        operationId: "overview.info",
+        security: [{ rootKey: [] }],
+        tags: ["Overview"],
+        summary: "Service version & operator address",
+      },
     },
-    detail: {
-      operationId: "overview.info",
-      security: [{ rootKey: [] }],
-      tags: ["Overview"],
-      summary: "Service version & operator address",
-    },
-  })
+  )
   .get(
     "/stats",
     ({ actor, query }) => {

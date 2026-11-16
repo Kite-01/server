@@ -803,6 +803,7 @@ export type ProviderStatusList = Array<ProviderStatus>;
 
 export type SystemInfo = {
   version: string;
+  demo: boolean;
   operators: Array<{
     chainType: 'Evm' | 'Near';
     address: string;

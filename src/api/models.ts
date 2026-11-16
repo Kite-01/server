@@ -582,6 +582,7 @@ const ProviderStatus = t.Object(
 const SystemInfo = t.Object(
   {
     version: t.String(),
+    demo: t.Boolean(),
     operators: t.Array(
       t.Object({
         chainType: t.Enum(ChainType),

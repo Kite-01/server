@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, inject, vi } from "vitest";
 import { testMnemonic } from "./mocks.js";
 import { randomBytes } from "node:crypto";
-import { rootKey } from "./rootKey.js";
+import { demoKey, rootKey } from "./rootKey.js";
 import postgres from "postgres";
 
 const testDbUrl = inject("testDbUrl");
@@ -23,6 +23,7 @@ process.env.KITE_PUBLIC_BASE_URL = "http://localhost:3000";
 process.env.KITE_ENCRYPTION_KEY = randomBytes(32).toString("base64");
 process.env.KITE_OPERATOR_MNEMONIC = testMnemonic;
 process.env.KITE_ROOT_KEY = rootKey;
+process.env.KITE_DEMO_KEY = demoKey;
 process.env.KITE_IS_TESTNET = "false";
 // Tests that need the dashboard turn it on; otherwise an installed client
 // would start Vite inside every app the tests build.

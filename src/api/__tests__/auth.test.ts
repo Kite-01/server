@@ -11,7 +11,7 @@ import { ApiKeyService } from "../../services/ApiKey.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { AppService } from "../../services/App.service";
 import { signing } from "../../shared/signing";
-import { rootKey } from "../../test/rootKey";
+import { demoKey, rootKey } from "../../test/rootKey";
 
 const send = async (
   method: string,
@@ -338,6 +338,49 @@ describe("API authentication", () => {
       );
 
       expect(res.json.id).toBe(appId);
+    });
+  });
+
+  describe("demo key", () => {
+    const demo = { "x-kite-root-key": demoKey };
+
+    it("views everything the root key can", async () => {
+      expect((await call("GET", "/api/apps/all", demo)).status).toBe(200);
+      expect(
+        (await call("GET", "/api/apps", { ...demo, "x-kite-app-id": appId }))
+          .json,
+      ).toMatchObject({ id: appId });
+    });
+
+    it("says it is a demo, and the root key says it isn't", async () => {
+      expect((await call("GET", "/api/overview/info", demo)).json.demo).toBe(
+        true,
+      );
+      expect(
+        (
+          await call("GET", "/api/overview/info", {
+            "x-kite-root-key": rootKey,
+          })
+        ).json.demo,
+      ).toBe(false);
+    });
+
+    it("can't change anything", async () => {
+      const res = await call(
+        "POST",
+        "/api/apps",
+        { ...demo, "content-type": "application/json" },
+        { body: { name: "Demo app" } },
+      );
+
+      expect(res.status).toBe(403);
+      expect(res.json.error.message).toBe("The demo key can only view");
+    });
+
+    it("can't read the KV store or providers", async () => {
+      for (const path of ["/api/kv", "/api/kv/providers"]) {
+        expect((await call("GET", path, demo)).status).toBe(403);
+      }
     });
   });
 

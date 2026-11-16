@@ -9,7 +9,7 @@ import { Elysia } from "elysia";
 import { env } from "../../shared/env";
 
 export type Actor =
-  | { kind: "root"; appId?: string }
+  | { kind: "root"; appId?: string; demo?: boolean }
   | {
       kind: "app";
       appId: string;
@@ -43,11 +43,26 @@ export class Auth {
     }
   };
 
+  static isDemoAllowed = (request: Request) => {
+    const { pathname } = new URL(request.url);
+    return request.method === "GET" && !/^\/api\/kv(\/|$)/.test(pathname);
+  };
+
   static authenticate = async (request: Request): Promise<Actor> => {
     const rootKey = Auth.getHeader(request, "x-kite-root-key");
     if (rootKey) {
-      if (!common.safeCompare(rootKey, env.KITE_ROOT_KEY)) {
+      const root = common.safeCompare(rootKey, env.KITE_ROOT_KEY);
+      const demo =
+        !root &&
+        !!env.KITE_DEMO_KEY &&
+        common.safeCompare(rootKey, env.KITE_DEMO_KEY);
+
+      if (!root && !demo) {
         throw new HttpError(401, "Unauthorized", "Invalid root key");
+      }
+
+      if (demo && !Auth.isDemoAllowed(request)) {
+        throw new HttpError(403, "Forbidden", "The demo key can only view");
       }
 
       const appId = Auth.getHeader(request, "x-kite-app-id");
@@ -60,7 +75,7 @@ export class Auth {
         if (!exists) throw new HttpError(404, "NotFound", "App not found");
       }
 
-      return { kind: "root", appId };
+      return { kind: "root", appId, demo };
     }
 
     const keyId = Auth.getHeader(request, "x-kite-api-key-id");

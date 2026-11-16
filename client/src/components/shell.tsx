@@ -18,6 +18,7 @@ import {
   IconDatabase,
 } from "@tabler/icons-react";
 import { Dialog } from "radix-ui";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/logo";
@@ -25,6 +26,7 @@ import { ProfileMenu } from "@/components/profile-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAppScope } from "@/lib/queries";
+import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 
 type Item = {
   to: string;
@@ -32,6 +34,8 @@ type Item = {
   icon: Icon;
   end?: boolean;
 };
+
+const DemoHidden = ["/providers", "/kv"];
 
 const rootItems: Item[] = [
   { to: "/", label: "Dashboard", icon: IconDashboard, end: true },
@@ -142,7 +146,10 @@ const MobileNav = ({ items }: { items: Item[] }) => {
 export const Shell = () => {
   const { appId, name } = useAppScope();
   const navigate = useNavigate();
-  const items = appId ? appItems(`/apps/${appId}`) : rootItems;
+  const { data: info } = useQuery(overviewInfoOptions());
+  const items = appId
+    ? appItems(`/apps/${appId}`)
+    : rootItems.filter((item) => !info?.demo || !DemoHidden.includes(item.to));
 
   return (
     <div className="mx-auto flex min-h-full max-w-400 flex-col bg-surface/10">
@@ -183,7 +190,14 @@ export const Shell = () => {
               <Logo imgClassName="size-7" hideLabel />
             </div>
 
-            <ProfileMenu />
+            <div className="flex items-center gap-3">
+              {info?.demo && (
+                <span className="rounded-full bg-soft px-2.5 py-1 text-xs font-medium text-muted">
+                  View only
+                </span>
+              )}
+              <ProfileMenu />
+            </div>
           </header>
 
           <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-8">

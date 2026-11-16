@@ -172,6 +172,7 @@ All settings come from environment variables, checked at startup:
 | `KITE_ENCRYPTION_KEY`             | yes      | 32 random bytes, base64 (`openssl rand -base64 32`); encrypts secrets at rest                                                                      |
 | `KITE_OPERATOR_MNEMONIC`          | yes      | BIP-39 mnemonic of the operator wallet that settles and refunds transfers. On NEAR the operator is the implicit account of its `m/44'/397'/0'` key |
 | `KITE_ROOT_KEY`                   | yes      | At least 16 characters; signs you into the dashboard and grants full API access                                                                    |
+| `KITE_DEMO_KEY`                   | no       | At least 16 characters; signs into the dashboard view only. It can't change anything or see providers and the KV store                             |
 | `KITE_PORT`                       |          | Default `3000`                                                                                                                                     |
 | `KITE_ENABLE_DASHBOARD`           |          | Serve the dashboard. The checkout at `/pay` is served either way. Default `true`                                                                   |
 | `KITE_ENABLE_OPENAPI_UI_SPECS`    |          | Serve `/openapi`. Default `true`                                                                                                                   |
