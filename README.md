@@ -32,7 +32,7 @@ To see what an agent sees, request a link as JSON:
 curl -i -H "Accept: application/json" https://testnet.usekite.site/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd
 ```
 
-It answers `402` with an x402 `accepts` list: one offer for each network the agent can pay on, `near:testnet` among them. An x402 client signs one and pays by repeating the request.
+It answers `402` with an x402 `accepts` list: one offer for each network the agent can pay on, `near:testnet` among them. An x402 client signs one and pays by repeating the request. Kite is its own facilitator: it verifies the signature and settles on-chain itself, paying the gas, so the agent only needs the token.
 
 The hosted dashboards are [testnet.usekite.site](https://testnet.usekite.site) and [mainnet.usekite.site](https://mainnet.usekite.site). Sign in with the demo key `KiteIsDope!!@001`, which can view everything but change nothing. To take payments yourself, create a store at [usekite.site](https://usekite.site).
 
@@ -76,6 +76,10 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **Payment links**: priced in a fiat currency, with optional line items, your own `reference` and `meta`. A link can be one-time or reusable.
 - **Checkout**: customers pay by connecting a wallet or by sending tokens to an address, shown as a QR code or text.
 - **Agent payments**: a payment link is also an [x402](https://www.x402.org) resource. An agent that requests `/pay/<id>` with GET or POST gets a `402` offering every network that takes x402, signs one and pays by repeating the request.
+- **Its own x402 facilitator**: Kite verifies and settles x402 payments itself, with no third-party facilitator. The agent only signs, and never needs gas:
+  - on EVM chains it signs an EIP-3009 authorization, which the operator wallet submits, through the gas sponsor where one is set;
+  - on NEAR it signs a delegated `ft_transfer`, which the operator relays as a meta transaction.
+  - Your backend can use it too, with an API key scoped to `x402`: `/api/x402/supported`, `/api/x402/pay`, `/api/x402/transfer/<id>/requirements`, `/api/x402/verify` and `/api/x402/settle`.
 - **Any token in, your token out**: payments in another token are swapped through Uniswap V3, or V2 where a chain has no V3. They're priced from time-weighted averages, so a pool someone just moved can't skew a quote.
 - **Settlement on-chain**: each payment runs through its own [Kite contract](https://github.com/Kite-01/contracts), which settles, pays fees or refunds.
 - **NEAR as a chain** (beta, testnet only): on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
