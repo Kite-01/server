@@ -4,16 +4,39 @@
 
 # Kite
 
-Kite is an open-source crypto payment processor that a business runs itself. The business creates a payment link, the customer pays it from their wallet in any token on one of the business's chains, a Kite contract settles the payment on-chain, and a signed webhook tells the business's systems.
+Agents can now spend money, and plenty of tools govern what they're allowed to spend. But merchants still have no simple way to get paid by an agent. Kite is a payment link that both people and agents can pay:
 
-With [NEAR Intents](https://docs.near-intents.org/), the business can receive every payment as one token on one chain, for example USDC on NEAR at `shop.near`, whichever chain and token the customer paid with.
+- **A person** opens the link and sees a normal checkout: they connect a wallet, or send tokens to an address shown as a QR code or text.
+- **An agent** requests the same link and gets it as an HTTP `402 Payment Required` [x402](https://www.x402.org) resource, so it pays with an HTTP request, with no browser or UI.
+
+Kite is an open-source crypto payment processor that a business runs itself. The business creates a payment link, the customer pays it in any token on one of the business's chains, a Kite contract settles the payment on-chain, and a signed webhook tells the business's systems.
+
+A business taking crypto on several chains ends up with balances spread across all of them. With [NEAR Intents](https://docs.near-intents.org/), it can receive every payment as one token at one address, for example USDC on NEAR at `shop.near`, whichever chain and token the customer paid with. NEAR and Aurora are payment chains too.
 
 This repository is the server: the API, the dashboard the business runs it from, and the checkout page customers pay on. The contracts ([EVM](https://github.com/Kite-01/contracts), [NEAR](https://github.com/Kite-01/near-contracts)) and the [SDK](https://github.com/Kite-01/monorepo) live in their own repositories.
 
-### The problem
+## Try it
 
-- **Agents can't pay a normal store.** An AI agent buying something for someone can't get through a checkout built for people, so an ordinary e-commerce store can't take its payment. Every Kite payment link is also an [x402](https://www.x402.org) resource, which an agent pays with an HTTP request, so a store that takes payments through Kite can be paid by agents as well as people.
-- **Payments end up on every chain.** A business taking crypto on several chains ends up with balances spread across all of them, in whatever token each chain settles in. Gathering the money in one place means bridging and swapping by hand, and holding gas on every chain to do it.
+Open a payment link to pay as a person, or point your agent at it:
+
+| Network | Price      | Link                                                                    |
+| ------- | ---------- | ----------------------------------------------------------------------- |
+| Testnet | 1 USD      | <https://testnet.usekite.site/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd> |
+| Testnet | 1 GBP      | <https://testnet.usekite.site/pay/6c103330-4adc-43a1-9335-084027a3f284> |
+| Mainnet | 1 USD      | <https://mainnet.usekite.site/pay/a1b264be-d168-42a9-9a2e-d2b0b0aa0467> |
+| Mainnet | 10,000 NGN | <https://mainnet.usekite.site/pay/b42601ba-9cb7-4b94-a2c0-4382526f6bc3> |
+
+To see what an agent sees, request a link as JSON:
+
+```sh
+curl -i -H "Accept: application/json" https://testnet.usekite.site/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd
+```
+
+It answers `402` with an x402 `accepts` list: one offer for each network the agent can pay on, `near:testnet` among them. An x402 client signs one and pays by repeating the request.
+
+The hosted dashboards are [testnet.usekite.site](https://testnet.usekite.site) and [mainnet.usekite.site](https://mainnet.usekite.site). Sign in with the demo key `KiteIsDope!!@001`, which can view everything but change nothing. To take payments yourself, create a store at [usekite.site](https://usekite.site).
+
+The testnet server takes payments on NEAR and Aurora. NEAR Intents has no testnet, so payouts through it only run on the mainnet server.
 
 ### What NEAR Intents does in Kite
 
@@ -240,7 +263,7 @@ The code lives in `src/`: routes in `api/`, business logic in `services/`, chain
 
 ## NEAR HACKATHON
 
-Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World Money and Agent Economy tracks. Kite was already running before the hackathon. What's judged is the NEAR work we added during the hackathon:
+Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World Money and Agent Economy tracks. Kite was already running before the hackathon. What's judged is the NEAR work we added during the hackathon, which you can try from [Try it](#try-it):
 
 - payouts through NEAR Intents ([how they work](#what-near-intents-does-in-kite)), with the apps' payout settings and accepted chains, and payout tracking in the dashboard;
 - support for Aurora, NEAR's EVM, with a [Kite factory on its testnet](https://github.com/Kite-01/contracts/blob/main/ignition/deployments/chain-1313161555/deployed_addresses.json);
