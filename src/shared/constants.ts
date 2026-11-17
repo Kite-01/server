@@ -178,6 +178,8 @@ export const x402_MaxTimeoutSeconds = 120;
 export const x402_MinTimeoutSeconds = 15;
 export const x402_SettlementReserveSeconds = 30;
 export const x402_SettlementLeaseSeconds = 3 * OneMinute;
+// payment challenges each client can ask for per minute
+export const x402_ChallengesPerMinute = 30;
 
 export const KiteContractEventTopics = (
   [

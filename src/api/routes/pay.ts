@@ -16,8 +16,17 @@ import {
 import { CheckoutService } from "../../services/Checkout.service";
 import { Elysia } from "elysia";
 import { env } from "../../shared/env";
+import { clientKey, RateLimiter } from "../../shared/rateLimit";
+import { OneMinute, x402_ChallengesPerMinute } from "../../shared/constants";
+import { common } from "../../shared/common";
 
 const checkoutService = new CheckoutService();
+
+// every challenge can open an offer, so a client asking over and over is held back
+export const challengeLimiter = new RateLimiter(
+  x402_ChallengesPerMinute,
+  common.toMs(OneMinute),
+);
 
 const PayPath =
   /^\/pay\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
@@ -158,6 +167,24 @@ const settle = async (id: string, payment: PaymentPayload) => {
 const pay = async (request: Request, id: string) => {
   const signature = request.headers.get("PAYMENT-SIGNATURE");
   if (!signature) {
+    const key = clientKey(request);
+    const { allowed, retryAfterSeconds } = key
+      ? challengeLimiter.take(key)
+      : { allowed: true, retryAfterSeconds: 0 };
+
+    if (!allowed) {
+      return json(
+        429,
+        {
+          error: {
+            code: "TooManyRequests",
+            message: "Too many payment requests; try again shortly",
+          },
+        },
+        { "retry-after": String(retryAfterSeconds) },
+      );
+    }
+
     return challenge(id);
   }
 

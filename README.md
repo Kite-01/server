@@ -63,6 +63,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On chains NEAR Intents doesn't support**, payments settle to the app's address on the paying chain, even when the app has a payout set.
 - **On chains without an onchain notifier**, deposits are found by a balance check every minute, and deposit webhooks aren't sent.
 - **On chains without a gas sponsor**, the operator wallet pays the gas.
+- **Agents get 30 payment challenges a minute** from each address, told apart by the last `X-Forwarded-For` entry. A server that isn't behind a proxy doesn't limit them.
 - **x402 needs EIP-3009** on EVM chains: where the settlement token doesn't support it, agents can't pay. On NEAR, agents pay any NEP-141 token with a delegated `ft_transfer`, not native NEAR.
 - **NEAR Intents has no testnet**, so payouts only happen on mainnet.
 - **NEAR is in beta, on testnet only**: a mainnet server doesn't offer it yet.
@@ -178,6 +179,9 @@ Add a webhook URL to an app in the dashboard and Kite POSTs to it on every trans
 ```
 
 Each delivery carries `X-Kite-Timestamp` and `X-Kite-Signature`, the hex HMAC-SHA256 of `t=<timestamp>&<raw body>` keyed with the webhook's signing secret. `verifyWebhook` in `@kite-01/sdk` checks both. Failed deliveries are retried; use `eventId` to ignore repeats.
+
+- **x402 offers**: when an agent asks for a payment link, Kite opens a transfer on each network it offers. These aren't listed and send no webhook until an agent pays one.
+- **Overpayments**: what a payer sends over the price goes back to their refund address with an `ExcessRefund` event. If that refund fails on NEAR, the event's status is `Failed`, and the overpayment stays at the pay-in address to recover from the dashboard.
 
 ### Getting paid on one chain
 

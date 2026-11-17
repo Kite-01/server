@@ -43,6 +43,7 @@ import {
   ilike,
   inArray,
   isNull,
+  not,
   or,
   sql,
 } from "drizzle-orm";
@@ -464,10 +465,35 @@ export class TransferService {
         .where(
           and(eq(transfer.id, transferId), eq(transfer.status, previousStatus)),
         )
-        .returning({ appId: transfer.appId });
+        .returning({
+          appId: transfer.appId,
+          x402Offer: transfer.x402Offer,
+          x402AuthorizationNonce: transfer.x402AuthorizationNonce,
+        });
 
       if (!updated) {
         return false;
+      }
+
+      // nobody took up the offer, so there's nothing to announce or watch
+      const unusedOffer =
+        updated.x402Offer &&
+        !updated.x402AuthorizationNonce &&
+        previousStatus === TransferStatus.AwaitingDeposit &&
+        currentStatus === TransferStatus.Cancelled;
+
+      if (unusedOffer) {
+        await transaction.insert(transferTimeline).values({
+          transferId,
+          description,
+        });
+        await Scheduler.enqueueUntrack(
+          transferId,
+          0,
+          dbWithTransaction(transaction),
+        );
+
+        return true;
       }
 
       const transfer_ = await transaction.query.transfer.findFirst({
@@ -918,6 +944,57 @@ export class TransferService {
     }
   };
 
+  // The contract keeps an overpayment it couldn't send back, for instance to an account
+  // the token won't pay, so the merchant is told it's waiting to be recovered.
+  private reportStrandedExcess = async (
+    ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
+  ) => {
+    const payIn = kiteNear.payInToken(ctx.struct);
+    if (payIn === NearNativeToken) return;
+
+    const amount = await this.nearBalance(ctx, payIn);
+    if (amount === 0n) return;
+
+    const { row } = ctx;
+    const to = ctx.struct.refund_account;
+    const { symbol, decimals } = row.quote.sourceToken;
+
+    await db.transaction(async (tx) => {
+      const [createdEvent] = await tx
+        .insert(event)
+        .values({
+          appId: row.appId,
+          category: WebhookCategory.ExcessRefund,
+          currentCategoryStatus: "Failed",
+          sourceId: `excess-refund-failed:${row.id}`,
+          data: common.serializeData({
+            transferId: row.id,
+            caip2Id: ctx.caip2Id,
+            tokenAddress: payIn,
+            amount,
+            to,
+            blockchainHash: null,
+          }),
+        })
+        .onConflictDoNothing()
+        .returning({ id: event.id });
+
+      if (!createdEvent) return;
+
+      await tx.insert(transferTimeline).values({
+        transferId: row.id,
+        eventId: createdEvent.id,
+        description: `The overpayment of ${formatUnits(amount, decimals)} ${symbol} couldn't be returned to ${to}; recover it from the pay-in address`,
+      });
+
+      await Scheduler.enqueueEvent(
+        row.appId,
+        createdEvent.id,
+        dbWithTransaction(tx),
+      );
+    });
+  };
+
   // a failed close only leaves the deposits in the account, so it's logged, not thrown
   private closeNearDeposit = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
@@ -976,6 +1053,15 @@ export class TransferService {
       ctx.struct.settlement_recipient,
       ...ctx.struct.fees.map((fee) => fee.recipient),
     ]);
+
+    // whatever the payer sent over the price goes back to the refund account
+    const payIn = kiteNear.payInToken(ctx.struct);
+    if (
+      payIn !== NearNativeToken &&
+      (await this.nearBalance(ctx, payIn)) > BigInt(ctx.struct.amount_in)
+    ) {
+      await this.registerOnNearToken(ctx, payIn, [ctx.struct.refund_account]);
+    }
   };
 
   private registerOnNearToken = async (
@@ -1132,6 +1218,7 @@ export class TransferService {
     }
 
     if (!stop) {
+      await this.reportStrandedExcess(ctx);
       await this.closeNearDeposit(ctx);
       return;
     }
@@ -1194,6 +1281,10 @@ export class TransferService {
         reason: `There is nothing to refund: the pay-in address holds no ${row.quote.sourceToken.symbol}`,
       };
     }
+
+    await this.registerOnNearToken(ctx, kiteNear.payInToken(ctx.struct), [
+      ctx.struct.refund_account,
+    ]);
 
     if (status === null || status === "Uninitialized") {
       await this.deployNearDeposit(ctx);
@@ -1282,7 +1373,7 @@ export class TransferService {
     appId: string,
     quoteId: string,
     refundAddress: string,
-    { track = true } = {},
+    { track = true, x402Offer = false } = {},
   ) => {
     const result = await db
       .select({ count: count() })
@@ -1323,6 +1414,19 @@ export class TransferService {
     const chain = getChain(caip2Id);
     if (!common.isValidAddress(chain.type, refundAddress))
       throw new AppError("The refund address is not a valid address");
+    // a named account that doesn't exist is almost always a typo, and refunds to it fail
+    if (
+      chain.type === ChainType.Near &&
+      refundAddress.includes(".") &&
+      !(await getNearActor().accountExists(
+        caip2Id,
+        refundAddress,
+        config.rpcUrls ?? [],
+      ))
+    )
+      throw new AppError(
+        `The refund account ${refundAddress} doesn't exist on ${chain.name}`,
+      );
 
     const settlement = await new PayoutService().planSettlement({
       appId,
@@ -1381,6 +1485,7 @@ export class TransferService {
           kiteTransferInput:
             prepared.kiteTransferInput as typeof transfer.$inferInsert.kiteTransferInput,
           status: TransferStatus.AwaitingDeposit,
+          x402Offer,
         })
         .returning();
       const created = omit(inserted, ["trackedBy"]);
@@ -1391,34 +1496,37 @@ export class TransferService {
           .values({ ...settlement.payout, transferId: created.id });
       }
 
-      const [createdEvent] = await transaction
-        .insert(event)
-        .values({
-          appId,
-          category: WebhookCategory.Transfer,
-          previousCategoryStatus: TransferStatus.Created,
-          currentCategoryStatus: TransferStatus.AwaitingDeposit,
-          data: common.serializeData({
-            ...created,
-            quote: {
-              ...quote_,
-              chain: {
-                id: quote_.chain.id,
-                caip2Id: quote_.chain.caip2Id,
-                isActive: quote_.chain.isActive,
-                createdAt: quote_.chain.createdAt,
-                updatedAt: quote_.chain.updatedAt,
-                deletedAt: quote_.chain.deletedAt,
-              },
-            },
-            paymentInstructions,
-          }),
-        })
-        .returning({ id: event.id });
+      // an x402 offer is announced once an agent pays it, not when it's offered
+      const [createdEvent] = x402Offer
+        ? []
+        : await transaction
+            .insert(event)
+            .values({
+              appId,
+              category: WebhookCategory.Transfer,
+              previousCategoryStatus: TransferStatus.Created,
+              currentCategoryStatus: TransferStatus.AwaitingDeposit,
+              data: common.serializeData({
+                ...created,
+                quote: {
+                  ...quote_,
+                  chain: {
+                    id: quote_.chain.id,
+                    caip2Id: quote_.chain.caip2Id,
+                    isActive: quote_.chain.isActive,
+                    createdAt: quote_.chain.createdAt,
+                    updatedAt: quote_.chain.updatedAt,
+                    deletedAt: quote_.chain.deletedAt,
+                  },
+                },
+                paymentInstructions,
+              }),
+            })
+            .returning({ id: event.id });
 
       await transaction.insert(transferTimeline).values({
         transferId: created.id,
-        eventId: createdEvent.id,
+        eventId: createdEvent?.id ?? null,
         description: [
           "Transfer created; awaiting deposit",
           settlement.description,
@@ -1427,11 +1535,13 @@ export class TransferService {
           .join(". "),
       });
 
-      await Scheduler.enqueueEvent(
-        appId,
-        createdEvent.id,
-        dbWithTransaction(transaction),
-      );
+      if (createdEvent) {
+        await Scheduler.enqueueEvent(
+          appId,
+          createdEvent.id,
+          dbWithTransaction(transaction),
+        );
+      }
 
       return created;
     });
@@ -2111,6 +2221,18 @@ export class TransferService {
     });
   };
 
+  // an x402 offer no agent took up, which merchants don't need to see
+  isUnusedX402Offer = () => {
+    return and(
+      eq(transfer.x402Offer, true),
+      isNull(transfer.x402AuthorizationNonce),
+      inArray(transfer.status, [
+        TransferStatus.AwaitingDeposit,
+        TransferStatus.Cancelled,
+      ]),
+    )!;
+  };
+
   getTransfers = async (
     input: WithPageInput<{
       appId?: string;
@@ -2120,6 +2242,7 @@ export class TransferService {
   ) => {
     const pattern = input.q ? searchPattern(input.q) : undefined;
     const where = and(
+      not(this.isUnusedX402Offer()),
       input.appId ? eq(transfer.appId, input.appId) : undefined,
       input.status ? eq(transfer.status, input.status) : undefined,
       pattern

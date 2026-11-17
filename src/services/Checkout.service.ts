@@ -315,18 +315,10 @@ export class CheckoutService {
       sourceTokenAddress: chain.config.settlementToken.address,
     });
     // the facilitator settles it and the sweep polls it, so no notifier is needed
-    const opened = await new x402Service().createTransfer(
-      link.appId,
-      created.id,
-      { track: false },
-    );
-
-    await db
-      .update(transfer)
-      .set({ x402Offer: true })
-      .where(eq(transfer.id, opened.id));
-
-    return opened;
+    return new x402Service().createTransfer(link.appId, created.id, {
+      track: false,
+      x402Offer: true,
+    });
   };
 
   offerX402 = async (paymentLinkId: string) => {
