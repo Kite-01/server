@@ -475,7 +475,6 @@ export class TransferService {
         return false;
       }
 
-      // nobody took up the offer, so there's nothing to announce or watch
       const unusedOffer =
         updated.x402Offer &&
         !updated.x402AuthorizationNonce &&
@@ -944,8 +943,6 @@ export class TransferService {
     }
   };
 
-  // The contract keeps an overpayment it couldn't send back, for instance to an account
-  // the token won't pay, so the merchant is told it's waiting to be recovered.
   private reportStrandedExcess = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
@@ -973,7 +970,6 @@ export class TransferService {
             tokenAddress: payIn,
             amount,
             to,
-            blockchainHash: null,
           }),
         })
         .onConflictDoNothing()
@@ -1054,7 +1050,6 @@ export class TransferService {
       ...ctx.struct.fees.map((fee) => fee.recipient),
     ]);
 
-    // whatever the payer sent over the price goes back to the refund account
     const payIn = kiteNear.payInToken(ctx.struct);
     if (
       payIn !== NearNativeToken &&
@@ -1414,7 +1409,6 @@ export class TransferService {
     const chain = getChain(caip2Id);
     if (!common.isValidAddress(chain.type, refundAddress))
       throw new AppError("The refund address is not a valid address");
-    // a named account that doesn't exist is almost always a typo, and refunds to it fail
     if (
       chain.type === ChainType.Near &&
       refundAddress.includes(".") &&
@@ -1496,7 +1490,6 @@ export class TransferService {
           .values({ ...settlement.payout, transferId: created.id });
       }
 
-      // an x402 offer is announced once an agent pays it, not when it's offered
       const [createdEvent] = x402Offer
         ? []
         : await transaction
@@ -2221,18 +2214,6 @@ export class TransferService {
     });
   };
 
-  // an x402 offer no agent took up, which merchants don't need to see
-  isUnusedX402Offer = () => {
-    return and(
-      eq(transfer.x402Offer, true),
-      isNull(transfer.x402AuthorizationNonce),
-      inArray(transfer.status, [
-        TransferStatus.AwaitingDeposit,
-        TransferStatus.Cancelled,
-      ]),
-    )!;
-  };
-
   getTransfers = async (
     input: WithPageInput<{
       appId?: string;
@@ -2242,7 +2223,16 @@ export class TransferService {
   ) => {
     const pattern = input.q ? searchPattern(input.q) : undefined;
     const where = and(
-      not(this.isUnusedX402Offer()),
+      not(
+        and(
+          eq(transfer.x402Offer, true),
+          isNull(transfer.x402AuthorizationNonce),
+          inArray(transfer.status, [
+            TransferStatus.AwaitingDeposit,
+            TransferStatus.Cancelled,
+          ]),
+        )!,
+      ),
       input.appId ? eq(transfer.appId, input.appId) : undefined,
       input.status ? eq(transfer.status, input.status) : undefined,
       pattern

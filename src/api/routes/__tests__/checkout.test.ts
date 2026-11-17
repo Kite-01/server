@@ -47,8 +47,6 @@ import { eq } from "drizzle-orm";
 import { db } from "../../../db";
 import { runProviderMethod } from "../../../shared/providers";
 import { TransferService } from "../../../services/Transfer.service";
-import { challengeLimiter } from "../pay";
-import { x402_ChallengesPerMinute } from "../../../shared/constants";
 
 const facilitator = vi.hoisted(() => ({
   verify: vi.fn(),
@@ -586,39 +584,6 @@ describe("checkout", () => {
       const listed = await client(rootCredentials(appId)).get("/api/transfers");
       expect(listed.json.total).toBe(1);
       expect(await db.$count(eventTable)).toBeGreaterThan(0);
-    });
-
-    it("holds back a client asking for too many challenges", async () => {
-      challengeLimiter.reset();
-      const from = (ip: string) => ({ "x-forwarded-for": `9.9.9.9, ${ip}` });
-
-      for (let i = 0; i < x402_ChallengesPerMinute; i++) {
-        expect((await agent(link.id, from("1.2.3.4"))).status).toBe(402);
-      }
-      const limited = await agent(link.id, from("1.2.3.4"));
-      const other = await agent(link.id, from("5.6.7.8"));
-      challengeLimiter.reset();
-
-      expect(limited.status).toBe(429);
-      expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
-      expect(other.status).toBe(402);
-    });
-
-    it("doesn't hold back a client paying", async () => {
-      challengeLimiter.reset();
-      const from = { "x-forwarded-for": "1.2.3.4" };
-      const required = await challengeFor(link.id);
-      for (let i = 0; i < x402_ChallengesPerMinute; i++) {
-        await agent(link.id, from);
-      }
-
-      const paid = await agent(link.id, {
-        ...from,
-        "PAYMENT-SIGNATURE": sign(required, "11"),
-      });
-      challengeLimiter.reset();
-
-      expect(paid.status).toBe(200);
     });
 
     it("makes a new offer once the link changes", async () => {

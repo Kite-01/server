@@ -63,7 +63,6 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On chains NEAR Intents doesn't support**, payments settle to the app's address on the paying chain, even when the app has a payout set.
 - **On chains without an onchain notifier**, deposits are found by a balance check every minute, and deposit webhooks aren't sent.
 - **On chains without a gas sponsor**, the operator wallet pays the gas.
-- **Agents get 30 payment challenges a minute** from each address, told apart by the last `X-Forwarded-For` entry. A server that isn't behind a proxy doesn't limit them.
 - **x402 needs EIP-3009** on EVM chains: where the settlement token doesn't support it, agents can't pay. On NEAR, agents pay any NEP-141 token with a delegated `ft_transfer`, not native NEAR.
 - **NEAR Intents has no testnet**, so payouts only happen on mainnet.
 - **NEAR is in beta, on testnet only**: a mainnet server doesn't offer it yet.
