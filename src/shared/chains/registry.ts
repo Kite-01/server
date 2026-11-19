@@ -24,6 +24,8 @@ import {
   unichainSepolia,
   arc,
   arcTestnet,
+  avalanche,
+  avalancheFuji,
 } from "viem/chains";
 import { Address, zeroAddress } from "viem";
 import { ChainType } from "../constants";
@@ -424,6 +426,34 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
   },
+  "eip155:43114": {
+    caip2Id: "eip155:43114",
+    type: ChainType.Evm,
+    chainId: avalanche.id,
+    name: avalanche.name,
+    icon: icon("avalanchec"),
+    publicRpcUrls: avalanche.rpcUrls.default.http,
+    confirmations: 1,
+    blockExplorer: {
+      name: avalanche.blockExplorers.default.name,
+      url: avalanche.blockExplorers.default.url,
+    },
+    nativeCurrency: avalanche.nativeCurrency,
+    descriptors: {
+      NearIntents: "avax",
+      TrustWallet: "avalanchec",
+      Alchemy: "AVAX_MAINNET",
+      QuickNode: "avalanche-mainnet",
+    },
+    contracts: {
+      multicall3: avalanche.contracts.multicall3,
+      WETH9: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+      Uniswap: {
+        SwapRouter02: "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE",
+        UniswapV2Router02: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+      },
+    },
+  },
   "eip155:44001": {
     caip2Id: "eip155:44001",
     type: ChainType.Evm,
@@ -777,6 +807,28 @@ export const Chains: Record<Caip2Id, Chain> = {
          */
         UniswapV2Router02: "0x26ec2aFBDFdFB972F106100A3deaE5887353d9B9",
       },
+    },
+  },
+  "eip155:43113": {
+    caip2Id: "eip155:43113",
+    type: ChainType.Evm,
+    chainId: avalancheFuji.id,
+    name: avalancheFuji.name,
+    icon: icon("avalanchec"),
+    testnet: avalancheFuji.testnet,
+    publicRpcUrls: avalancheFuji.rpcUrls.default.http,
+    confirmations: 1,
+    blockExplorer: {
+      name: avalancheFuji.blockExplorers.default.name,
+      url: avalancheFuji.blockExplorers.default.url,
+    },
+    nativeCurrency: avalancheFuji.nativeCurrency,
+    descriptors: {
+      Alchemy: "AVAX_FUJI",
+    },
+    contracts: {
+      multicall3: avalancheFuji.contracts.multicall3,
+      WETH9: "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
     },
   },
   "eip155:44005": {
