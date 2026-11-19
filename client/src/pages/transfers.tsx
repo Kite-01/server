@@ -20,6 +20,7 @@ import type { TransferListItem } from "@/api/types.gen";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -350,7 +351,11 @@ export const Transfers = () => {
 
   return (
     <>
-      <PageHeader title="Transfers" />
+      <PageHeader
+        title="Transfers"
+        description="Every payment into this app, from quote to settlement."
+        docs={docs.transfers}
+      />
 
       <DataTable
         exportName="transfers"

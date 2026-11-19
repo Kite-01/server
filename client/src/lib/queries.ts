@@ -6,7 +6,11 @@ import {
 import { createContext, useContext } from "react";
 import { toast } from "sonner";
 
-export const AppScope = createContext<{ appId?: string; name?: string }>({});
+export const AppScope = createContext<{
+  appId?: string;
+  name?: string;
+  icon?: string | null;
+}>({});
 
 export const useAppScope = () => useContext(AppScope);
 

@@ -18,7 +18,7 @@ export const DropdownMenuContent = ({
     <Primitive.Content
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-48 rounded-xl border border-line bg-surface p-1 shadow-lg",
+        "z-50 min-w-48 rounded-2xl border border-line bg-surface p-1.5 shadow-[0_16px_48px_-12px_rgb(0_0_0/0.18)]",
         className,
       )}
       {...props}
@@ -32,7 +32,7 @@ export const DropdownMenuItem = ({
 }: ComponentProps<typeof Primitive.Item>) => (
   <Primitive.Item
     className={cn(
-      "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-soft",
+      "flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-soft",
       className,
     )}
     {...props}

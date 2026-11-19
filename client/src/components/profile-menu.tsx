@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { IconPower, IconSettings2 } from "@tabler/icons-react";
+import { IconPower, IconSelector } from "@tabler/icons-react";
 import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { CopyButton } from "@/components/copy-button";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +26,25 @@ export const ProfileMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="Account">
-          <IconSettings2 className="size-4.5" stroke={1.6} />
-        </Button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 rounded-2xl p-2 text-start transition-colors hover:bg-black/[0.04] data-[state=open]:bg-black/[0.04]"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-line bg-surface">
+            <img src="/icon.svg" alt="" className="h-3.5 w-auto" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">Operator</span>
+            <span className="block truncate text-xs text-muted">
+              {data ? `Kite v${data.version}` : "Root key"}
+            </span>
+          </span>
+          <IconSelector className="size-4 shrink-0 text-muted" />
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
+      <DropdownMenuContent align="start" side="top" className="w-72 p-0">
         <div className="flex items-center justify-between p-4 text-sm">
+          <span className="font-medium">Operator wallets</span>
           {data ? (
             <Badge variant={"count"}>v{data.version}</Badge>
           ) : (
@@ -42,15 +54,13 @@ export const ProfileMenu = () => {
 
         {!!data?.operators.length && (
           <>
-            <div className="space-y-1 px-4">
-              <p className="text-xs font-medium text-muted">Addresses</p>
-
+            <div className="space-y-1 px-4 pb-2">
               {data.operators.map((operator) => (
                 <div
                   key={operator.chainType}
                   className="w-full flex items-center justify-between text-sm"
                 >
-                  <p className="font-display font-medium">
+                  <p className="font-medium">
                     {chainTypeLabels[operator.chainType]}
                   </p>
 

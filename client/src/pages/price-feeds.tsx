@@ -11,6 +11,7 @@ import type { PriceFeedWithChain } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
@@ -47,7 +48,11 @@ export const PriceFeeds = () => {
 
   return (
     <>
-      <PageHeader title="Price feeds" />
+      <PageHeader
+        title="Price feeds"
+        description="Where token prices come from when quoting a payment."
+        docs={docs.pricing}
+      />
 
       <SimpleTable
         exportName="price-feeds"

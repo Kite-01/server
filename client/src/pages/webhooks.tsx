@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { CheckboxGroup, Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Badge } from "@/components/ui/badge";
@@ -207,7 +208,11 @@ export const Webhooks = () => {
 
   return (
     <>
-      <PageHeader title="Webhooks" />
+      <PageHeader
+        title="Webhooks"
+        description="Endpoints Kite signs and sends an event to whenever something changes."
+        docs={docs.webhooks}
+      />
 
       <DataTable
         exportName="webhooks"

@@ -21,6 +21,7 @@ import type { App } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
-import SmartImage from "@/components/smart-image";
+import { AppAvatar } from "@/components/app-avatar";
 import None from "@/components/none";
 
 const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
@@ -187,7 +188,11 @@ export const Apps = () => {
 
   return (
     <>
-      <PageHeader title="Apps" />
+      <PageHeader
+        title="Apps"
+        description="Each product or business taking payments, with its own chains, keys and customers."
+        docs={docs.apps}
+      />
 
       <DataTable
         exportName="apps"
@@ -212,7 +217,7 @@ export const Apps = () => {
             header: "App",
             cell: (row) => (
               <div className="flex items-center gap-3 w-max">
-                <SmartImage url={row.icon} />
+                <AppAvatar name={row.name} icon={row.icon} className="size-9" />
                 <span className="font-medium">{row.name}</span>
               </div>
             ),

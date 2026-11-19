@@ -28,8 +28,7 @@ import { Transfers } from "@/pages/transfers";
 import { Webhooks } from "@/pages/webhooks";
 import { AppChains } from "@/pages/app-chains";
 
-// The public checkout, split out so its wallet code isn't loaded with the
-// dashboard.
+// Split out so its wallet code isn't loaded with the dashboard.
 const Pay = lazy(() => import("@/pages/pay").then((m) => ({ default: m.Pay })));
 
 const AppRoute = () => {
@@ -41,7 +40,7 @@ const AppRoute = () => {
   if (error) return <Navigate to="/apps" replace />;
 
   return (
-    <AppScope.Provider value={{ appId, name: data?.name }}>
+    <AppScope.Provider value={{ appId, name: data?.name, icon: data?.icon }}>
       <Shell />
     </AppScope.Provider>
   );

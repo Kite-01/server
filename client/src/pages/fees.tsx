@@ -25,6 +25,7 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Badge } from "@/components/ui/badge";
@@ -279,7 +280,11 @@ export const Fees = () => {
 
   return (
     <>
-      <PageHeader title="Fees" />
+      <PageHeader
+        title="Fees"
+        description="What gets taken from each payment, and where it goes."
+        docs={docs.fees}
+      />
 
       <DataTable
         exportName="fees"

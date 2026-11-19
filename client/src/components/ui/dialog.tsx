@@ -22,16 +22,16 @@ export const Dialog = ({
 }: DialogProps) => (
   <Primitive.Root open={open} onOpenChange={onOpenChange}>
     <Primitive.Portal>
-      <Primitive.Overlay className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] data-[state=closed]:animate-[fade-out_150ms] data-[state=open]:animate-[fade-in_150ms]" />
+      <Primitive.Overlay className="fixed inset-0 z-40 bg-black/25 data-[state=closed]:animate-[fade-out_150ms] data-[state=open]:animate-[fade-in_150ms]" />
       <Primitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface p-6 shadow-xl focus:outline-none data-[state=open]:animate-[fade-in_150ms]",
+          "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl bg-surface p-7 shadow-[0_24px_80px_-12px_rgb(0_0_0/0.25)] focus:outline-none data-[state=open]:animate-[pop-dialog_180ms_cubic-bezier(0.2,0.8,0.2,1)]",
           className,
         )}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <Primitive.Title className="text-lg font-semibold">
+            <Primitive.Title className="text-xl font-medium tracking-tight">
               {title}
             </Primitive.Title>
             <Primitive.Description
@@ -43,7 +43,7 @@ export const Dialog = ({
               {description ?? title}
             </Primitive.Description>
           </div>
-          <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-soft hover:text-ink">
+          <Primitive.Close className="rounded-full border border-line p-2 text-muted transition-colors hover:bg-soft hover:text-ink">
             <IconX className="size-4" />
             <span className="sr-only">Close</span>
           </Primitive.Close>

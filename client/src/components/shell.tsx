@@ -1,101 +1,192 @@
 import {
   type Icon,
-  IconDashboard,
-  IconBlocks,
-  IconDiscount2,
   IconAppWindow,
+  IconArrowsExchange,
+  IconBlocks,
+  IconBook2,
+  IconBraces,
+  IconChevronLeft,
+  IconDatabase,
+  IconDiscount2,
+  IconKey,
+  IconLayoutGrid,
+  IconMenu2,
+  IconPaywall,
+  IconReceipt2,
   IconSecretPhrases,
   IconTag,
   IconUserCircle,
-  IconKey,
-  IconPaywall,
-  IconReceipt2,
-  IconArrowsExchange,
   IconWebhook,
-  IconMenu,
   IconX,
-  IconInfoCircle,
-  IconDatabase,
 } from "@tabler/icons-react";
-import { Dialog } from "radix-ui";
 import { useQuery } from "@tanstack/react-query";
+import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { Logo } from "@/components/logo";
 import { ProfileMenu } from "@/components/profile-menu";
+import { AppAvatar } from "@/components/app-avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { docs } from "@/lib/docs";
 import { useAppScope } from "@/lib/queries";
-import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
+import { cn } from "@/lib/utils";
 
-type Item = {
-  to: string;
-  label: string;
-  icon: Icon;
-  end?: boolean;
-};
+type Item = { to: string; label: string; icon: Icon; end?: boolean };
+type Group = { label?: string; items: Item[] };
 
 const DemoHidden = ["/providers", "/kv"];
 
-const rootItems: Item[] = [
-  { to: "/", label: "Dashboard", icon: IconDashboard, end: true },
-  { to: "/chains", label: "Chains", icon: IconBlocks },
-  { to: "/fees", label: "Fees", icon: IconDiscount2 },
-  { to: "/apps", label: "Apps", icon: IconAppWindow },
-  { to: "/providers", label: "Providers", icon: IconSecretPhrases },
-  { to: "/kv", label: "KV", icon: IconDatabase },
-  { to: "/price-feeds", label: "Price feeds", icon: IconTag },
+const rootGroups: Group[] = [
+  {
+    items: [
+      { to: "/", label: "Overview", icon: IconLayoutGrid, end: true },
+      { to: "/apps", label: "Apps", icon: IconAppWindow },
+    ],
+  },
+  {
+    label: "Network",
+    items: [
+      { to: "/chains", label: "Chains", icon: IconBlocks },
+      { to: "/fees", label: "Fees", icon: IconDiscount2 },
+      { to: "/price-feeds", label: "Price feeds", icon: IconTag },
+    ],
+  },
+  {
+    label: "Server",
+    items: [
+      { to: "/providers", label: "Providers", icon: IconSecretPhrases },
+      { to: "/kv", label: "KV store", icon: IconDatabase },
+    ],
+  },
 ];
 
-const appItems = (base: string): Item[] => [
-  { to: base, label: "Dashboard", icon: IconDashboard, end: true },
-  { to: `${base}/chains`, label: "Chains", icon: IconBlocks },
-  { to: `${base}/fees`, label: "Fees", icon: IconDiscount2 },
-  { to: `${base}/customers`, label: "Customers", icon: IconUserCircle },
-  { to: `${base}/api-keys`, label: "API keys", icon: IconKey },
-  { to: `${base}/payment-links`, label: "Payment links", icon: IconPaywall },
-  { to: `${base}/quotes`, label: "Quotes", icon: IconReceipt2 },
-  { to: `${base}/transfers`, label: "Transfers", icon: IconArrowsExchange },
-  { to: `${base}/webhooks`, label: "Webhooks", icon: IconWebhook },
+const appGroups = (base: string): Group[] => [
+  {
+    items: [{ to: base, label: "Overview", icon: IconLayoutGrid, end: true }],
+  },
+  {
+    label: "Payments",
+    items: [
+      { to: `${base}/transfers`, label: "Transfers", icon: IconArrowsExchange },
+      {
+        to: `${base}/payment-links`,
+        label: "Payment links",
+        icon: IconPaywall,
+      },
+      { to: `${base}/quotes`, label: "Quotes", icon: IconReceipt2 },
+      { to: `${base}/customers`, label: "Customers", icon: IconUserCircle },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { to: `${base}/chains`, label: "Chains", icon: IconBlocks },
+      { to: `${base}/fees`, label: "Fees", icon: IconDiscount2 },
+      { to: `${base}/api-keys`, label: "API keys", icon: IconKey },
+      { to: `${base}/webhooks`, label: "Webhooks", icon: IconWebhook },
+    ],
+  },
 ];
 
-const Nav = ({ items }: { items: Item[] }) => (
-  <nav className="flex flex-col gap-0.5">
-    {items.map((item) => (
-      <NavLink
-        key={item.to}
-        to={item.to}
-        end={item.end}
-        className={({ isActive }) =>
-          cn(
-            "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors",
-            isActive
-              ? "bg-soft font-medium text-ink"
-              : "text-muted hover:bg-soft/70 hover:text-ink",
-          )
-        }
-      >
-        <item.icon className="size-4.5" stroke={1.6} />
-        {item.label}
-      </NavLink>
+const row =
+  "flex h-9.5 items-center gap-3 rounded-xl px-3 text-[15px] transition-colors";
+
+const Nav = ({ groups }: { groups: Group[] }) => (
+  <nav className="flex flex-col gap-5">
+    {groups.map((group, i) => (
+      <div key={group.label ?? i} className="flex flex-col gap-0.5">
+        {group.label ? (
+          <p className="px-3 pb-1.5 text-[13px] text-muted">{group.label}</p>
+        ) : null}
+        {group.items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              cn(
+                row,
+                isActive
+                  ? "bg-ink text-white shadow-[0_6px_16px_-6px_rgb(0_0_0/0.45)]"
+                  : "text-ink/75 hover:bg-black/[0.04] hover:text-ink",
+              )
+            }
+          >
+            <item.icon className="size-[18px] shrink-0" stroke={1.6} />
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
     ))}
   </nav>
 );
 
-const Sidebar = ({ items }: { items: Item[] }) => (
-  <>
-    <Logo imgClassName="size-7" className="px-1 text-xl" />
-    <Nav items={items} />
-  </>
+const AppSwitch = () => {
+  const { appId, name, icon } = useAppScope();
+  if (!appId) return null;
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-1.5">
+      <div className="flex items-center gap-2.5 p-1.5">
+        <AppAvatar name={name ?? "App"} icon={icon} className="size-8" />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{name ?? "App"}</p>
+          <p className="text-xs text-muted">Changes apply to this app</p>
+        </div>
+      </div>
+      <Link
+        to="/apps"
+        className="mt-1 flex h-8 items-center gap-1 rounded-xl px-2 text-[13px] text-muted transition-colors hover:bg-soft hover:text-ink"
+      >
+        <IconChevronLeft className="size-3.5" />
+        All apps
+      </Link>
+    </div>
+  );
+};
+
+const Resources = () => (
+  <div className="flex flex-col gap-0.5">
+    {[
+      { href: docs.home, label: "Documentation", icon: IconBook2 },
+      { href: "/openapi", label: "API reference", icon: IconBraces },
+    ].map((link) => (
+      <a
+        key={link.href}
+        href={link.href}
+        target="_blank"
+        rel="noreferrer"
+        className={cn(row, "text-ink/75 hover:bg-black/[0.04] hover:text-ink")}
+      >
+        <link.icon className="size-[18px] shrink-0" stroke={1.6} />
+        {link.label}
+      </a>
+    ))}
+  </div>
 );
 
-const MobileNav = ({ items }: { items: Item[] }) => {
+const Sidebar = ({ groups }: { groups: Group[] }) => (
+  <div className="flex min-h-full flex-col gap-5">
+    <Link to="/" className="px-3 pt-1">
+      <Logo />
+    </Link>
+    <AppSwitch />
+    <Nav groups={groups} />
+    <div className="mt-auto flex flex-col gap-3">
+      <Resources />
+      <ProfileMenu />
+    </div>
+  </div>
+);
+
+const MobileNav = ({ groups }: { groups: Group[] }) => {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
-    const wide = window.matchMedia("(min-width: 768px)");
+    const wide = window.matchMedia("(min-width: 1024px)");
     const close = (event: MediaQueryListEvent) =>
       event.matches && setOpen(false);
 
@@ -109,16 +200,16 @@ const MobileNav = ({ items }: { items: Item[] }) => {
         <Button
           variant="ghost"
           size="icon"
-          className="-ml-2 md:hidden"
+          className="-ms-2 lg:hidden"
           aria-label="Open navigation"
         >
-          <IconMenu className="size-5" />
+          <IconMenu2 className="size-5" />
         </Button>
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=closed]:animate-[fade-out_150ms] data-[state=open]:animate-[fade-in_150ms] md:hidden" />
-        <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 shadow-xl focus:outline-none data-[state=closed]:animate-[drawer-out_200ms_ease-in] data-[state=open]:animate-[drawer-in_200ms_ease-out] md:hidden">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=closed]:animate-[fade-out_150ms] data-[state=open]:animate-[fade-in_150ms] lg:hidden" />
+        <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-76 max-w-[85vw] overflow-y-auto bg-page p-4 shadow-xl focus:outline-none data-[state=closed]:animate-[drawer-out_200ms_ease-in] data-[state=open]:animate-[drawer-in_200ms_ease-out] lg:hidden">
           <div className="absolute right-3 top-3">
             <Dialog.Close asChild>
               <Button
@@ -130,13 +221,11 @@ const MobileNav = ({ items }: { items: Item[] }) => {
               </Button>
             </Dialog.Close>
           </div>
-
           <Dialog.Title className="sr-only">Navigation</Dialog.Title>
           <Dialog.Description className="sr-only">
             Pages of the dashboard
           </Dialog.Description>
-
-          <Sidebar items={items} />
+          <Sidebar groups={groups} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -144,67 +233,49 @@ const MobileNav = ({ items }: { items: Item[] }) => {
 };
 
 export const Shell = () => {
-  const { appId, name } = useAppScope();
-  const navigate = useNavigate();
+  const { appId } = useAppScope();
   const { data: info } = useQuery(overviewInfoOptions());
-  const items = appId
-    ? appItems(`/apps/${appId}`)
-    : rootItems.filter((item) => !info?.demo || !DemoHidden.includes(item.to));
+  const groups = appId
+    ? appGroups(`/apps/${appId}`)
+    : rootGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(
+            (item) => !info?.demo || !DemoHidden.includes(item.to),
+          ),
+        }))
+        .filter((group) => group.items.length);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-400 flex-col bg-surface/10">
-      {appId && (
-        // one line on wider screens, so the sidebar can stick right below it
-        <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2.5 text-sm font-medium text-white md:h-14 md:flex-nowrap">
-          <span className="flex min-w-0 items-center gap-2">
-            <IconInfoCircle className="size-4 shrink-0" />
-            <span className="md:truncate">
-              You are viewing {name ?? "this app"}, changes you make here apply
-              to this app.
-            </span>
-          </span>
+    <div className="mx-auto flex min-h-full max-w-[1600px]">
+      <aside className="sticky top-0 hidden h-dvh w-68 shrink-0 overflow-y-auto px-4 py-6 lg:block">
+        <Sidebar groups={groups} />
+      </aside>
 
-          <Button
-            size="sm"
-            className="h-9 shrink-0 px-4.5"
-            onClick={() => navigate("/apps")}
-          >
-            Back to apps
-          </Button>
-        </div>
-      )}
-      <div className="flex min-h-full">
-        <aside
-          className={cn(
-            "sticky hidden w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 md:flex",
-            appId ? "top-14 h-[calc(100vh-3.5rem)]" : "top-0 h-screen",
-          )}
-        >
-          <Sidebar items={items} />
-        </aside>
-
-        <main className="min-w-0 flex-1">
-          <header className="flex h-14 items-center justify-between gap-4 px-4 sm:px-8 md:justify-end">
-            <div className="flex items-center gap-1 md:hidden">
-              <MobileNav items={items} />
-              <Logo imgClassName="size-7" hideLabel />
-            </div>
-
-            <div className="flex items-center gap-3">
-              {info?.demo && (
-                <span className="rounded-full bg-soft px-2.5 py-1 text-xs font-medium text-muted">
-                  View only
-                </span>
-              )}
-              <ProfileMenu />
-            </div>
-          </header>
-
-          <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-8">
-            <Outlet />
+      <main className="min-w-0 flex-1">
+        <header className="flex h-16 items-center justify-between gap-4 px-4 sm:px-8 lg:hidden">
+          <div className="flex items-center gap-1">
+            <MobileNav groups={groups} />
+            <Link to="/">
+              <Logo />
+            </Link>
           </div>
-        </main>
-      </div>
+          {info?.demo && (
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted">
+              View only
+            </span>
+          )}
+        </header>
+
+        <div className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-2 sm:px-8 lg:pt-12">
+          {info?.demo && (
+            <p className="mb-6 hidden w-fit rounded-full bg-surface px-3 py-1 text-xs font-medium text-muted lg:block">
+              View only
+            </p>
+          )}
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 };

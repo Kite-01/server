@@ -15,6 +15,7 @@ import { tokensGetByAddress } from "@/api/sdk.gen";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Badge } from "@/components/ui/badge";
@@ -141,7 +142,11 @@ export const Quotes = () => {
 
   return (
     <>
-      <PageHeader title="Quotes" />
+      <PageHeader
+        title="Quotes"
+        description="Prices offered to customers, each valid for a few minutes."
+        docs={docs.checkout}
+      />
 
       <DataTable
         exportName="quotes"

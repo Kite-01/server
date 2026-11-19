@@ -26,6 +26,7 @@ import {
   lineItemsTotal,
   toLineItemRows,
 } from "@/components/line-items-builder";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Button } from "@/components/ui/button";
@@ -206,7 +207,11 @@ export const PaymentLinks = () => {
 
   return (
     <>
-      <PageHeader title="Payment links" />
+      <PageHeader
+        title="Payment links"
+        description="Links people pay from any wallet, and agents pay over x402."
+        docs={docs.paymentLinks}
+      />
 
       <DataTable
         exportName="payment-links"

@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
+import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import {
@@ -108,7 +109,11 @@ export const Customers = () => {
 
   return (
     <>
-      <PageHeader title="Customers" />
+      <PageHeader
+        title="Customers"
+        description="Everyone who has paid this app, by the ID your system gave them."
+        docs={docs.customers}
+      />
 
       <DataTable
         exportName="customers"
@@ -133,7 +138,7 @@ export const Customers = () => {
             exportValue: (row) => row.name ?? row.externalId,
             cell: (row) => (
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-full bg-pending/10 text-xs font-semibold text-pending">
+                <span className="flex size-9 items-center justify-center rounded-full bg-soft text-xs font-medium text-ink">
                   {initials(row.name ?? row.externalId)}
                 </span>
                 <div>
