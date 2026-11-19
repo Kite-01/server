@@ -12,6 +12,7 @@ import {
 import {
   app as appTable,
   chainConfig as chainConfigTable,
+  event as eventTable,
   paymentLink as paymentLinkTable,
   priceFeed,
   token as tokenTable,
@@ -45,6 +46,7 @@ import { kite } from "../../../shared/kiteContract";
 import { eq } from "drizzle-orm";
 import { db } from "../../../db";
 import { runProviderMethod } from "../../../shared/providers";
+import { TransferService } from "../../../services/Transfer.service";
 
 const facilitator = vi.hoisted(() => ({
   verify: vi.fn(),
@@ -534,6 +536,54 @@ describe("checkout", () => {
         expect.anything(),
         expect.anything(),
       );
+    });
+
+    it("keeps an offer no agent has paid out of the transfers and webhooks", async () => {
+      await challengeFor(link.id);
+
+      const listed = await client(rootCredentials(appId)).get("/api/transfers");
+
+      expect(listed.json.total).toBe(0);
+      expect(await db.$count(transferTable)).toBe(1);
+      expect(await db.$count(eventTable)).toBe(0);
+      expect(schedulerMock.enqueueEvent).not.toHaveBeenCalled();
+    });
+
+    it("lets an expired offer go without announcing or watching it", async () => {
+      const required = await challengeFor(link.id);
+      const [offer] = await db.select().from(transferTable);
+      expect(offer.payinAddress).toBe(required.accepts[0].payTo);
+
+      await new TransferService().transitionTransferStatus(
+        offer.id,
+        TransferStatus.AwaitingDeposit,
+        TransferStatus.Cancelled,
+        "Quote expired",
+      );
+
+      const [cancelled] = await db.select().from(transferTable);
+      expect(cancelled.status).toBe(TransferStatus.Cancelled);
+      expect(await db.$count(eventTable)).toBe(0);
+      expect(schedulerMock.enqueueUntrack).toHaveBeenCalledWith(
+        offer.id,
+        0,
+        expect.anything(),
+      );
+      const listed = await client(rootCredentials(appId)).get("/api/transfers");
+      expect(listed.json.total).toBe(0);
+    });
+
+    it("shows an offer and announces it once an agent pays it", async () => {
+      const required = await challengeFor(link.id);
+
+      const paid = await agent(link.id, {
+        "PAYMENT-SIGNATURE": sign(required, "11"),
+      });
+      expect(paid.status).toBe(200);
+
+      const listed = await client(rootCredentials(appId)).get("/api/transfers");
+      expect(listed.json.total).toBe(1);
+      expect(await db.$count(eventTable)).toBeGreaterThan(0);
     });
 
     it("makes a new offer once the link changes", async () => {

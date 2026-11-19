@@ -779,7 +779,7 @@ export class x402Service {
   createTransfer = async (
     appId: string,
     quoteId: string,
-    options?: { track?: boolean },
+    options?: { track?: boolean; x402Offer?: boolean },
   ) => {
     const quote_ = await db.query.quote.findFirst({
       where: eq(quote.id, quoteId),

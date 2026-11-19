@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
-import { quote as quoteTable, quoteFee, transfer } from "../../db/schema";
+import {
+  event as eventTable,
+  quote as quoteTable,
+  quoteFee,
+  transfer,
+  transferTimeline,
+} from "../../db/schema";
 import {
   NEAR_CAIP2 as CAIP2,
   NEAR_FACTORY as FACTORY,
@@ -64,6 +70,35 @@ describe("TransferService on NEAR", () => {
     });
     fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
     return service.createTransfer(appId, quote.id, PAYER);
+  };
+
+  const storageDeposits = () =>
+    fakeNearActor.functionCall.mock.calls
+      .slice(1)
+      .flatMap(
+        ([, calls]) =>
+          [calls].flat() as Array<{
+            contractId: string;
+            method: string;
+            args: { account_id?: string };
+          }>,
+      )
+      .filter((call) => call.method === "storage_deposit")
+      .map((call) => [call.contractId, call.args.account_id]);
+
+  const unregister = (account: string) => {
+    const views = fakeNearActor.view.getMockImplementation()!;
+    fakeNearActor.view.mockImplementation(async (...args: unknown[]) => {
+      const [, , method, params] = args as [
+        unknown,
+        string,
+        string,
+        { account_id?: string },
+      ];
+      if (method === "storage_balance_of" && params.account_id === account)
+        return null;
+      return views(...args);
+    });
   };
 
   describe("createTransfer", () => {
@@ -151,6 +186,39 @@ describe("TransferService on NEAR", () => {
       await expect(
         service.createTransfer(appId, quote.id, "Payer.NEAR"),
       ).rejects.toThrow("The refund address is not a valid address");
+    });
+
+    it("refuses a named refund account that doesn't exist", async () => {
+      const quote = await createQuoteRowFor({
+        appId,
+        chainId,
+        sourceTokenId: usdcId,
+        targetTokenId: usdcId,
+      });
+      fakeNearActor.accountExists.mockResolvedValueOnce(false);
+
+      await expect(
+        service.createTransfer(appId, quote.id, "payre.near"),
+      ).rejects.toThrow("The refund account payre.near doesn't exist");
+    });
+
+    it("takes an implicit refund account that has no state yet", async () => {
+      fakeNearActor.accountExists.mockResolvedValue(false);
+      const quote = await createQuoteRowFor({
+        appId,
+        chainId,
+        sourceTokenId: usdcId,
+        targetTokenId: usdcId,
+      });
+      fakeNearActor.functionCall.mockResolvedValueOnce(outcome([]));
+
+      const created = await service.createTransfer(
+        appId,
+        quote.id,
+        "a".repeat(64),
+      );
+
+      expect(created.refundAddress).toBe("a".repeat(64));
     });
 
     it("sends nothing on-chain for a native NEAR transfer", async () => {
@@ -334,6 +402,101 @@ describe("TransferService on NEAR", () => {
       const row = await reload(created.id);
       expect(row.status).toBe(TransferStatus.Settled);
       expect(row.settlementBlockchainHash).toBe("TxHash111");
+    });
+
+    it("registers the refund account before returning an overpayment", async () => {
+      const created = await create();
+      unregister(PAYER);
+      fakeNearActor.getBalance.mockResolvedValue(1_500_000n);
+      fakeNearActor.functionCall.mockResolvedValue(outcome([]));
+
+      await service.settleTransfer(created.id).catch(() => undefined);
+
+      expect(storageDeposits()).toEqual([
+        [USDC, SHOP],
+        [USDC, PAYER],
+      ]);
+    });
+
+    it("doesn't register the refund account when nothing was overpaid", async () => {
+      const created = await create();
+      unregister(PAYER);
+      fakeNearActor.getBalance.mockResolvedValue(1_000_000n);
+      fakeNearActor.functionCall.mockResolvedValue(outcome([]));
+
+      await service.settleTransfer(created.id).catch(() => undefined);
+
+      expect(storageDeposits()).toEqual([[USDC, SHOP]]);
+    });
+
+    describe("an overpayment it couldn't return", () => {
+      const settleLeaving = async (left: bigint) => {
+        const created = await create();
+        let settled = false;
+        fakeNearActor.getBalance.mockImplementation(async () =>
+          settled ? left : 1_500_000n,
+        );
+        fakeNearActor.functionCall.mockImplementation(async (...args) => {
+          const call = args[1] as { method?: string };
+          if (call.method !== "settle") return outcome([]);
+          settled = true;
+          return outcome([
+            {
+              executor: created.payinAddress,
+              logs: [
+                event("settled", {
+                  transfer_id: created.id,
+                  settlement_recipient: SHOP,
+                  settlement_token: { Token: USDC },
+                  pay_in: { Token: USDC },
+                  amount_in: "1000000",
+                  amount_out: "1000000",
+                  fee_amount: "0",
+                }),
+              ],
+            },
+          ]);
+        });
+
+        await service.settleTransfer(created.id);
+        return created;
+      };
+
+      it("tells the merchant it's waiting to be recovered", async () => {
+        const created = await settleLeaving(500_000n);
+
+        expect((await reload(created.id)).status).toBe(TransferStatus.Settled);
+        const [failed] = await db
+          .select()
+          .from(eventTable)
+          .where(eq(eventTable.sourceId, `excess-refund-failed:${created.id}`));
+        expect(failed).toMatchObject({
+          category: "ExcessRefund",
+          currentCategoryStatus: "Failed",
+        });
+        const timeline = await db
+          .select()
+          .from(transferTimeline)
+          .where(eq(transferTimeline.eventId, failed.id));
+        expect(timeline[0].description).toBe(
+          `The overpayment of 0.5 USDC couldn't be returned to ${PAYER}; recover it from the pay-in address`,
+        );
+        expect(schedulerMock.enqueueEvent).toHaveBeenCalledWith(
+          appId,
+          failed.id,
+          expect.anything(),
+        );
+      });
+
+      it("says nothing once the overpayment has gone back", async () => {
+        const created = await settleLeaving(0n);
+
+        const failed = await db
+          .select()
+          .from(eventTable)
+          .where(eq(eventTable.sourceId, `excess-refund-failed:${created.id}`));
+        expect(failed).toEqual([]);
+      });
     });
 
     it("deploys the account once the payment is in, then settles", async () => {
@@ -529,6 +692,28 @@ describe("TransferService on NEAR", () => {
         method: "refund",
       });
       expect((await reload(created.id)).status).toBe(TransferStatus.Refunded);
+    });
+
+    it("registers the refund account on the pay-in token before refunding", async () => {
+      const created = await create();
+      unregister(PAYER);
+      fakeNearActor.getBalance.mockResolvedValue(700n);
+      fakeNearActor.functionCall.mockResolvedValue(outcome([]));
+
+      await service.refundTransfer(created.id).catch(() => undefined);
+
+      const calls = fakeNearActor.functionCall.mock.calls.slice(1);
+      expect(calls[0][1]).toEqual([
+        expect.objectContaining({
+          contractId: USDC,
+          method: "storage_deposit",
+          args: { account_id: PAYER, registration_only: true },
+        }),
+      ]);
+      expect(calls[1][1]).toMatchObject({
+        contractId: FACTORY,
+        method: "refund",
+      });
     });
 
     it("deploys an account that was paid but never deployed, then refunds", async () => {
