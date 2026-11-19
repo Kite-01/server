@@ -829,6 +829,13 @@ export const Chains: Record<Caip2Id, Chain> = {
     contracts: {
       multicall3: avalancheFuji.contracts.multicall3,
       WETH9: "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
+      Uniswap: {
+        /**
+         * SushiSwap V2
+         * @see https://docs.sushi.com/contracts/cpamm
+         */
+        UniswapV2Router02: "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+      },
     },
   },
   "eip155:44005": {
