@@ -179,9 +179,6 @@ Add a webhook URL to an app in the dashboard and Kite POSTs to it on every trans
 
 Each delivery carries `X-Kite-Timestamp` and `X-Kite-Signature`, the hex HMAC-SHA256 of `t=<timestamp>&<raw body>` keyed with the webhook's signing secret. `verifyWebhook` in `@kite-01/sdk` checks both. Failed deliveries are retried; use `eventId` to ignore repeats.
 
-- **x402 offers**: when an agent asks for a payment link, Kite opens a transfer on each network it offers. These aren't listed and send no webhook until an agent pays one.
-- **Overpayments**: what a payer sends over the price goes back to their refund address with an `ExcessRefund` event. If that refund fails on NEAR, the event's status is `Failed`, and the overpayment stays at the pay-in address to recover from the dashboard.
-
 ### Getting paid on one chain
 
 By default a payment settles to the app's address on the chain it was paid on. To receive every payment in one place, set a payout token and payout address on the app; [NEAR Intents](#what-near-intents-does-in-kite) converts and delivers each payment. Payout tokens are listed at `GET /api/tokens/payouts`. A 1Click API key, set under **Providers**, avoids the extra fee 1Click charges without one ([register here](https://partners.near-intents.org)).

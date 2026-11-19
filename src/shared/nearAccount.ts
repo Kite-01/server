@@ -1,7 +1,4 @@
-// Imports nothing, so common.ts can use it without an import cycle through constants.ts.
-
-export const NearNativeToken = "near";
-
+export const NearNativeToken = "near" as const;
 export const isNearAccountId = (value: string) => {
   return (
     value.length >= 2 &&

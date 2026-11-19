@@ -486,6 +486,7 @@ export class TransferService {
           transferId,
           description,
         });
+
         await Scheduler.enqueueUntrack(
           transferId,
           0,
@@ -896,13 +897,15 @@ export class TransferService {
   private nearStatus = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
-    // a payment of native NEAR creates a plain account before the contract is deployed
     const account = await ctx.actor.getAccount(
       ctx.caip2Id,
       ctx.row.payinAddress,
       ctx.rpcUrls,
     );
-    if (!account?.contract) return null;
+
+    if (!account?.contract) {
+      return null;
+    }
 
     return ctx.actor.view<NearKiteStatus>(
       ctx.caip2Id,
@@ -947,10 +950,14 @@ export class TransferService {
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
     const payIn = kiteNear.payInToken(ctx.struct);
-    if (payIn === NearNativeToken) return;
+    if (payIn === NearNativeToken) {
+      return;
+    }
 
     const amount = await this.nearBalance(ctx, payIn);
-    if (amount === 0n) return;
+    if (amount === 0n) {
+      return;
+    }
 
     const { row } = ctx;
     const to = ctx.struct.refund_account;
@@ -991,16 +998,19 @@ export class TransferService {
     });
   };
 
-  // a failed close only leaves the deposits in the account, so it's logged, not thrown
   private closeNearDeposit = async (
     ctx: Awaited<ReturnType<TransferService["getNearTransfer"]>>,
   ) => {
-    if (isLegacyNearImplementation(ctx.struct.implementation)) return;
+    if (isLegacyNearImplementation(ctx.struct.implementation)) {
+      return;
+    }
 
-    const failed = (reason: unknown) =>
-      console.warn(
+    const failed = (reason: unknown) => {
+      return console.warn(
         `Could not close the deposit account of transfer ${ctx.row.id}: ${reason}`,
       );
+    };
+
     try {
       const result = await ctx.actor.functionCall(
         ctx.caip2Id,
@@ -1012,7 +1022,10 @@ export class TransferService {
         },
         ctx.rpcUrls,
       );
-      if (result.status !== "success") failed(result.failure);
+
+      if (result.status !== "success") {
+        failed(result.failure);
+      }
     } catch (error) {
       failed(error);
     }

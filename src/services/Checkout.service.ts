@@ -308,13 +308,15 @@ export class CheckoutService {
     chainId: string,
   ) => {
     const chain = await new ChainService().getChainById(chainId);
-    if (!chain?.config) throw new AppError("Selected chain is not configured");
+    if (!chain?.config) {
+      throw new AppError("Selected chain is not configured");
+    }
 
     const created = await this.createQuote(link.id, {
       chainId,
       sourceTokenAddress: chain.config.settlementToken.address,
     });
-    // the facilitator settles it and the sweep polls it, so no notifier is needed
+
     return new x402Service().createTransfer(link.appId, created.id, {
       track: false,
       x402Offer: true,
