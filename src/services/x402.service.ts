@@ -28,7 +28,11 @@ import { deposit, quote, token, transfer } from "../db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { withX402Observer } from "../shared/context/x402";
 import { x402Facilitator } from "@x402/core/facilitator";
-import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import {
+  getNearActor,
+  getOnchainActor,
+  getStellarActor,
+} from "../shared/onchainActor";
 import { TransferService } from "./Transfer.service";
 import { ExactEvmScheme } from "@x402/evm/exact/facilitator";
 import { ExactNearScheme } from "@x402/near/exact/facilitator";
@@ -39,6 +43,20 @@ import {
   parseFtTransferArgs,
 } from "@x402/near";
 import { x402NearFacilitatorSigner } from "../sdks/x402NearFacilitatorSigner";
+import { ExactStellarScheme } from "@x402/stellar/exact/facilitator";
+import {
+  getAddressCredentials,
+  getEstimatedLedgerCloseTimeSeconds,
+} from "@x402/stellar";
+import {
+  stellarAuthorizationValidBefore,
+  x402StellarFacilitatorSigner,
+} from "../sdks/x402StellarFacilitatorSigner";
+import {
+  Address as StellarAddress,
+  scValToNative,
+  Transaction as StellarTransaction,
+} from "@stellar/stellar-sdk";
 import { getChain } from "../shared/chains";
 import { NearNativeToken } from "../shared/kiteNearContract";
 import { TokenService } from "./Token.service";
@@ -62,6 +80,26 @@ export class x402Service {
     }
 
     let facilitator = this.facilitators.get(caip2Id);
+
+    if (!facilitator && getChain(caip2Id).type === ChainType.Stellar) {
+      const { signer, feeBumpSigner } = x402StellarFacilitatorSigner(
+        caip2Id,
+        getStellarActor(),
+      );
+      const url =
+        chain.config.rpcUrls?.[0] ?? getChain(caip2Id).publicRpcUrls[0];
+
+      facilitator = new x402Facilitator().register(
+        caip2Id,
+        new ExactStellarScheme([signer], {
+          rpcConfig: { url },
+          areFeesSponsored: true,
+          feeBumpSigner,
+        }),
+      );
+
+      this.facilitators.set(caip2Id, facilitator);
+    }
 
     if (!facilitator && getChain(caip2Id).type === ChainType.Near) {
       facilitator = new x402Facilitator().register(
@@ -166,6 +204,10 @@ export class x402Service {
       };
     }
 
+    if ("transaction" in payload) {
+      return this.stellarAuthorizationOf(payload.transaction, requirements);
+    }
+
     let delegate;
     try {
       delegate = decodeSignedDelegateB64(payload.signedDelegateAction).delegate;
@@ -209,6 +251,69 @@ export class x402Service {
       ),
       nonce: `${delegate.publicKey}:${delegate.nonce}`,
       hash: keccak256(toHex(fromBase64(payload.signedDelegateAction))),
+    };
+  };
+
+  // One SEP-41 `transfer(from, to, amount)`, authorized by `from`'s signed auth entry.
+  private stellarAuthorizationOf = async (
+    transaction: string,
+    requirements: ReturnType<typeof x402_RequirementSchema.parse>,
+  ) => {
+    const caip2Id = requirements.network as Caip2Id;
+    const actor = getStellarActor();
+
+    let call;
+    let credentials;
+    try {
+      const tx = new StellarTransaction(transaction, actor.passphrase(caip2Id));
+      const [op] = tx.operations;
+      if (tx.operations.length !== 1 || op.type !== "invokeHostFunction") {
+        throw new Error();
+      }
+      call = op.func.invokeContract();
+      credentials = getAddressCredentials(op.auth![0].credentials());
+    } catch {
+      throw new PreconditionError(
+        "The payment must be a transaction with one token transfer",
+      );
+    }
+
+    if (
+      call.functionName().toString() !== "transfer" ||
+      call.args().length !== 3 ||
+      !credentials
+    ) {
+      throw new PreconditionError(
+        "The payment must be a single signed token transfer",
+      );
+    }
+
+    if (
+      StellarAddress.fromScAddress(call.contractAddress()).toString() !==
+      requirements.asset
+    ) {
+      throw new PreconditionError("Payment asset does not match source token");
+    }
+
+    const [from, to, amount] = call.args().map((arg) => scValToNative(arg));
+    const expirationLedger = credentials.signatureExpirationLedger();
+    const [latestLedger, ledgerSeconds] = await Promise.all([
+      actor.getBlockNumber(caip2Id),
+      getEstimatedLedgerCloseTimeSeconds(caip2Id),
+    ]);
+
+    return {
+      from: String(from),
+      to: String(to),
+      value: String(amount),
+      validBefore: stellarAuthorizationValidBefore({
+        expirationLedger,
+        latestLedger: Number(latestLedger),
+        ledgerSeconds,
+      }),
+      nonce: `${from}:${credentials.nonce().toString()}`,
+      hash: keccak256(toHex(Buffer.from(transaction, "base64"))),
+      expirationLedger,
     };
   };
 
@@ -489,6 +594,10 @@ export class x402Service {
       return this.resolveNearReservation(ctx, row, holdsLease);
     }
 
+    if (getChain(caip2Id).type === ChainType.Stellar) {
+      return this.resolveStellarReservation(ctx, row, holdsLease);
+    }
+
     if (row.x402BlockchainHash) {
       const paid = await this.paysAuthorization(
         caip2Id,
@@ -645,6 +754,54 @@ export class x402Service {
     return { kind: "unpaid" };
   };
 
+  // The fee bump's hash is recorded before it's sent, so a reservation without one was never sent.
+  // One that isn't found yet is pending until its authorization expires.
+  private resolveStellarReservation = async (
+    ctx: ValidatedPayment,
+    row: {
+      id: string;
+      x402BlockchainHash: string | null;
+      x402LeaseExpiresAt: Date | null;
+    },
+    holdsLease: boolean,
+  ): Promise<
+    | { kind: "settled"; transactionHash: string }
+    | { kind: "pending"; transactionHash?: string }
+    | { kind: "unpaid" }
+  > => {
+    const caip2Id = ctx.payment.transfer.quote.chain.caip2Id;
+    const actor = getStellarActor();
+    const transactionHash = row.x402BlockchainHash;
+
+    if (transactionHash) {
+      const status = await actor.getTransactionStatus(caip2Id, transactionHash);
+      if (status.status === "success") {
+        return { kind: "settled", transactionHash };
+      }
+
+      if (status.status === "pending") {
+        const latest = await actor.getBlockNumber(caip2Id).catch(() => null);
+        const expiration = (
+          ctx.payment.authorization as { expirationLedger?: number }
+        ).expirationLedger;
+        if (latest === null || !expiration || latest <= BigInt(expiration)) {
+          return { kind: "pending", transactionHash };
+        }
+      }
+    }
+
+    if (
+      !holdsLease &&
+      row.x402LeaseExpiresAt &&
+      row.x402LeaseExpiresAt > new Date()
+    ) {
+      return { kind: "pending" };
+    }
+
+    await this.clearReservation(row.id, ctx.payment.nonce);
+    return { kind: "unpaid" };
+  };
+
   private acceptSettlement = async (
     ctx: ValidatedPayment,
     transactionHash: string,
@@ -734,8 +891,20 @@ export class x402Service {
 
       const tokens = await new TokenService().getTokensByChainId(chain.id);
       const near = getChain(chain.caip2Id).type === ChainType.Near;
+      const stellar = getChain(chain.caip2Id).type === ChainType.Stellar;
 
       for (const token of tokens) {
+        if (stellar) {
+          kinds.push({
+            x402Version: 2,
+            scheme: "exact",
+            network: chain.caip2Id,
+            extra: { asset: token.address, areFeesSponsored: true },
+          });
+
+          continue;
+        }
+
         if (near) {
           if (token.address !== NearNativeToken) {
             kinds.push({
@@ -772,6 +941,7 @@ export class x402Service {
       signers: {
         "eip155:*": [getOnchainActor(ChainType.Evm).getAddress()],
         "near:*": [getNearActor().getAddress()],
+        "stellar:*": [getStellarActor().keypair(1).publicKey()],
       },
     };
   };
@@ -828,6 +998,18 @@ export class x402Service {
       throw new PreconditionError(
         "The quote expires too soon to take an x402 payment; create a new quote",
       );
+    }
+
+    if (getChain(caip2Id).type === ChainType.Stellar) {
+      return {
+        scheme: "exact" as const,
+        network: caip2Id,
+        asset: transfer_.quote.sourceToken.address,
+        amount: transfer_.quote.sourceAmount.toString(),
+        payTo: transfer_.payinAddress,
+        maxTimeoutSeconds,
+        extra: { areFeesSponsored: true },
+      };
     }
 
     if (getChain(caip2Id).type === ChainType.Near) {
