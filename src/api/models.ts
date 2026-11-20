@@ -163,6 +163,7 @@ const SupportedChain = t.Object(
   {
     caip2Id: t.String(),
     name: t.String(),
+    icon: t.String(),
     chainId: Nullable(Int),
     testnet: t.Boolean(),
     beta: t.Boolean(),

@@ -9,7 +9,7 @@ import {
   IconCheck,
   IconCoins,
 } from "@tabler/icons-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Area,
@@ -26,7 +26,7 @@ import {
   overviewStatsOptions,
   transfersListOptions,
 } from "@/api/@tanstack/react-query.gen";
-import type { Stats } from "@/api/types.gen";
+import type { Stats, SupportedChain } from "@/api/types.gen";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -449,6 +449,50 @@ const Fact = ({
   </div>
 );
 
+const ChainStack = ({ chains }: { chains: SupportedChain[] }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(6);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () =>
+      setFit(Math.max(1, Math.floor((el.clientWidth - 84) / 28) + 1));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const shown = chains.length > fit ? chains.slice(0, fit) : chains;
+  const rest = chains.length - shown.length;
+
+  return (
+    <div ref={ref} className="flex w-full min-w-0 items-center overflow-hidden">
+      <ul className="flex -space-x-2">
+        {shown.map((chain) => (
+          <li
+            key={chain.caip2Id}
+            title={chain.name}
+            className="flex size-9 items-center justify-center rounded-full bg-white ring-2 ring-soft"
+          >
+            <SmartImage
+              url={chain.icon}
+              alt={chain.name}
+              className="size-7 border-0"
+            />
+          </li>
+        ))}
+      </ul>
+      {rest > 0 ? (
+        <span className="ms-1 flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-2 text-xs font-medium text-muted ring-2 ring-soft">
+          +{rest}
+        </span>
+      ) : null}
+    </div>
+  );
+};
+
 const Welcome = () => {
   const navigate = useNavigate();
   const chains = useQuery(chainsListOptions());
@@ -466,23 +510,7 @@ const Welcome = () => {
       done: !!chains.data?.data.length,
       action: "Add a chain",
       to: "/chains",
-      preview: (
-        <div className="flex flex-wrap gap-1.5">
-          {networks.slice(0, 5).map((chain) => (
-            <span
-              key={chain.caip2Id}
-              className="rounded-full bg-white px-2.5 py-1 text-xs text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]"
-            >
-              {chain.name}
-            </span>
-          ))}
-          {networks.length > 5 ? (
-            <span className="rounded-full px-2 py-1 text-xs text-muted">
-              +{networks.length - 5} more
-            </span>
-          ) : null}
-        </div>
-      ),
+      preview: <ChainStack chains={networks} />,
     },
     {
       title: "Create an app",
@@ -492,13 +520,11 @@ const Welcome = () => {
       to: "/apps",
       preview: (
         <div className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
-          <span className="flex size-9 items-center justify-center rounded-full bg-ink text-sm font-medium text-white">
-            {firstApp ? firstApp.name[0] : "A"}
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-white">
+            <img src="/icon.svg" alt="" className="h-3.5 w-auto" />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">
-              {firstApp?.name ?? "Your app"}
-            </span>
+            <span className="block truncate text-sm font-medium">Kite</span>
             <span className="block text-xs text-muted">
               Chains, keys, webhooks
             </span>
@@ -516,13 +542,13 @@ const Welcome = () => {
         <div className="rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted">Payment link</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-              <span className="size-1.5 rounded-full bg-current" />
+            <span className="inline-flex h-5 items-center gap-1 rounded-full bg-success/10 px-2 text-[11px] leading-none font-medium text-success">
+              <span className="size-1.5 shrink-0 rounded-full bg-current" />
               Settled
             </span>
           </div>
           <p className="mt-1 font-display text-2xl font-semibold tracking-tight">
-            $49<span className="text-muted/50">.00</span>
+            $1<span className="text-muted/50">.50</span>
           </p>
         </div>
       ),
@@ -537,15 +563,15 @@ const Welcome = () => {
         <img
           src="/images/sky.webp"
           alt=""
-          className="absolute inset-x-0 bottom-0 -z-10 h-[38%] w-full object-cover object-[70%_100%] opacity-50"
+          className="absolute inset-x-0 bottom-0 -z-10 h-[34%] w-full object-cover object-[70%_100%] opacity-60"
         />
         <img
           src="/images/kite-bird.webp"
           alt=""
           className="kite-glide absolute -end-[8%] -top-4 -z-10 w-[56%] max-sm:hidden lg:-end-[2%] lg:w-[40%]"
         />
-        <div className="max-w-2xl p-8 pb-28 sm:p-12 sm:pb-36 lg:pt-14">
-          <p className="inline-flex items-center gap-2 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink">
+        <div className="flex min-h-[440px] max-w-2xl flex-col p-8 sm:min-h-[480px] sm:px-12 sm:pt-14 sm:pb-10">
+          <p className="inline-flex w-fit items-center gap-2 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink">
             {done} of {steps.length} done
           </p>
           <h2 className="mt-6 font-display text-[clamp(2.25rem,1.6rem+2.4vw,3.75rem)] leading-[1] font-semibold tracking-[-0.04em] text-ink">
@@ -555,7 +581,7 @@ const Welcome = () => {
             Three steps between you and your first settled payment. Start on
             testnet, it takes about five minutes.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-auto flex flex-wrap items-center gap-3 pt-10">
             {next >= 0 ? (
               <Button
                 className="h-11 px-5"
@@ -579,12 +605,12 @@ const Welcome = () => {
 
       <ol className="grid gap-4 md:grid-cols-3">
         {steps.map((step, i) => (
-          <li key={step.title}>
+          <li key={step.title} className="min-w-0">
             <button
               type="button"
               onClick={() => navigate(step.to)}
               className={cn(
-                "group flex h-full w-full flex-col rounded-[24px] border p-6 text-start transition-colors",
+                "group flex h-full w-full min-w-0 flex-col rounded-[24px] border p-6 text-start transition-colors",
                 i === next
                   ? "border-ink bg-surface"
                   : "border-line bg-surface hover:border-ink/30",
@@ -609,7 +635,7 @@ const Welcome = () => {
                 {step.title}
               </p>
               <p className="mt-1 text-sm text-muted">{step.text}</p>
-              <div className="mt-6 flex min-h-24 flex-col justify-end rounded-2xl bg-soft p-3">
+              <div className="mt-6 flex min-h-24 min-w-0 flex-col justify-end rounded-2xl bg-soft p-3">
                 {step.preview}
               </div>
             </button>

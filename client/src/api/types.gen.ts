@@ -109,6 +109,7 @@ export type ConfiguredChainList = {
 export type SupportedChain = {
   caip2Id: string;
   name: string;
+  icon: string;
   chainId: number | null;
   testnet: boolean;
   beta: boolean;
