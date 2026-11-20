@@ -457,7 +457,7 @@ const ChainStack = ({ chains }: { chains: SupportedChain[] }) => {
     const el = ref.current;
     if (!el) return;
     const measure = () =>
-      setFit(Math.max(1, Math.floor((el.clientWidth - 84) / 28) + 1));
+      setFit(Math.max(1, Math.floor((el.clientWidth - 92) / 32) + 1));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
@@ -474,18 +474,18 @@ const ChainStack = ({ chains }: { chains: SupportedChain[] }) => {
           <li
             key={chain.caip2Id}
             title={chain.name}
-            className="flex size-9 items-center justify-center rounded-full bg-white ring-2 ring-soft"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white ring-2 ring-soft"
           >
             <SmartImage
               url={chain.icon}
               alt={chain.name}
-              className="size-7 border-0"
+              className="size-5 rounded-full border-0"
             />
           </li>
         ))}
       </ul>
       {rest > 0 ? (
-        <span className="ms-1 flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-2 text-xs font-medium text-muted ring-2 ring-soft">
+        <span className="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-xs font-medium text-muted ring-2 ring-soft">
           +{rest}
         </span>
       ) : null}
