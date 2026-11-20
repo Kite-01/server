@@ -16,30 +16,54 @@ export const stellarPassphraseOf = (caip2Id: string) => Passphrases[caip2Id];
 export const isStellarAddress = (value: string) =>
   /^[GC][A-Z2-7]{55}$|^M[A-Z2-7]{68}$/.test(value);
 
+let kit: Promise<
+  typeof import("@creit.tech/stellar-wallets-kit/sdk").StellarWalletsKit
+> | null = null;
+
+// Loaded only when a payer picks Stellar, so other checkouts don't download it. The default modules
+// need no keys; WalletConnect, which needs a project id, is left out.
+const loadKit = (networkPassphrase: string) => {
+  kit ??= (async () => {
+    const [{ StellarWalletsKit }, { defaultModules }] = await Promise.all([
+      import("@creit.tech/stellar-wallets-kit/sdk"),
+      import("@creit.tech/stellar-wallets-kit/modules/utils"),
+    ]);
+    StellarWalletsKit.init({ modules: defaultModules() });
+    return StellarWalletsKit;
+  })();
+
+  return kit.then((loaded) => {
+    loaded.setNetwork(networkPassphrase as never);
+    return loaded;
+  });
+};
+
 export const connectStellarWallet = async (
   caip2Id: string,
 ): Promise<StellarWallet | null> => {
-  const freighter = await import("@stellar/freighter-api");
-  const { isConnected } = await freighter.isConnected();
-  if (!isConnected) {
-    throw new Error("Install the Freighter extension to pay with Stellar");
+  const networkPassphrase = stellarPassphraseOf(caip2Id);
+  const wallets = await loadKit(networkPassphrase);
+
+  let address: string;
+  try {
+    ({ address } = await wallets.authModal());
+  } catch (e) {
+    if ((e as { code?: number }).code === -1) return null;
+    throw new Error((e as { message?: string }).message ?? String(e));
   }
 
-  const access = await freighter.requestAccess();
-  if (access.error || !access.address) return null;
-
-  const networkPassphrase = stellarPassphraseOf(caip2Id);
-  const network = await freighter.getNetworkDetails();
-  if (network.networkPassphrase !== networkPassphrase) {
+  // not every wallet reports its network
+  const network = await wallets.getNetwork().catch(() => null);
+  if (network && network.networkPassphrase !== networkPassphrase) {
     throw new Error(
-      `Switch Freighter to ${caip2Id === "stellar:testnet" ? "Testnet" : "Mainnet"} and try again`,
+      `Switch your wallet to ${caip2Id === "stellar:testnet" ? "Testnet" : "Mainnet"} and try again`,
     );
   }
 
   return {
     kind: "stellar",
-    name: "Freighter",
-    address: access.address,
+    name: wallets.selectedModule.productName,
+    address,
     networkPassphrase,
   };
 };
@@ -53,10 +77,10 @@ export const sendStellarPayment = async (
   amount: string,
 ): Promise<string> => {
   const [
-    freighter,
+    wallets,
     { Address, Contract, rpc, TransactionBuilder, nativeToScVal },
   ] = await Promise.all([
-    import("@stellar/freighter-api"),
+    loadKit(wallet.networkPassphrase),
     import("@stellar/stellar-sdk"),
   ]);
 
@@ -78,11 +102,10 @@ export const sendStellarPayment = async (
     .build();
 
   const prepared = await server.prepareTransaction(tx);
-  const signed = await freighter.signTransaction(prepared.toXDR(), {
+  const signed = await wallets.signTransaction(prepared.toXDR(), {
     networkPassphrase: wallet.networkPassphrase,
     address: wallet.address,
   });
-  if (signed.error) throw new Error(signed.error.message);
 
   const sent = await server.sendTransaction(
     TransactionBuilder.fromXDR(signed.signedTxXdr, wallet.networkPassphrase),

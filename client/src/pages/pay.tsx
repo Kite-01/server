@@ -1466,7 +1466,7 @@ const PayFlow = () => {
   const chooseStellarWallet = () =>
     run("stellar-wallet", async (progress) => {
       if (!stellarChain) return;
-      progress("Waiting for Freighter…");
+      progress("Waiting for your Stellar wallet…");
       const stellar = await connectStellarWallet(stellarChain.caip2Id);
       if (!stellar) return;
 
@@ -1590,7 +1590,7 @@ const PayFlow = () => {
         const transfer = await openTransfer(q, wallet.address);
         const { address, tokenAddress, amount } = transfer.paymentInstructions;
 
-        progress("Confirm in Freighter…");
+        progress("Confirm in your wallet…");
         const txHash = await sendStellarPayment(
           wallet,
           chain.rpcUrls[0],

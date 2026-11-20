@@ -72,7 +72,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - A token transfer costs one registration on the pay-in token (about 0.00125 NEAR) when it opens; a native NEAR one costs nothing. The deposit account is only created once there's a payment to settle or refund, and its reserve and registration deposits come back when it's finished.
 - **Stellar is in beta, on testnet only**: a mainnet server doesn't offer it yet. On Stellar:
   - Deposits are found by the balance check, as on chains without a notifier.
-  - The pay-in address is a contract (`C…`). Customers pay with the token's own `transfer`, from a wallet that can send to a contract address, or from the checkout's Freighter button. Classic payments, and most exchanges, can't send to it.
+  - The pay-in address is a contract (`C…`). Customers pay with the token's own `transfer`, from a wallet that can send to a contract address, or from the checkout's wallet button (Stellar Wallets Kit: Freighter, xBull, Lobstr, Albedo, Rabet, Hana and others). Classic payments, and most exchanges, can't send to it.
   - A refund can't carry a memo, so a refund to an exchange needs the exchange's `M…` (muxed) address. `M…` addresses are only accepted for Stellar Asset Contract tokens, as a custom SEP-41 token may not support them.
   - Swap quotes come from Soroswap's spot price, as its pairs keep no time-weighted average; the deposit contract still enforces the minimum it settles for. Without a Soroswap router configured for the network, customers can only pay in the settlement token.
   - A payout to a `G…` account that has no trustline for the settlement token fails the settlement, and the payment is refunded.
