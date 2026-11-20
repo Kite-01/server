@@ -30,6 +30,7 @@ import { formatDate } from "@/lib/format";
 import { useMutate } from "@/lib/queries";
 import SmartImage from "@/components/smart-image";
 import None from "@/components/none";
+import { Badge } from "@/components/ui/badge";
 
 const AppForm = ({ app, onClose }: { app?: App; onClose: () => void }) => {
   const [values, setValues] = useState({
@@ -218,6 +219,19 @@ export const Apps = () => {
             ),
           },
           { header: "Website", cell: (row) => row.websiteUrl ?? <None /> },
+          {
+            header: "Uses Near Intents?",
+            cell: (row) =>
+              !!row.payoutAddress && !!row.payoutAsset ? (
+                <Badge variant={"success"} className="text-[11px] py-0.75">
+                  Yes
+                </Badge>
+              ) : (
+                <Badge className="text-[11px] py-0.75" variant={"pending"}>
+                  No
+                </Badge>
+              ),
+          },
           { header: "Created", cell: (row) => formatDate(row.createdAt) },
           {
             header: "",

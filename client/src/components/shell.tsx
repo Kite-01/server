@@ -127,7 +127,7 @@ const AppSwitch = () => {
   if (!appId) return null;
 
   return (
-    <div className="rounded-2xl border border-line bg-soft/60 p-1.5">
+    <div className="rounded-2xl border border-black/20 p-1.5">
       <div className="flex items-center gap-2.5 p-1.5">
         <SmartImage url={icon} alt="" className="size-8 rounded-full" />
         <div className="min-w-0">
@@ -136,10 +136,10 @@ const AppSwitch = () => {
       </div>
       <Link
         to="/apps"
-        className="mt-1 flex h-8 items-center gap-1 rounded-xl px-2 text-[13px] text-muted transition-colors hover:bg-surface hover:text-ink"
+        className="mt-1 flex h-9 items-center gap-1 rounded-[14px] px-2 text-[13px] justify-center transition-colors bg-soft text-ink"
       >
         <IconChevronLeft className="size-3.5" />
-        All apps
+        Back to apps
       </Link>
     </div>
   );

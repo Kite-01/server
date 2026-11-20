@@ -16,7 +16,7 @@ import {
   transfersCreateMutation,
 } from "@/api/@tanstack/react-query.gen";
 import { transfersRecoverBalance } from "@/api/sdk.gen";
-import type { TransferListItem } from "@/api/types.gen";
+import type { SupportedChain, TransferListItem } from "@/api/types.gen";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
@@ -34,7 +34,7 @@ import {
   txUrl,
 } from "@/lib/format";
 import { useAppHeaders, useMutate } from "@/lib/queries";
-import { useSupportedChains } from "./chains";
+import { ChainName, useSupportedChains } from "./chains";
 import None from "@/components/none";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -151,11 +151,13 @@ const Hash = ({
 const Detail = ({
   transfer,
   explorer,
+  supportedChains,
   onRefund,
   onRecover,
 }: {
   transfer: TransferListItem;
   explorer?: string;
+  supportedChains?: SupportedChain[];
   onRefund: () => void;
   onRecover: () => void;
 }) => {
@@ -184,6 +186,13 @@ const Detail = ({
   // Label/value pairs, keyed by label where they're rendered.
   /* oxlint-disable react/jsx-key */
   const rows: [string, React.ReactNode][] = [
+    [
+      "Chain",
+      <ChainName
+        caip2Id={transfer.quote.chain.caip2Id}
+        supported={supportedChains}
+      />,
+    ],
     ["Status", <StatusBadge status={transfer.status} />],
     [
       "Customer pays",
@@ -401,6 +410,15 @@ export const Transfers = () => {
             cell: (row) => <StatusBadge status={row.status} />,
           },
           {
+            header: "Chain",
+            cell: (row) => (
+              <ChainName
+                caip2Id={row.quote.chain.caip2Id}
+                supported={supported.data}
+              />
+            ),
+          },
+          {
             header: "Customer pays",
             cell: (row) =>
               `${formatTokenAmount(row.quote.sourceAmount, row.quote.sourceToken.decimals)} ${row.quote.sourceToken.symbol}`,
@@ -423,6 +441,7 @@ export const Transfers = () => {
           <Detail
             transfer={selected}
             explorer={explorer}
+            supportedChains={supported.data}
             onRefund={() => {
               setUseGasSponsor(true);
               setAction("refund");

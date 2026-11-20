@@ -333,6 +333,52 @@ export const Fees = () => {
             },
           },
           {
+            header: "Min amount",
+            cell: (row) => {
+              if (!row.minAmountToCharge) return <None />;
+
+              const settlementToken = chains.data?.find(
+                (chain) => chain.id === row.chainId,
+              )?.config?.settlementToken;
+
+              if (!settlementToken) return <None />;
+
+              return (
+                <p>
+                  {formatUnits(
+                    BigInt(row.minAmountToCharge),
+                    settlementToken.decimals,
+                  )}
+                  &nbsp;
+                  {settlementToken.symbol}
+                </p>
+              );
+            },
+          },
+          {
+            header: "Max amount",
+            cell: (row) => {
+              if (!row.maxAmountToCharge) return <None />;
+
+              const settlementToken = chains.data?.find(
+                (chain) => chain.id === row.chainId,
+              )?.config?.settlementToken;
+
+              if (!settlementToken) return <None />;
+
+              return (
+                <p>
+                  {formatUnits(
+                    BigInt(row.maxAmountToCharge),
+                    settlementToken.decimals,
+                  )}
+                  &nbsp;
+                  {settlementToken.symbol}
+                </p>
+              );
+            },
+          },
+          {
             header: "Recipient",
             exportValue: (row) => row.feeAddress ?? "Default",
             cell: (row) =>

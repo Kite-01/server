@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { IconPower, IconSelector, IconServer2 } from "@tabler/icons-react";
+import { IconPower, IconSelector, IconSettings2 } from "@tabler/icons-react";
 import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { CopyButton } from "@/components/copy-button";
 import {
@@ -31,7 +31,7 @@ export const ProfileMenu = () => {
           className="flex w-full items-center gap-3 rounded-2xl p-2 text-start transition-colors hover:bg-black/[0.04] data-[state=open]:bg-black/[0.04]"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-soft text-ink">
-            <IconServer2 className="size-4.5" stroke={1.6} />
+            <IconSettings2 className="size-4.5" stroke={1.6} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">Operator</span>

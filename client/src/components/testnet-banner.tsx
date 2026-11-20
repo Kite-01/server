@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { docs } from "@/lib/docs";
 
 export const isTestnet = !!document.querySelector('meta[name="kite-testnet"]');
 
@@ -31,17 +30,9 @@ export const TestnetBanner = () => {
         open={open}
         onOpenChange={setOpen}
         title="This is a testnet instance"
-        description="Kite runs here on test networks, so every token, payment and payout uses test funds with no real value. Use it to try things out; don't send real funds to any address it shows."
+        description="Kite runs here on test networks, so every token, payment and payout uses test funds with no real value."
       >
         <div className="flex justify-end gap-2">
-          <a
-            href={docs.testnets}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-10 items-center rounded-full px-4 text-sm text-muted hover:bg-soft hover:text-ink"
-          >
-            Read about testnets
-          </a>
           <Button onClick={() => setOpen(false)}>Got it</Button>
         </div>
       </Dialog>

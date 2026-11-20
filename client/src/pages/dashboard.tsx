@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import {
   IconArrowRight,
   IconArrowsExchange,
+  IconBook2,
   IconCalendar,
   IconCaretDownFilled,
   IconCaretUpFilled,
   IconChartLine,
   IconCheck,
+  IconChevronRight,
   IconCoins,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -45,6 +47,7 @@ import {
   formatCompactUsd,
   formatCount,
   formatDate,
+  formatTokenAmount,
   formatUsd,
   shortId,
 } from "@/lib/format";
@@ -53,6 +56,7 @@ import { isTestnet } from "@/components/testnet-banner";
 import { docs } from "@/lib/docs";
 import { cn } from "@/lib/utils";
 import SmartImage from "@/components/smart-image";
+import { ChainName, useSupportedChains } from "./chains";
 
 type Preset = "today" | "3d" | "7d" | "1m" | "custom";
 
@@ -434,17 +438,21 @@ const Fact = ({
   label,
   value,
   loading,
+  className,
 }: {
   label: string;
   value: ReactNode;
   loading?: boolean;
+  className?: string;
 }) => (
   <div className="flex items-center justify-between gap-4 border-b border-line py-4 first:pt-0 last:border-0 last:pb-0">
     <span className="text-[15px] text-muted">{label}</span>
     {loading ? (
       <Skeleton className="h-3.5 w-16" />
     ) : (
-      <span className="text-[15px] font-medium tabular-nums">{value}</span>
+      <span className={cn("text-[15px] font-medium tabular-nums", className)}>
+        {value}
+      </span>
     )}
   </div>
 );
@@ -479,13 +487,13 @@ const ChainStack = ({ chains }: { chains: SupportedChain[] }) => {
             <SmartImage
               url={chain.icon}
               alt={chain.name}
-              className="size-5 rounded-full border-0"
+              className="size-6 rounded-full border-0"
             />
           </li>
         ))}
       </ul>
       {rest > 0 ? (
-        <span className="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-xs font-medium text-muted ring-2 ring-soft">
+        <span className="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-medium text-muted ring-2 ring-soft">
           +{rest}
         </span>
       ) : null}
@@ -526,7 +534,7 @@ const Welcome = () => {
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium">Kite</span>
             <span className="block text-xs text-muted">
-              Chains, keys, webhooks
+              Chains, API keys, webhooks
             </span>
           </span>
         </div>
@@ -536,19 +544,19 @@ const Welcome = () => {
       title: "Take a first payment",
       text: "Make a payment link and pay it from a wallet.",
       done: false,
-      action: "Make a link",
+      action: "Create a link",
       to: firstApp ? `/apps/${firstApp.id}/payment-links` : "/apps",
       preview: (
         <div className="rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted">Payment link</span>
+            <span className="text-xs text-muted">Order #0015</span>
             <span className="inline-flex h-5 items-center gap-1 rounded-full bg-success/10 px-2 text-[11px] leading-none font-medium text-success">
               <span className="size-1.5 shrink-0 rounded-full bg-current" />
               Settled
             </span>
           </div>
           <p className="mt-1 font-display text-2xl font-semibold tracking-tight">
-            $1<span className="text-muted/50">.50</span>
+            $0<span className="text-muted/50">.45</span>
           </p>
         </div>
       ),
@@ -572,38 +580,37 @@ const Welcome = () => {
         />
         <div className="flex min-h-[440px] max-w-2xl flex-col p-8 sm:min-h-[480px] sm:px-12 sm:pt-14 sm:pb-10">
           <p className="inline-flex w-fit items-center gap-2 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink">
-            {done} of {steps.length} done
+            {done}/{steps.length} done
           </p>
           <h2 className="mt-6 font-display text-[clamp(2.25rem,1.6rem+2.4vw,3.75rem)] leading-[1] font-semibold tracking-[-0.04em] text-ink">
             Your Kite server is live
           </h2>
           <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink/75">
-            Three steps between you and your first settled payment. Start on
-            testnet, it takes about five minutes.
+            Three steps between you and your first settled payment
           </p>
-          <div className="mt-auto flex flex-wrap items-center gap-3 pt-10">
+          <div className="mt-auto flex flex-wrap items-center gap-2 md:gap-3 pt-10">
             {next >= 0 ? (
               <Button
-                className="h-11 px-5"
+                className="h-12 md:h-11.25 w-full md:max-w-max px-6"
                 onClick={() => navigate(steps[next]!.to)}
               >
                 {steps[next]!.action}
-                <IconArrowRight className="size-4" />
               </Button>
             ) : null}
             <a
               href={docs.firstRun}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-white/80"
+              className="inline-flex justify-center h-12 md:h-11.25 w-full md:max-w-max items-center rounded-full bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-white gap-1.25"
             >
+              <IconBook2 className="size-5" strokeWidth={1.5} />
               Read the guide
             </a>
           </div>
         </div>
       </section>
 
-      <ol className="grid gap-4 md:grid-cols-3">
+      <ol className="grid gap-4 xl:grid-cols-3">
         {steps.map((step, i) => (
           <li key={step.title} className="min-w-0">
             <button
@@ -612,8 +619,8 @@ const Welcome = () => {
               className={cn(
                 "group flex h-full w-full min-w-0 flex-col rounded-[24px] border p-6 text-start transition-colors",
                 i === next
-                  ? "border-ink bg-surface"
-                  : "border-line bg-surface hover:border-ink/30",
+                  ? "border-ink/40 bg-surface"
+                  : "border-line bg-surface hover:border-ink/20",
               )}
             >
               <div className="flex items-center justify-between">
@@ -629,7 +636,7 @@ const Welcome = () => {
                 >
                   {step.done ? <IconCheck className="size-4" /> : i + 1}
                 </span>
-                <IconArrowRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5" />
+                <IconChevronRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5" />
               </div>
               <p className="mt-5 font-display text-lg font-semibold tracking-tight">
                 {step.title}
@@ -654,7 +661,10 @@ export const Dashboard = () => {
   const [rank, setRank] = useState<"value" | "volume">("value");
   const [custom, setCustom] = useState(() => {
     const today = new Date();
-    return { from: toInputDate(addDays(today, -6)), to: toInputDate(today) };
+    return {
+      from: toInputDate(addDays(today, -6)),
+      to: toInputDate(today),
+    };
   });
 
   const range = useMemo(() => {
@@ -663,7 +673,6 @@ export const Dashboard = () => {
   }, [preset, custom]);
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
   const stats = useQuery(
     overviewStatsOptions({
       query: { ...range, timeZone, rank },
@@ -675,6 +684,8 @@ export const Dashboard = () => {
     transfersListOptions({ query: { pageSize: 6 }, headers }),
   );
 
+  const supportedChains = useSupportedChains();
+
   const data = stats.data;
   const hasVolume = !!data?.series.some((point) => Number(point.amount) > 0);
   const count = data?.amountProcessed.count ?? 0;
@@ -684,6 +695,7 @@ export const Dashboard = () => {
       Number(point.amount) > Number(best.amount) ? point : best,
     data.series[0],
   );
+
   const tokenTotal =
     data?.topTokens.reduce(
       (sum, token) =>
@@ -762,17 +774,30 @@ export const Dashboard = () => {
             />
             <Fact
               label="Average payment"
-              value={count ? formatUsd(average) : "—"}
+              className={count ? undefined : "text-muted"}
+              value={count ? formatUsd(average) : "None"}
               loading={stats.isLoading}
             />
             <Fact
               label="Customers"
-              value={data ? formatCount(data.customers.total) : "—"}
+              className={
+                data && data.customers.total ? undefined : "text-muted"
+              }
+              value={
+                data && data.customers.total
+                  ? formatCount(data.customers.total)
+                  : "None"
+              }
               loading={stats.isLoading}
             />
             <Fact
               label="Tokens paid in"
-              value={data ? data.topTokens.length : "—"}
+              className={
+                data && data.topTokens.length ? undefined : "text-muted"
+              }
+              value={
+                data && data.topTokens.length ? data.topTokens.length : "None"
+              }
               loading={stats.isLoading}
             />
           </div>
@@ -931,6 +956,8 @@ export const Dashboard = () => {
                 <Th>Transfer</Th>
                 {!appId ? <Th>App</Th> : null}
                 <Th>Status</Th>
+                <Th>Chain</Th>
+                <Th>Customer pays</Th>
                 <Th className="text-right">Amount</Th>
                 <Th className="text-right">Created</Th>
               </tr>
@@ -960,6 +987,21 @@ export const Dashboard = () => {
                   ) : null}
                   <Td>
                     <StatusBadge status={transfer.status} />
+                  </Td>
+                  <Td>
+                    <div className="pr-4">
+                      <ChainName
+                        caip2Id={transfer.quote.chain.caip2Id}
+                        supported={supportedChains.data}
+                      />
+                    </div>
+                  </Td>
+                  <Td className="font-mediu">
+                    {formatTokenAmount(
+                      transfer.quote.sourceAmount,
+                      transfer.quote.sourceToken.decimals,
+                    )}
+                    &nbsp;{transfer.quote.sourceToken.symbol}
                   </Td>
                   <Td className="text-right font-medium tabular-nums">
                     {formatUsd(transfer.quote.targetUsdAmount)}

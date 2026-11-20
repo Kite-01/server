@@ -25,11 +25,11 @@ export const EmptyState = ({
     <img
       src="/empty.svg"
       alt=""
-      className="h-24 w-auto select-none"
+      className="h-40 w-auto select-none mb-3"
       draggable={false}
     />
     <div className="space-y-1">
-      <p className="font-display text-sm font-medium text-ink">{title}</p>
+      <p className="font-display text-base font-medium text-ink">{title}</p>
       {description ? (
         <p className="mx-auto max-w-sm text-sm text-muted">{description}</p>
       ) : null}
