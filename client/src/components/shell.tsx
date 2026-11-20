@@ -13,6 +13,7 @@ import {
   IconMenu2,
   IconPaywall,
   IconReceipt2,
+  IconScanEye,
   IconSecretPhrases,
   IconTag,
   IconUserCircle,
@@ -262,16 +263,18 @@ export const Shell = () => {
             </Link>
           </div>
           {info?.demo && (
-            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted">
-              View only
+            <span className="rounded-full bg-surface pl-2 pr-2.5 py-1 text-xs font-medium text-muted flex items-center gap-0.75">
+              <IconScanEye className="size-4" strokeWidth={1.5} />
+              <span>View only</span>
             </span>
           )}
         </header>
 
         <div className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-2 sm:px-8 lg:pt-12">
           {info?.demo && (
-            <p className="mb-6 hidden w-fit rounded-full bg-surface px-3 py-1 text-xs font-medium text-muted lg:block">
-              View only
+            <p className="mb-6 hidden w-fit rounded-full bg-surface px-2.5 py-1.25 text-xs font-medium text-muted lg:flex items-center gap-0.75">
+              <IconScanEye className="size-4" strokeWidth={1.5} />
+              <span>View only</span>
             </p>
           )}
           <Outlet />
