@@ -36,6 +36,12 @@ import {
   sendNearPayment,
   type NearWallet,
 } from "@/lib/near-wallet";
+import {
+  connectStellarWallet,
+  isStellarAddress,
+  sendStellarPayment,
+  type StellarWallet,
+} from "@/lib/stellar-wallet";
 import { cn } from "@/lib/utils";
 import {
   connectWallet,
@@ -72,10 +78,16 @@ import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
 
 const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
+const isStellar = (chain: CheckoutChain) => chain.chainType === "Stellar";
 const EthereumLogo =
   "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/info/logo.png";
-const isNearWallet = (wallet: Wallet | NearWallet): wallet is NearWallet =>
+type AnyWallet = Wallet | NearWallet | StellarWallet;
+const isNearWallet = (wallet: AnyWallet): wallet is NearWallet =>
   "kind" in wallet && wallet.kind === "near";
+const isStellarWallet = (wallet: AnyWallet): wallet is StellarWallet =>
+  "kind" in wallet && wallet.kind === "stellar";
+const chainTypeOf = (wallet: AnyWallet) =>
+  isNearWallet(wallet) ? "Near" : isStellarWallet(wallet) ? "Stellar" : "Evm";
 
 type Token = CheckoutChain["tokens"][number];
 
@@ -1013,6 +1025,17 @@ const InstructionsStep = ({
         </Row>
       </Rows>
 
+      {isStellar(chain) && (
+        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] text-amber-800 border border-amber-200">
+          <IconInfoCircle className="size-4 shrink-0" />
+          <span>
+            This is a contract address (C…). Send with the token's transfer,
+            from a wallet that supports contract addresses: most exchanges and
+            classic payments can't.
+          </span>
+        </p>
+      )}
+
       <p className="mt-3 flex items-center gap-2 rounded-xl bg-blue-50 px-3.5 py-3 text-[13px] text-blue-700 border border-blue-200">
         <IconInfoCircle className="size-4 shrink-0" />
         <span>
@@ -1250,7 +1273,7 @@ export const Pay = () => {
     enabled: /^[0-9a-f-]{36}$/i.test(id),
   });
   const evmChains = (checkout.data?.chains ?? []).filter(
-    (item) => !isNear(item),
+    (item) => item.chainType === "Evm",
   );
 
   return (
@@ -1296,7 +1319,7 @@ const PayFlow = () => {
   const [chainId, setChainId] = useState("");
   const [token, setToken] = useState<Token | null>(null);
   const [imported, setImported] = useState<Record<string, Token[]>>({});
-  const [wallet, setWallet] = useState<Wallet | NearWallet | null>(null);
+  const [wallet, setWallet] = useState<AnyWallet | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [refundAddress, setRefundAddress] = useState("");
   // the transfer this page opened that nobody has paid yet
@@ -1308,11 +1331,12 @@ const PayFlow = () => {
   const chains = useMemo(
     () =>
       wallet
-        ? allChains.filter((item) => isNear(item) === isNearWallet(wallet))
+        ? allChains.filter((item) => item.chainType === chainTypeOf(wallet))
         : allChains,
     [allChains, wallet],
   );
   const nearChain = allChains.find(isNear);
+  const stellarChain = allChains.find(isStellar);
   const chain = chains.find((item) => item.id === chainId) ?? chains[0];
 
   const payToken =
@@ -1413,7 +1437,7 @@ const PayFlow = () => {
       .request({ method: "eth_chainId" })
       .then(Number)
       .catch(() => 0);
-    const evmChains = allChains.filter((item) => !isNear(item));
+    const evmChains = allChains.filter((item) => item.chainType === "Evm");
     const start =
       evmChains.find((item) => item.chainId === current) ?? evmChains[0];
     if (!start) throw new Error("This link can't be paid on an EVM chain");
@@ -1435,6 +1459,20 @@ const PayFlow = () => {
       setWallet(near);
       setAccount(near.accountId);
       setChainId(nearChain.id);
+      setToken(null);
+      setStep({ kind: "token" });
+    });
+
+  const chooseStellarWallet = () =>
+    run("stellar-wallet", async (progress) => {
+      if (!stellarChain) return;
+      progress("Waiting for Freighter…");
+      const stellar = await connectStellarWallet(stellarChain.caip2Id);
+      if (!stellar) return;
+
+      setWallet(stellar);
+      setAccount(stellar.address);
+      setChainId(stellarChain.id);
       setToken(null);
       setStep({ kind: "token" });
     });
@@ -1462,6 +1500,19 @@ const PayFlow = () => {
         </IconTile>
       ),
       connect: () => chooseNearWallet(),
+    },
+    {
+      type: "Stellar",
+      name: "Stellar",
+      badge: "Beta",
+      icon: (
+        <IconTile className="bg-ink">
+          {stellarChain && (
+            <img src={stellarChain.icon} alt="" className="size-6" />
+          )}
+        </IconTile>
+      ),
+      connect: () => chooseStellarWallet(),
     },
   ].filter((family) =>
     allChains.some((item) => item.chainType === family.type),
@@ -1525,6 +1576,24 @@ const PayFlow = () => {
         progress("Confirm in your wallet…");
         const txHash = await sendNearPayment(
           wallet,
+          tokenAddress,
+          address,
+          amount,
+        );
+
+        setStep({ kind: "status", transferId: transfer.id, txHash });
+        return;
+      }
+
+      if (isStellarWallet(wallet)) {
+        progress("Preparing payment…");
+        const transfer = await openTransfer(q, wallet.address);
+        const { address, tokenAddress, amount } = transfer.paymentInstructions;
+
+        progress("Confirm in Freighter…");
+        const txHash = await sendStellarPayment(
+          wallet,
+          chain.rpcUrls[0],
           tokenAddress,
           address,
           amount,
@@ -1644,7 +1713,9 @@ const PayFlow = () => {
                 disabled={!!busy || !families.length}
                 busy={
                   families.length === 1 &&
-                  (busy?.on === "wallet" || busy?.on === "near-wallet")
+                  ["wallet", "near-wallet", "stellar-wallet"].includes(
+                    busy?.on ?? "",
+                  )
                 }
               />
               <Option
@@ -1700,7 +1771,9 @@ const PayFlow = () => {
                 disabled={!!busy}
                 busy={
                   busy?.on ===
-                  (family.type === "Near" ? "near-wallet" : "wallet")
+                  ({ Near: "near-wallet", Stellar: "stellar-wallet" }[
+                    family.type
+                  ] ?? "wallet")
                 }
               />
             ))}
@@ -1731,7 +1804,7 @@ const PayFlow = () => {
 
           <Rows className="mt-6">
             <Row label="Wallet">
-              {wallet.icon ? (
+              {"icon" in wallet && wallet.icon ? (
                 <img src={wallet.icon} alt="" className="size-5 rounded-md" />
               ) : (
                 <IconWallet className="size-4 text-muted" />
@@ -1788,7 +1861,9 @@ const PayFlow = () => {
     const refund = refundAddress.trim();
     const refundValid = isNear(chain)
       ? isNearAccountId(refund)
-      : isAddress(refund);
+      : isStellar(chain)
+        ? isStellarAddress(refund)
+        : isAddress(refund);
 
     body = (
       <>
@@ -1825,7 +1900,11 @@ const PayFlow = () => {
 
           <Field
             label="Refund address"
-            hint="If the payment can't be completed, your funds are sent here. Use a wallet you control, not an exchange deposit address."
+            hint={
+              isStellar(chain)
+                ? "If the payment can't be completed, your funds are sent here. A memo can't be attached, so for an exchange use its M… (muxed) address."
+                : "If the payment can't be completed, your funds are sent here. Use a wallet you control, not an exchange deposit address."
+            }
           >
             <Input
               value={refundAddress}

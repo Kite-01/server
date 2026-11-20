@@ -410,6 +410,24 @@ export type Transfer = {
       wrap: string;
     } | null;
     implementation: string;
+  } | {
+    id: string;
+    pay_in: string;
+    amount_in: string;
+    settlement_token: string;
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund_address: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      path: Array<string>;
+    } | null;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -518,6 +536,24 @@ export type TransferDetails = {
       wrap: string;
     } | null;
     implementation: string;
+  } | {
+    id: string;
+    pay_in: string;
+    amount_in: string;
+    settlement_token: string;
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund_address: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      path: Array<string>;
+    } | null;
+    implementation: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -588,6 +624,24 @@ export type TransferListItem = {
         RefV1: string;
       };
       wrap: string;
+    } | null;
+    implementation: string;
+  } | {
+    id: string;
+    pay_in: string;
+    amount_in: string;
+    settlement_token: string;
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund_address: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      path: Array<string>;
     } | null;
     implementation: string;
   };
@@ -672,6 +726,24 @@ export type CreatedTransfer = {
         RefV1: string;
       };
       wrap: string;
+    } | null;
+    implementation: string;
+  } | {
+    id: string;
+    pay_in: string;
+    amount_in: string;
+    settlement_token: string;
+    settlement_recipient: string;
+    min_amount_out: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund_address: string;
+    expires_at: string;
+    swap: {
+      router: string;
+      path: Array<string>;
     } | null;
     implementation: string;
   };
@@ -806,7 +878,7 @@ export type SystemInfo = {
   version: string;
   demo: boolean;
   operators: Array<{
-    chainType: 'Evm' | 'Near';
+    chainType: 'Evm' | 'Near' | 'Stellar';
     address: string;
   }>;
   chains: Array<{
@@ -878,6 +950,7 @@ export type X402PaymentRequirements = {
   extra: {
     name?: string;
     version?: string;
+    areFeesSponsored?: boolean;
   };
 };
 
@@ -944,7 +1017,7 @@ export type Checkout = {
     id: string;
     caip2Id: string;
     name: string;
-    chainType: 'Evm' | 'Near';
+    chainType: 'Evm' | 'Near' | 'Stellar';
     chainId: number | null;
     testnet: boolean;
     icon: string;
