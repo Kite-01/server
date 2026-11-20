@@ -9,7 +9,7 @@ import {
   IconCoins,
 } from "@tabler/icons-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -35,6 +35,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, Td, Th } from "@/components/ui/table";
 import {
   formatChange,
   formatCompactUsd,
@@ -712,49 +713,52 @@ export const Dashboard = () => {
             }
           />
         ) : (
-          <div className="divide-y divide-line">
-            {transfers.data?.data.map((transfer) => {
-              return (
-                <div
+          <Table>
+            <thead>
+              <tr>
+                <Th>Transfer</Th>
+                {!appId ? <Th>App</Th> : null}
+                <Th>Status</Th>
+                <Th className="text-right">Amount</Th>
+                <Th className="text-right">Created</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {transfers.data?.data.map((transfer) => (
+                <tr
                   key={transfer.id}
-                  className="flex flex-wrap items-center gap-3 px-4.5 py-3"
+                  onClick={() =>
+                    navigate(`/apps/${appId ?? transfer.app.id}/transfers`)
+                  }
+                  className="cursor-pointer transition-colors hover:bg-soft/60"
                 >
-                  <div className="min-w-0 flex-1 basis-40">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-display text-muted">
-                        #{shortId(transfer.id)}...
-                      </p>
-                      <StatusBadge status={transfer.status} />
-                    </div>
-                    {!appId ? (
-                      <Link
-                        to={`/apps/${transfer.app.id}`}
-                        className="flex items-center gap-1"
-                      >
+                  <Td className="font-display text-muted">
+                    #{shortId(transfer.id)}
+                  </Td>
+                  {!appId ? (
+                    <Td>
+                      <span className="flex items-center gap-2">
                         <SmartImage
                           url={transfer.app.icon}
-                          className="size-7"
+                          className="size-6"
                         />
-                        <p className="truncate text-sm font-">
-                          {transfer.app.name}
-                        </p>
-                      </Link>
-                    ) : null}
-                  </div>
-
-                  <div className="ml-auto min-w-20 text-right space-y-1">
-                    <p className="text-sm tabular-nums font-medium">
-                      {formatUsd(transfer.quote.targetUsdAmount)}
-                    </p>
-
-                    <p className="text-xs text-muted">
-                      {formatDate(transfer.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                        <span className="truncate">{transfer.app.name}</span>
+                      </span>
+                    </Td>
+                  ) : null}
+                  <Td>
+                    <StatusBadge status={transfer.status} />
+                  </Td>
+                  <Td className="text-right font-medium tabular-nums">
+                    {formatUsd(transfer.quote.targetUsdAmount)}
+                  </Td>
+                  <Td className="text-right text-muted">
+                    {formatDate(transfer.createdAt)}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         )}
       </Section>
     </div>

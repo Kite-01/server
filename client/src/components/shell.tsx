@@ -26,7 +26,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { Logo } from "@/components/logo";
 import { ProfileMenu } from "@/components/profile-menu";
-import { AppAvatar } from "@/components/app-avatar";
+import SmartImage from "@/components/smart-image";
 import { Button } from "@/components/ui/button";
 import { docs } from "@/lib/docs";
 import { useAppScope } from "@/lib/queries";
@@ -108,7 +108,7 @@ const Nav = ({ groups }: { groups: Group[] }) => (
               cn(
                 row,
                 isActive
-                  ? "bg-ink text-white shadow-[0_6px_16px_-6px_rgb(0_0_0/0.45)]"
+                  ? "bg-ink text-white"
                   : "text-ink/75 hover:bg-black/[0.04] hover:text-ink",
               )
             }
@@ -129,10 +129,9 @@ const AppSwitch = () => {
   return (
     <div className="rounded-2xl border border-line bg-soft/60 p-1.5">
       <div className="flex items-center gap-2.5 p-1.5">
-        <AppAvatar name={name ?? "App"} icon={icon} className="size-8" />
+        <SmartImage url={icon} alt="" className="size-8 rounded-full" />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{name ?? "App"}</p>
-          <p className="text-xs text-muted">Changes apply to this app</p>
         </div>
       </div>
       <Link
