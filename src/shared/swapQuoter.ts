@@ -1,5 +1,6 @@
 import { Uniswap } from "../sdks/Uniswap";
 import { Rhea } from "../sdks/Rhea";
+import { Soroswap } from "../sdks/Soroswap";
 import { getChain } from "./chains";
 import { ChainType } from "./constants";
 
@@ -7,7 +8,7 @@ export type SwapQuote = {
   amount: bigint;
   /** Uniswap V3 fee tier, or 0 for V2. EVM only. */
   feeTier: number | null;
-  /** Rhea DCL pool id. NEAR only. */
+  /** Rhea DCL pool id on NEAR; the Soroswap path, comma-separated, on Stellar. */
   pool: string | null;
 };
 
@@ -27,6 +28,11 @@ type ExactOutput = {
 
 export const swapQuoter = {
   quoteExactInput: async (input: ExactInput): Promise<SwapQuote | null> => {
+    if (getChain(input.caip2Id).type === ChainType.Stellar) {
+      const q = await new Soroswap().quoteExactInput(input);
+      return q && { amount: q.amount, feeTier: null, pool: q.path.join(",") };
+    }
+
     if (getChain(input.caip2Id).type === ChainType.Near) {
       const q = await new Rhea().quoteExactInput(input);
       return q && { amount: q.amount, feeTier: null, pool: q.pool };
@@ -37,6 +43,11 @@ export const swapQuoter = {
   },
 
   quoteExactOutput: async (input: ExactOutput): Promise<SwapQuote | null> => {
+    if (getChain(input.caip2Id).type === ChainType.Stellar) {
+      const q = await new Soroswap().quoteExactOutput(input);
+      return q && { amount: q.amount, feeTier: null, pool: q.path.join(",") };
+    }
+
     if (getChain(input.caip2Id).type === ChainType.Near) {
       const q = await new Rhea().quoteExactOutput(input);
       return q && { amount: q.amount, feeTier: null, pool: q.pool };

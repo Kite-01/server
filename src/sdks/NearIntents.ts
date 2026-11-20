@@ -4,6 +4,8 @@ import { getChain } from "../shared/chains";
 import { BaseSdk } from "./interfaces/BaseSdk";
 import { common } from "../shared/common";
 import { Http } from "./Http";
+import { Asset } from "@stellar/stellar-sdk";
+import { ChainType } from "../shared/constants";
 
 export type NearIntentsToken = {
   assetId: string;
@@ -101,16 +103,32 @@ export class NearIntents implements BaseSdk {
     tokenAddress: string,
     options: SdkOptions,
   ) => {
-    const blockchain = getChain(caip2Id).descriptors?.[Provider.NearIntents];
-    if (typeof blockchain !== "string" || common.isZeroAddress(tokenAddress)) {
+    const chain = getChain(caip2Id);
+    const blockchain = chain.descriptors?.[Provider.NearIntents];
+    if (
+      typeof blockchain !== "string" ||
+      common.isZeroAddress(tokenAddress) ||
+      chain.testnet
+    ) {
       return null;
     }
+
+    // 1Click names a Stellar asset by its issuer; Kite by its Stellar Asset Contract
+    const contractOf = (item: NearIntentsToken) => {
+      if (chain.type !== ChainType.Stellar) return item.contractAddress;
+      const asset = item.contractAddress
+        ? new Asset(item.symbol, item.contractAddress)
+        : item.symbol === chain.nativeCurrency.symbol
+          ? Asset.native()
+          : null;
+      return asset?.contractId(chain.networkPassphrase);
+    };
 
     const tokens = await this.getTokens(options);
     const match = tokens.find(
       (item) =>
         item.blockchain === blockchain &&
-        common.isSameAddress(item.contractAddress, tokenAddress),
+        common.isSameAddress(contractOf(item), tokenAddress),
     );
 
     return match?.assetId ?? null;

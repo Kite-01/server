@@ -13,7 +13,13 @@ import { encodeFunctionData, erc20Abi, type Address } from "viem";
 import { db, dbWithTransaction, type Transaction } from "../db";
 import { chain, deposit, operatorForward, token } from "../db/schema";
 import { and, eq, inArray, lt } from "drizzle-orm";
-import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import {
+  getNearActor,
+  getOnchainActor,
+  getStellarActor,
+} from "../shared/onchainActor";
+import { Address as StellarAddress, nativeToScVal } from "@stellar/stellar-sdk";
+import { StellarSimulationError } from "../sdks/StellarActor";
 import { NearNativeToken } from "../shared/nearAccount";
 import { type NearFunctionCall } from "../sdks/NearActor";
 
@@ -332,6 +338,36 @@ export class OperatorForwardService {
 
     const tokenAddress = row.token.address;
     const isNative = common.isNativeToken(tokenAddress);
+
+    if (chain.type === ChainType.Stellar) {
+      const result = await getStellarActor()
+        .invoke(
+          caip2Id,
+          tokenAddress,
+          "transfer",
+          [
+            StellarAddress.fromString(onchainActor.getAddress()).toScVal(),
+            StellarAddress.fromString(row.recipient).toScVal(),
+            nativeToScVal(row.amount, { type: "i128" }),
+          ],
+          row.transfer.quote.chain.config?.rpcUrls ?? [],
+        )
+        .catch((e: unknown) => {
+          if (!(e instanceof StellarSimulationError)) throw e;
+          return { status: "failure", failure: e.message } as const;
+        });
+
+      if (result.status === "success") {
+        await this.markSent(row.id, result.transactionHash);
+      } else {
+        await this.markFailed(
+          row.id,
+          `The forward failed on-chain: ${result.failure ?? "unknown error"}`,
+        );
+      }
+
+      return;
+    }
 
     if (chain.type === ChainType.Near) {
       const result = await this.sendOnNear(

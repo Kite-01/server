@@ -384,6 +384,33 @@ const NearKiteTransferInput = t.Object(
   named("NearKiteTransferInput"),
 );
 
+const StellarKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    pay_in: ChainAddress,
+    amount_in: Digits,
+    settlement_token: ChainAddress,
+    settlement_recipient: ChainAddress,
+    min_amount_out: Digits,
+    fees: t.Array(
+      t.Object({
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refund_address: ChainAddress,
+    expires_at: Digits,
+    swap: Nullable(
+      t.Object({
+        router: ChainAddress,
+        path: t.Array(ChainAddress),
+      }),
+    ),
+    implementation: t.String(),
+  },
+  named("StellarKiteTransferInput"),
+);
+
 const Transfer = t.Object(
   {
     id: Uuid,
@@ -393,7 +420,11 @@ const Transfer = t.Object(
     minAmountOut: BigIntString,
     refundAddress: ChainAddress,
     payinAddress: ChainAddress,
-    kiteTransferInput: t.Union([EvmKiteTransferInput, NearKiteTransferInput]),
+    kiteTransferInput: t.Union([
+      EvmKiteTransferInput,
+      NearKiteTransferInput,
+      StellarKiteTransferInput,
+    ]),
     status: t.Enum(TransferStatus),
     settlementBlockchainHash: Nullable(t.String()),
     refundBlockchainHash: Nullable(t.String()),
@@ -673,10 +704,11 @@ const x402PaymentRequirements = t.Object(
     amount: Digits,
     payTo: ChainAddress,
     maxTimeoutSeconds: Int,
-    // the EIP-3009 domain on EVM; nothing on NEAR
+    // the EIP-3009 domain on EVM; nothing on NEAR; whether fees are paid for on Stellar
     extra: t.Object({
       name: t.Optional(t.String()),
       version: t.Optional(t.String()),
+      areFeesSponsored: t.Optional(t.Boolean()),
     }),
   },
   named("x402PaymentRequirements"),
@@ -734,7 +766,11 @@ const Checkout = t.Object(
         id: Uuid,
         caip2Id: t.String(),
         name: t.String(),
-        chainType: t.Union([t.Literal("Evm"), t.Literal("Near")]),
+        chainType: t.Union([
+          t.Literal("Evm"),
+          t.Literal("Near"),
+          t.Literal("Stellar"),
+        ]),
         chainId: Nullable(Int),
         testnet: t.Boolean(),
         icon: t.String(),

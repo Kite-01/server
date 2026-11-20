@@ -41,6 +41,10 @@ export class CheckoutService {
       return config.settlementToken.address !== NearNativeToken;
     }
 
+    if (getChain(caip2Id).type === ChainType.Stellar) {
+      return true;
+    }
+
     return (
       config.settlementToken.supportsEIP3009 && !!config.settlementToken.version
     );
@@ -98,8 +102,13 @@ export class CheckoutService {
         }
 
         const x402 = this.takesX402(chain.caip2Id, chain.config);
-        const tokens = await tokenService.getTokensByChainId(chain.id);
         const settlementToken = chain.config.settlementToken;
+        // without a swap router, Stellar only takes the settlement token
+        const swaps =
+          meta.type !== ChainType.Stellar || !!meta.contracts.Soroswap?.router;
+        const tokens = (await tokenService.getTokensByChainId(chain.id)).filter(
+          (token) => swaps || token.id === settlementToken.id,
+        );
 
         return {
           id: chain.id,
@@ -431,10 +440,10 @@ export class CheckoutService {
       throw new NotFoundError("transfer", transferId);
     }
 
-    // NEAR has no deposit notifier, so a watched transfer is checked on each poll, not each sweep
+    // NEAR and Stellar have no deposit notifier, so a watched transfer is checked on each poll, not each sweep
     if (
       transfer.status === TransferStatus.AwaitingDeposit &&
-      getChain(transfer.quote.chain.caip2Id).type === ChainType.Near
+      getChain(transfer.quote.chain.caip2Id).type !== ChainType.Evm
     ) {
       await Scheduler.enqueueSettle(transfer.id);
     }

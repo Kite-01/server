@@ -10,7 +10,12 @@ import { getChain, readContracts } from "../shared/chains";
 import { ChainType, Provider, zeroBytes32 } from "../shared/constants";
 import { isNearAccountId, NearNativeToken } from "../shared/kiteNearContract";
 import { chainConfig, token } from "../db/schema";
-import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import {
+  getNearActor,
+  getOnchainActor,
+  getStellarActor,
+} from "../shared/onchainActor";
+import { isStellarContract } from "../shared/stellarAddress";
 import { ChainService } from "./Chain.service";
 import { NearIntents } from "../sdks/NearIntents";
 import { KvService } from "./Kv.service";
@@ -22,7 +27,8 @@ export class TokenService {
   findTokenByAddress = async (chainId: string, tokenAddress: string) => {
     if (
       !isAddress(tokenAddress, { strict: false }) &&
-      !isNearAccountId(tokenAddress)
+      !isNearAccountId(tokenAddress) &&
+      !isStellarContract(tokenAddress.toUpperCase())
     ) {
       return undefined;
     }
@@ -89,9 +95,14 @@ export class TokenService {
     const isNative =
       chain_.type === ChainType.Near
         ? address === NearNativeToken
-        : common.isZeroAddress(address);
+        : chain_.type === ChainType.Stellar
+          ? address === chain_.contracts.nativeToken
+          : common.isZeroAddress(address);
 
-    if (!common.isValidAddress(chain_.type, address)) {
+    if (
+      !common.isValidAddress(chain_.type, address) ||
+      (chain_.type === ChainType.Stellar && !isStellarContract(address))
+    ) {
       throw new AppError(`${address} is not a token address on ${chain_.name}`);
     }
 
@@ -138,6 +149,36 @@ export class TokenService {
           metadata.icon && metadata.icon.length <= 16_384
             ? metadata.icon
             : null,
+      });
+    }
+
+    if (chain_.type === ChainType.Stellar) {
+      const actor = getStellarActor();
+      const read = <T>(method: string) =>
+        actor.view<T>(
+          chain.caip2Id,
+          address,
+          method,
+          [],
+          chain.config?.rpcUrls ?? [],
+        );
+      const metadata = await Promise.all([
+        read<string>("name"),
+        read<string>("symbol"),
+        read<number>("decimals"),
+      ]).catch(() => null);
+
+      if (!metadata || typeof metadata[2] !== "number") {
+        throw new AppError("Could not get meta information for token");
+      }
+
+      return saveToken({
+        chainId,
+        address,
+        name: metadata[0],
+        symbol: metadata[1],
+        decimals: metadata[2],
+        supportsEIP3009: false,
       });
     }
 
