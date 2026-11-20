@@ -6,6 +6,7 @@ import {
   IconCaretDownFilled,
   IconCaretUpFilled,
   IconChartLine,
+  IconCheck,
   IconCoins,
 } from "@tabler/icons-react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -19,6 +20,8 @@ import {
   XAxis,
 } from "recharts";
 import {
+  appsListOptions,
+  chainsListOptions,
   overviewStatsOptions,
   transfersListOptions,
 } from "@/api/@tanstack/react-query.gen";
@@ -45,6 +48,7 @@ import {
   shortId,
 } from "@/lib/format";
 import { useAppHeaders, useAppScope } from "@/lib/queries";
+import { docs } from "@/lib/docs";
 import { cn } from "@/lib/utils";
 import SmartImage from "@/components/smart-image";
 
@@ -443,6 +447,104 @@ const Fact = ({
   </div>
 );
 
+const Welcome = () => {
+  const navigate = useNavigate();
+  const chains = useQuery(chainsListOptions());
+  const apps = useQuery(appsListOptions({ query: { pageSize: 1 } }));
+  const firstApp = apps.data?.data[0];
+
+  const steps = [
+    {
+      title: "Add a chain",
+      text: "Pick a network to settle on, and give it an RPC and a settlement token.",
+      done: !!chains.data?.data.length,
+      action: "Add chain",
+      to: "/chains",
+    },
+    {
+      title: "Create an app",
+      text: "One for each product or business taking payments.",
+      done: !!apps.data?.total,
+      action: "New app",
+      to: "/apps",
+    },
+    {
+      title: "Take a first payment",
+      text: "Make a payment link in your app and pay it on testnet.",
+      done: false,
+      action: "Make a link",
+      to: firstApp ? `/apps/${firstApp.id}/payment-links` : "/apps",
+    },
+  ];
+  const next = steps.findIndex((step) => !step.done);
+
+  return (
+    <Card className="grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="p-6 sm:p-10">
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Welcome to Kite
+        </h2>
+        <p className="mt-1.5 max-w-md text-sm text-muted">
+          Your server is running. Three steps take you to your first settled
+          payment.
+        </p>
+
+        <ol className="mt-8 divide-y divide-line rounded-xl border border-line">
+          {steps.map((step, i) => (
+            <li key={step.title} className="flex items-center gap-4 p-4">
+              <span
+                className={cn(
+                  "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium",
+                  step.done
+                    ? "bg-success/10 text-success"
+                    : i === next
+                      ? "bg-ink text-white"
+                      : "bg-soft text-muted",
+                )}
+              >
+                {step.done ? <IconCheck className="size-4" /> : i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    step.done && "text-muted line-through",
+                  )}
+                >
+                  {step.title}
+                </p>
+                <p className="text-xs text-muted">{step.text}</p>
+              </div>
+              {!step.done ? (
+                <Button
+                  size="sm"
+                  variant={i === next ? "default" : "outline"}
+                  onClick={() => navigate(step.to)}
+                >
+                  {step.action}
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+
+        <a
+          href={docs.firstRun}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-6 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
+        >
+          Read the first-run guide
+          <IconArrowRight className="size-4" />
+        </a>
+      </div>
+      <div className="hidden items-center justify-center bg-soft/60 p-10 lg:flex lg:border-s lg:border-line">
+        <img src="/empty.svg" alt="" className="h-56 w-auto" />
+      </div>
+    </Card>
+  );
+};
+
 export const Dashboard = () => {
   const { appId } = useAppScope();
   const headers = useAppHeaders();
@@ -487,6 +589,15 @@ export const Dashboard = () => {
         sum + (rank === "value" ? Number(token.value) : token.volume),
       0,
     ) ?? 0;
+
+  if (!appId && transfers.data?.total === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Overview" />
+        <Welcome />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

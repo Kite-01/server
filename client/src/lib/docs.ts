@@ -7,6 +7,7 @@ export const docs = {
   pricing: `${DocsUrl}/server/chains-and-tokens#pricing`,
   providers: `${DocsUrl}/server/providers`,
   configuration: `${DocsUrl}/server/configuration`,
+  firstRun: `${DocsUrl}/server/first-run`,
   testnets: `${DocsUrl}/server/testnets`,
   apps: `${DocsUrl}/payments/apps`,
   appChains: `${DocsUrl}/payments/apps#chains-and-addresses`,
