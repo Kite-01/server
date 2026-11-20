@@ -17,7 +17,7 @@ import {
 
 /**
  * The `factory` and `kite` contracts on Stellar (Kite-01/stellar-contracts). What the server
- * assumes of them, to confirm against the contracts:
+ * assumes of them; the contracts' `types` crate pins the same vectors as this file's test:
  *
  * 1. A deposit's address is the contract id the factory deploys with salt
  *    `sha256(ScVal XDR of the Transfer)`: `sha256(HashIdPreimage::ContractId { network id,
