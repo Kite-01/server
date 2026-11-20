@@ -92,6 +92,20 @@ button:disabled {
   }
 }
 
+@keyframes glide {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-1.5%, 2%, 0) rotate(-1.5deg);
+  }
+}
+
+.kite-glide {
+  animation: glide 9s ease-in-out infinite;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

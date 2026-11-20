@@ -22,6 +22,7 @@ import {
 import {
   appsListOptions,
   chainsListOptions,
+  chainsListSupportedOptions,
   overviewStatsOptions,
   transfersListOptions,
 } from "@/api/@tanstack/react-query.gen";
@@ -48,6 +49,7 @@ import {
   shortId,
 } from "@/lib/format";
 import { useAppHeaders, useAppScope } from "@/lib/queries";
+import { isTestnet } from "@/components/testnet-banner";
 import { docs } from "@/lib/docs";
 import { cn } from "@/lib/utils";
 import SmartImage from "@/components/smart-image";
@@ -450,98 +452,171 @@ const Fact = ({
 const Welcome = () => {
   const navigate = useNavigate();
   const chains = useQuery(chainsListOptions());
+  const supported = useQuery(chainsListSupportedOptions());
   const apps = useQuery(appsListOptions({ query: { pageSize: 1 } }));
   const firstApp = apps.data?.data[0];
+  const networks = (supported.data ?? []).filter((chain) =>
+    isTestnet ? chain.testnet : !chain.testnet,
+  );
 
   const steps = [
     {
       title: "Add a chain",
-      text: "Pick a network to settle on, and give it an RPC and a settlement token.",
+      text: "Pick a network to settle on and give it an RPC.",
       done: !!chains.data?.data.length,
-      action: "Add chain",
+      action: "Add a chain",
       to: "/chains",
+      preview: (
+        <div className="flex flex-wrap gap-1.5">
+          {networks.slice(0, 5).map((chain) => (
+            <span
+              key={chain.caip2Id}
+              className="rounded-full bg-white px-2.5 py-1 text-xs text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]"
+            >
+              {chain.name}
+            </span>
+          ))}
+          {networks.length > 5 ? (
+            <span className="rounded-full px-2 py-1 text-xs text-muted">
+              +{networks.length - 5} more
+            </span>
+          ) : null}
+        </div>
+      ),
     },
     {
       title: "Create an app",
       text: "One for each product or business taking payments.",
       done: !!apps.data?.total,
-      action: "New app",
+      action: "Create an app",
       to: "/apps",
+      preview: (
+        <div className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+          <span className="flex size-9 items-center justify-center rounded-full bg-ink text-sm font-medium text-white">
+            {firstApp ? firstApp.name[0] : "A"}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">
+              {firstApp?.name ?? "Your app"}
+            </span>
+            <span className="block text-xs text-muted">
+              Chains, keys, webhooks
+            </span>
+          </span>
+        </div>
+      ),
     },
     {
       title: "Take a first payment",
-      text: "Make a payment link in your app and pay it on testnet.",
+      text: "Make a payment link and pay it from a wallet.",
       done: false,
       action: "Make a link",
       to: firstApp ? `/apps/${firstApp.id}/payment-links` : "/apps",
+      preview: (
+        <div className="rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted">Payment link</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
+              <span className="size-1.5 rounded-full bg-current" />
+              Settled
+            </span>
+          </div>
+          <p className="mt-1 font-display text-2xl font-semibold tracking-tight">
+            $49<span className="text-muted/50">.00</span>
+          </p>
+        </div>
+      ),
     },
   ];
   const next = steps.findIndex((step) => !step.done);
+  const done = steps.filter((step) => step.done).length;
 
   return (
-    <Card className="grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="p-6 sm:p-10">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Welcome to Kite
-        </h2>
-        <p className="mt-1.5 max-w-md text-sm text-muted">
-          Your server is running. Three steps take you to your first settled
-          payment.
-        </p>
-
-        <ol className="mt-8 divide-y divide-line rounded-xl border border-line">
-          {steps.map((step, i) => (
-            <li key={step.title} className="flex items-center gap-4 p-4">
-              <span
-                className={cn(
-                  "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium",
-                  step.done
-                    ? "bg-success/10 text-success"
-                    : i === next
-                      ? "bg-ink text-white"
-                      : "bg-soft text-muted",
-                )}
+    <div className="space-y-4">
+      <section className="relative isolate overflow-hidden rounded-[28px] bg-kite">
+        <img
+          src="/images/sky.webp"
+          alt=""
+          className="absolute inset-x-0 bottom-0 -z-10 h-[38%] w-full object-cover object-[70%_100%] opacity-50"
+        />
+        <img
+          src="/images/kite-bird.webp"
+          alt=""
+          className="kite-glide absolute -end-[8%] -top-4 -z-10 w-[56%] max-sm:hidden lg:-end-[2%] lg:w-[40%]"
+        />
+        <div className="max-w-2xl p-8 pb-28 sm:p-12 sm:pb-36 lg:pt-14">
+          <p className="inline-flex items-center gap-2 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink">
+            {done} of {steps.length} done
+          </p>
+          <h2 className="mt-6 font-display text-[clamp(2.25rem,1.6rem+2.4vw,3.75rem)] leading-[1] font-semibold tracking-[-0.04em] text-ink">
+            Your Kite server is live
+          </h2>
+          <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink/75">
+            Three steps between you and your first settled payment. Start on
+            testnet, it takes about five minutes.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            {next >= 0 ? (
+              <Button
+                className="h-11 px-5"
+                onClick={() => navigate(steps[next]!.to)}
               >
-                {step.done ? <IconCheck className="size-4" /> : i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p
+                {steps[next]!.action}
+                <IconArrowRight className="size-4" />
+              </Button>
+            ) : null}
+            <a
+              href={docs.firstRun}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-white/80"
+            >
+              Read the guide
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <ol className="grid gap-4 md:grid-cols-3">
+        {steps.map((step, i) => (
+          <li key={step.title}>
+            <button
+              type="button"
+              onClick={() => navigate(step.to)}
+              className={cn(
+                "group flex h-full w-full flex-col rounded-[24px] border p-6 text-start transition-colors",
+                i === next
+                  ? "border-ink bg-surface"
+                  : "border-line bg-surface hover:border-ink/30",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span
                   className={cn(
-                    "text-sm font-medium",
-                    step.done && "text-muted line-through",
+                    "flex size-8 items-center justify-center rounded-full text-sm font-medium",
+                    step.done
+                      ? "bg-success/10 text-success"
+                      : i === next
+                        ? "bg-ink text-white"
+                        : "bg-soft text-muted",
                   )}
                 >
-                  {step.title}
-                </p>
-                <p className="text-xs text-muted">{step.text}</p>
+                  {step.done ? <IconCheck className="size-4" /> : i + 1}
+                </span>
+                <IconArrowRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5" />
               </div>
-              {!step.done ? (
-                <Button
-                  size="sm"
-                  variant={i === next ? "default" : "outline"}
-                  onClick={() => navigate(step.to)}
-                >
-                  {step.action}
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ol>
-
-        <a
-          href={docs.firstRun}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-6 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
-        >
-          Read the first-run guide
-          <IconArrowRight className="size-4" />
-        </a>
-      </div>
-      <div className="hidden items-center justify-center bg-soft/60 p-10 lg:flex lg:border-s lg:border-line">
-        <img src="/empty.svg" alt="" className="h-56 w-auto" />
-      </div>
-    </Card>
+              <p className="mt-5 font-display text-lg font-semibold tracking-tight">
+                {step.title}
+              </p>
+              <p className="mt-1 text-sm text-muted">{step.text}</p>
+              <div className="mt-6 flex min-h-24 flex-col justify-end rounded-2xl bg-soft p-3">
+                {step.preview}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 };
 
