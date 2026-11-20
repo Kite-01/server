@@ -3,19 +3,19 @@ name: Auto Assign
 on:
   issues:
     types: [opened]
-  pull_request:
+  pull_request_target:
     types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
     steps:
-    - name: 'Auto-assign issue'
-      uses: pozil/auto-assign-issue@v1
-      with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          assignees: iamthe-nerdyDev
-          numOfAssignee: 1
+      - name: Assign
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$NUMBER/assignees" -f "assignees[]=iamthe-nerdyDev" > /dev/null
