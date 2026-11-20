@@ -3,8 +3,6 @@ name: Auto Assign
 on:
   issues:
     types: [opened]
-  # pull_request_target so pull requests from forks get a token that can assign;
-  # nothing from the pull request is checked out or run
   pull_request_target:
     types: [opened]
 

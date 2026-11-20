@@ -38,7 +38,6 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      # Bun exits 0 even when a test fails, so the JSON report decides
       - run: bun run test --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/vitest.json"
       - run: jq -e '.success' "$RUNNER_TEMP/vitest.json" > /dev/null
 
