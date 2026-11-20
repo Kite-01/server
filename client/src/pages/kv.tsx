@@ -17,7 +17,6 @@ import type { KvEntry, ProviderStatus } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { Field } from "@/components/field";
-import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
@@ -199,11 +198,7 @@ export const Kv = () => {
 
   return (
     <>
-      <PageHeader
-        title="KV store"
-        description="Settings this server keeps for itself."
-        docs={docs.configuration}
-      />
+      <PageHeader title="KV" />
 
       <SimpleTable
         exportName="kv"

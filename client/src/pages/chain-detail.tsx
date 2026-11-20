@@ -27,7 +27,6 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { CopyButton } from "@/components/copy-button";
 import { CheckboxGroup, Field, type CheckboxOption } from "@/components/field";
-import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
@@ -524,7 +523,6 @@ export const ChainDetail = () => {
   return (
     <>
       <PageHeader
-        docs={docs.chains}
         title={<ChainName caip2Id={chain.caip2Id} supported={supported.data} />}
         action={
           <Button

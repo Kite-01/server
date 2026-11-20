@@ -10,7 +10,6 @@ import {
 import type { ConfiguredChain } from "@/api/types.gen";
 import { CopyButton } from "@/components/copy-button";
 import { Field } from "@/components/field";
-import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
@@ -86,11 +85,7 @@ export const AppChains = () => {
 
   return (
     <>
-      <PageHeader
-        title="Chains"
-        description="The chains this app takes payments on, and the address each one settles to."
-        docs={docs.appChains}
-      />
+      <PageHeader title="Chains" />
 
       <SimpleTable
         exportName="app-chains"

@@ -18,7 +18,6 @@ import {
 import type { ChainWithConfig, SupportedChain } from "@/api/types.gen";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Field } from "@/components/field";
-import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { SimpleTable } from "@/components/simple-table";
@@ -85,11 +84,7 @@ export const Chains = () => {
 
   return (
     <>
-      <PageHeader
-        title="Chains"
-        description="The networks this server settles on, their tokens and providers."
-        docs={docs.chains}
-      />
+      <PageHeader title="Chains" />
 
       <SimpleTable
         exportName="chains"

@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
 import { IconChevronDown } from "@tabler/icons-react";
 
 const field =
-  "w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink transition-[border-color,box-shadow] placeholder:text-muted hover:border-ink/20 focus-visible:border-ink focus-visible:shadow-[0_0_0_3px_rgb(10_10_10/0.06)] focus-visible:outline-none disabled:bg-soft disabled:text-muted";
+  "w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink transition-colors placeholder:text-muted hover:border-ink/20 focus-visible:border-ink focus-visible:outline-none disabled:bg-soft disabled:text-muted";
 
 export const Input = ({
   className,
   ...props
 }: InputHTMLAttributes<HTMLInputElement>) => (
-  <input className={cn(field, "h-10", className)} {...props} />
+  <input className={cn(field, "h-9.5", className)} {...props} />
 );
 
 export const Textarea = ({
@@ -34,7 +34,11 @@ export const Select = ({
 }: SelectHTMLAttributes<HTMLSelectElement> & { wrapperClassName?: string }) => (
   <div className={cn("relative w-full", wrapperClassName)}>
     <select
-      className={cn(field, "h-10 appearance-none bg-no-repeat pr-8", className)}
+      className={cn(
+        field,
+        "h-9.5 appearance-none bg-no-repeat pr-8",
+        className,
+      )}
       {...props}
     />
 

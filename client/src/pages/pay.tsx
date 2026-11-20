@@ -266,22 +266,12 @@ const SheetHeader = ({
         <IconChevronLeft className="size-5" />
       </button>
     )}
-    <h2 className="truncate text-[17px] font-medium tracking-tight">{title}</h2>
+    <h2 className="truncate text-[17px] font-semibold tracking-tight">
+      {title}
+    </h2>
     {accessory && <div className="absolute right-0">{accessory}</div>}
   </header>
 );
-
-const Cents = ({ value }: { value: string }) => {
-  const match = value.match(/^(.*?)([.,]\d{2})(\D*)$/);
-  if (!match) return <>{value}</>;
-  return (
-    <>
-      {match[1]}
-      <span className="text-muted/50">{match[2]}</span>
-      {match[3]}
-    </>
-  );
-};
 
 const IconTile = ({
   children,
@@ -292,7 +282,7 @@ const IconTile = ({
 }) => (
   <span
     className={cn(
-      "flex size-11 shrink-0 items-center justify-center rounded-xl text-white [&_svg]:size-5 [&_svg]:stroke-[1.6]",
+      "flex size-10 shrink-0 items-center justify-center rounded-full text-white [&_svg]:size-5",
       className,
     )}
   >
@@ -321,7 +311,7 @@ const Option = ({
     type="button"
     onClick={onClick}
     disabled={disabled}
-    className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-soft/70 disabled:cursor-not-allowed disabled:hover:bg-transparent [&:disabled>*]:opacity-50"
+    className="group flex w-full items-center gap-3.5 px-4 py-3.5 text-left font-sans! transition-colors hover:bg-soft/70 disabled:cursor-not-allowed disabled:hover:bg-transparent [&:disabled>*]:opacity-50"
   >
     {icon}
     <span className="min-w-0 flex-1">
@@ -503,7 +493,7 @@ const Total = ({
         </>
       ) : quote ? (
         <>
-          <p className="text-[28px] leading-tight font-normal tracking-[-0.035em] break-all tabular-nums">
+          <p className="font-display text-[28px] leading-tight font-semibold tracking-tight break-all tabular-nums">
             {formatUnits(BigInt(quote.sourceAmount), token.decimals)}{" "}
             <span className="text-muted break-normal whitespace-nowrap">
               {token.symbol}
@@ -557,7 +547,7 @@ const Footer = ({
       className="flex items-center gap-1 transition-colors hover:text-ink"
     >
       <span>Powered by</span>
-      <Logo className="gap-1 text-xs font-semibold text-ink/70 [&_img]:h-3.5" />
+      <Logo className="gap-1 text-xs font-semibold text-ink/70 [&_img]:size-4" />
     </a>
 
     {(app.termsOfServiceUrl || app.privacyPolicyUrl) && (
@@ -647,7 +637,7 @@ const Shell = ({
       ) : (
         <Monogram label={app.name} className="size-8 bg-none bg-ink text-xs" />
       )}
-      <span className="text-[15px] font-medium">{app.name}</span>
+      <span className="font-display text-[15px] font-semibold">{app.name}</span>
     </>
   );
 
@@ -689,8 +679,8 @@ const Shell = ({
 
           <div className="mt-8 lg:mt-14">
             <p className="text-[15px] text-muted">{link.title}</p>
-            <h1 className="mt-2 text-[52px] leading-none font-normal tracking-[-0.045em] tabular-nums">
-              <Cents value={formatMoney(link.amount, link.currency)} />
+            <h1 className="mt-1 font-display text-5xl font-semibold tracking-tight tabular-nums">
+              {formatMoney(link.amount, link.currency)}
             </h1>
           </div>
 
@@ -940,7 +930,7 @@ const InstructionsStep = ({
 
       <div className="mt-8 text-center">
         <p className="text-sm text-muted">Send exactly</p>
-        <p className="mt-1 text-4xl font-normal tracking-[-0.04em] break-all tabular-nums">
+        <p className="mt-1 font-display text-4xl font-semibold tracking-tight break-all tabular-nums">
           {amount}{" "}
           <span className="text-muted break-normal whitespace-nowrap">
             {token.symbol}
@@ -1114,7 +1104,7 @@ const StatusStep = ({
         >
           {view.icon}
         </span>
-        <h2 className="mt-6 text-2xl font-normal tracking-[-0.03em]">
+        <h2 className="mt-6 text-2xl font-semibold tracking-tight">
           {view.title}
         </h2>
         {view.text && (
@@ -1623,7 +1613,7 @@ const PayFlow = () => {
         <span className="flex size-16 items-center justify-center rounded-full bg-surface text-muted shadow-sm">
           <IconPaywall strokeWidth={1.5} className="size-8" />
         </span>
-        <h1 className="mt-6 text-2xl font-normal tracking-[-0.03em]">
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">
           {checkout.error?.message ?? "Invalid link"}
         </h1>
       </div>
@@ -1636,7 +1626,7 @@ const PayFlow = () => {
   if (step.kind === "method") {
     body = (
       <div>
-        <h2 className="text-[26px] leading-tight font-normal tracking-[-0.035em]">
+        <h2 className="text-2xl font-semibold tracking-tight">
           How would you like to pay?
         </h2>
 
@@ -1650,7 +1640,6 @@ const PayFlow = () => {
                   </IconTile>
                 }
                 title="Connect wallet"
-                description="Pay from MetaMask, Rabby, a NEAR wallet and more"
                 onClick={connect}
                 disabled={!!busy || !families.length}
                 busy={
@@ -1660,12 +1649,11 @@ const PayFlow = () => {
               />
               <Option
                 icon={
-                  <IconTile className="bg-soft text-ink">
+                  <IconTile className="bg-pending">
                     <IconPaywall />
                   </IconTile>
                 }
-                title="Send tokens"
-                description="Get an address to pay from any wallet or exchange"
+                title="Payment instructions"
                 onClick={() => go({ kind: "token" })}
                 disabled={!!busy}
               />
@@ -1675,12 +1663,18 @@ const PayFlow = () => {
           </div>
         ) : (
           <ErrorNote className="mt-7">
-            <div className="space-y-1">
-              <p className="font-medium">This link can't be paid right now</p>
-              <p>
-                {app.name} doesn't take payments on any chain yet. Let them
-                know, or try again later.
-              </p>
+            <div className="space-y-2">
+              <p>This link can't be paid right now.</p>
+              <div>
+                <p className="font-medium">I am the site administrator</p>
+                <p>Kindly ensure you have atleast one chain configured</p>
+              </div>
+              <div>
+                <p className="font-medium">I am not the site administrator</p>
+                <p>
+                  Reach out to site administrator on how to resolve this issue
+                </p>
+              </div>
             </div>
           </ErrorNote>
         )}

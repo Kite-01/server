@@ -20,7 +20,6 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton } from "@/components/copy-button";
 import { DataTable } from "@/components/data-table";
 import { Field } from "@/components/field";
-import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Badge } from "@/components/ui/badge";
@@ -287,11 +286,7 @@ export const ApiKeys = () => {
 
   return (
     <>
-      <PageHeader
-        title="API keys"
-        description="Keys your backend signs requests with. The private half never leaves the browser that made it."
-        docs={docs.apiKeys}
-      />
+      <PageHeader title="API keys" />
 
       <DataTable
         exportName="api-keys"

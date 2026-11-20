@@ -8,7 +8,6 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type { KvEntry, ProviderStatus } from "@/api/types.gen";
 import { EmptyState } from "@/components/empty-state";
-import { docs } from "@/lib/docs";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -136,11 +135,7 @@ export const Providers = () => {
 
   return (
     <>
-      <PageHeader
-        title="Providers"
-        description="The services that watch for deposits and sponsor gas."
-        docs={docs.providers}
-      />
+      <PageHeader title="Providers" />
 
       {providers.isLoading ? (
         <Card

@@ -9,7 +9,7 @@ import {
   IconCoins,
 } from "@tabler/icons-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -26,7 +26,6 @@ import type { Stats } from "@/api/types.gen";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { AppAvatar } from "@/components/app-avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,7 +44,6 @@ import {
   shortId,
 } from "@/lib/format";
 import { useAppHeaders, useAppScope } from "@/lib/queries";
-import { docs } from "@/lib/docs";
 import { cn } from "@/lib/utils";
 import SmartImage from "@/components/smart-image";
 
@@ -266,6 +264,24 @@ const Panel = ({
   </Card>
 );
 
+const Section = ({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) => (
+  <Card className="min-w-0 overflow-hidden pb-1.5">
+    <div className="flex h-13 items-center justify-between gap-3 px-4.5">
+      <h2 className="text-sm font-medium">{title}</h2>
+      {action}
+    </div>
+    {children}
+  </Card>
+);
+
 const Ink = "#0a0a0a";
 const Kite = "#fcc101";
 const Line = "#e8e7e3";
@@ -429,6 +445,7 @@ const Fact = ({
 export const Dashboard = () => {
   const { appId } = useAppScope();
   const headers = useAppHeaders();
+  const navigate = useNavigate();
   const [preset, setPreset] = useState<Preset>("7d");
   const [rank, setRank] = useState<"value" | "volume">("value");
   const [custom, setCustom] = useState(() => {
@@ -469,13 +486,11 @@ export const Dashboard = () => {
         sum + (rank === "value" ? Number(token.value) : token.volume),
       0,
     ) ?? 0;
-  const transfersPath = appId ? `/apps/${appId}/transfers` : null;
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Overview"
-        docs={docs.overview}
         action={
           <RangePicker
             preset={preset}
@@ -660,18 +675,17 @@ export const Dashboard = () => {
         </Panel>
       </div>
 
-      <Panel
+      <Section
         title="Recent transfers"
-        hint={appId ? "The latest payments into this app" : "Across every app"}
         action={
-          transfersPath ? (
-            <Link
-              to={transfersPath}
-              className="inline-flex h-9 items-center gap-1 rounded-full px-3 text-sm text-muted transition-colors hover:bg-soft hover:text-ink"
+          appId ? (
+            <Button
+              variant={"outline"}
+              size={"iconSm"}
+              onClick={() => navigate(`/apps/${appId}/transfers`)}
             >
-              View all
               <IconArrowRight className="size-4" />
-            </Link>
+            </Button>
           ) : null
         }
       >
@@ -688,65 +702,61 @@ export const Dashboard = () => {
             }
             action={
               appId ? (
-                <Link
-                  to={`/apps/${appId}/payment-links`}
-                  className="inline-flex h-10 items-center rounded-full bg-ink px-5 text-sm font-medium text-white"
+                <Button
+                  className="h-9.5 px-5"
+                  onClick={() => navigate(`/apps/${appId}/payment-links`)}
                 >
-                  Create a payment link
-                </Link>
+                  Create payment link
+                </Button>
               ) : null
             }
           />
         ) : (
-          <div className="-mx-2 divide-y divide-line">
-            {transfers.data?.data.map((transfer) => (
-              <div
-                key={transfer.id}
-                className="flex items-center gap-4 rounded-xl px-2 py-3"
-              >
-                {!appId ? (
-                  <Link
-                    to={`/apps/${transfer.app.id}`}
-                    className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:basis-56"
-                  >
-                    <AppAvatar
-                      name={transfer.app.name}
-                      icon={transfer.app.icon}
-                      className="size-9"
-                    />
-                    <span className="min-w-0">
-                      <span className="block truncate text-[15px] font-medium">
-                        {transfer.app.name}
-                      </span>
-                      <span className="block font-mono text-xs text-muted">
-                        {shortId(transfer.id)}
-                      </span>
-                    </span>
-                  </Link>
-                ) : (
-                  <span className="flex-1 font-mono text-sm text-muted sm:flex-none sm:basis-56">
-                    {shortId(transfer.id)}
-                  </span>
-                )}
-                <span className="hidden w-40 sm:block">
-                  <StatusBadge status={transfer.status} />
-                </span>
-                <span className="ms-auto hidden text-sm text-muted md:block">
-                  {formatDate(transfer.createdAt)}
-                </span>
-                <span className="flex flex-col items-end gap-1 sm:w-24">
-                  <span className="text-[15px] font-medium tabular-nums">
-                    {formatUsd(transfer.quote.targetUsdAmount)}
-                  </span>
-                  <span className="sm:hidden">
-                    <StatusBadge status={transfer.status} />
-                  </span>
-                </span>
-              </div>
-            ))}
+          <div className="divide-y divide-line">
+            {transfers.data?.data.map((transfer) => {
+              return (
+                <div
+                  key={transfer.id}
+                  className="flex flex-wrap items-center gap-3 px-4.5 py-3"
+                >
+                  <div className="min-w-0 flex-1 basis-40">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-display text-muted">
+                        #{shortId(transfer.id)}...
+                      </p>
+                      <StatusBadge status={transfer.status} />
+                    </div>
+                    {!appId ? (
+                      <Link
+                        to={`/apps/${transfer.app.id}`}
+                        className="flex items-center gap-1"
+                      >
+                        <SmartImage
+                          url={transfer.app.icon}
+                          className="size-7"
+                        />
+                        <p className="truncate text-sm font-">
+                          {transfer.app.name}
+                        </p>
+                      </Link>
+                    ) : null}
+                  </div>
+
+                  <div className="ml-auto min-w-20 text-right space-y-1">
+                    <p className="text-sm tabular-nums font-medium">
+                      {formatUsd(transfer.quote.targetUsdAmount)}
+                    </p>
+
+                    <p className="text-xs text-muted">
+                      {formatDate(transfer.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-      </Panel>
+      </Section>
     </div>
   );
 };

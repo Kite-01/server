@@ -14,7 +14,10 @@ export const TestnetBanner = () => {
     <div className="flex h-9 shrink-0 items-center justify-center gap-2 bg-ink px-4 text-[13px] text-white/80">
       <span className="size-1.5 rounded-full bg-kite" aria-hidden />
       <span className="truncate">
-        Testnet: every payment here uses test funds
+        Testnet
+        <span className="max-sm:hidden">
+          : every payment here uses test funds
+        </span>
       </span>
       <button
         type="button"

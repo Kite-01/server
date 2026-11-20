@@ -127,7 +127,7 @@ const AppSwitch = () => {
   if (!appId) return null;
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-1.5">
+    <div className="rounded-2xl border border-line bg-soft/60 p-1.5">
       <div className="flex items-center gap-2.5 p-1.5">
         <AppAvatar name={name ?? "App"} icon={icon} className="size-8" />
         <div className="min-w-0">
@@ -137,7 +137,7 @@ const AppSwitch = () => {
       </div>
       <Link
         to="/apps"
-        className="mt-1 flex h-8 items-center gap-1 rounded-xl px-2 text-[13px] text-muted transition-colors hover:bg-soft hover:text-ink"
+        className="mt-1 flex h-8 items-center gap-1 rounded-xl px-2 text-[13px] text-muted transition-colors hover:bg-surface hover:text-ink"
       >
         <IconChevronLeft className="size-3.5" />
         All apps
@@ -209,7 +209,7 @@ const MobileNav = ({ groups }: { groups: Group[] }) => {
 
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=closed]:animate-[fade-out_150ms] data-[state=open]:animate-[fade-in_150ms] lg:hidden" />
-        <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-76 max-w-[85vw] overflow-y-auto bg-page p-4 shadow-xl focus:outline-none data-[state=closed]:animate-[drawer-out_200ms_ease-in] data-[state=open]:animate-[drawer-in_200ms_ease-out] lg:hidden">
+        <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-76 max-w-[85vw] overflow-y-auto bg-surface p-4 shadow-xl focus:outline-none data-[state=closed]:animate-[drawer-out_200ms_ease-in] data-[state=open]:animate-[drawer-in_200ms_ease-out] lg:hidden">
           <div className="absolute right-3 top-3">
             <Dialog.Close asChild>
               <Button
@@ -248,9 +248,11 @@ export const Shell = () => {
 
   return (
     <div className="mx-auto flex min-h-full max-w-[1600px]">
-      <aside className="sticky top-0 hidden h-dvh w-68 shrink-0 overflow-y-auto px-4 py-6 lg:block">
-        <Sidebar groups={groups} />
-      </aside>
+      <div className="hidden w-68 shrink-0 border-e border-line bg-surface lg:block">
+        <aside className="sticky top-0 h-dvh overflow-y-auto px-4 py-6">
+          <Sidebar groups={groups} />
+        </aside>
+      </div>
 
       <main className="min-w-0 flex-1">
         <header className="flex h-16 items-center justify-between gap-4 px-4 sm:px-8 lg:hidden">
