@@ -11,11 +11,11 @@ export const Logo = ({
 }) => (
   <span
     className={cn(
-      "flex items-center gap-2 font-display text-lg font-semibold",
+      "flex items-center gap-2 text-lg font-semibold tracking-[-0.03em]",
       className,
     )}
   >
-    <img src="/icon.svg" alt="" className={cn("size-7", imgClassName)} />
+    <img src="/icon.svg" alt="" className={cn("h-5 w-auto", imgClassName)} />
     {hideLabel ? null : "Kite"}
   </span>
 );

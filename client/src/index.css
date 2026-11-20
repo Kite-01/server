@@ -30,6 +30,7 @@
   --color-muted: #8a8a8a;
   --color-line: #ececec;
   --color-soft: #f4f4f4;
+  --color-kite: #fcc101;
   --color-brand: #2f9bde;
   --color-brand-soft: #eef7fd;
   --color-success: #16a34a;
@@ -89,6 +90,20 @@ button:disabled {
   to {
     transform: translateX(-100%);
   }
+}
+
+@keyframes glide {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-1.5%, 2%, 0) rotate(-1.5deg);
+  }
+}
+
+.kite-glide {
+  animation: glide 9s ease-in-out infinite;
 }
 
 @keyframes fade-in {

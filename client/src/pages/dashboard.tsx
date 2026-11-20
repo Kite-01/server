@@ -1,15 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  IconArrowDown,
   IconArrowRight,
-  IconArrowUp,
   IconArrowsExchange,
+  IconBook2,
   IconCalendar,
+  IconCaretDownFilled,
+  IconCaretUpFilled,
   IconChartLine,
+  IconCheck,
+  IconChevronRight,
   IconCoins,
 } from "@tabler/icons-react";
-import { useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -19,10 +22,13 @@ import {
   XAxis,
 } from "recharts";
 import {
+  appsListOptions,
+  chainsListOptions,
+  chainsListSupportedOptions,
   overviewStatsOptions,
   transfersListOptions,
 } from "@/api/@tanstack/react-query.gen";
-import type { Stats } from "@/api/types.gen";
+import type { Stats, SupportedChain } from "@/api/types.gen";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -35,17 +41,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, Td, Th } from "@/components/ui/table";
 import {
   formatChange,
   formatCompactUsd,
   formatCount,
   formatDate,
+  formatTokenAmount,
   formatUsd,
   shortId,
 } from "@/lib/format";
 import { useAppHeaders, useAppScope } from "@/lib/queries";
+import { isTestnet } from "@/components/testnet-banner";
+import { docs } from "@/lib/docs";
 import { cn } from "@/lib/utils";
 import SmartImage from "@/components/smart-image";
+import { ChainName, useSupportedChains } from "./chains";
 
 type Preset = "today" | "3d" | "7d" | "1m" | "custom";
 
@@ -94,32 +105,53 @@ const rangeFor = (preset: Preset, custom: { from: string; to: string }) => {
   }
 };
 
-const Delta = ({ value }: { value: number | null }) => {
+const Delta = ({
+  value,
+  suffix,
+}: {
+  value: number | null;
+  suffix?: string;
+}) => {
   const label = formatChange(value);
   if (value === null || !label) return null;
 
   const up = value >= 0;
-  const Icon = up ? IconArrowUp : IconArrowDown;
+  const Icon = up ? IconCaretUpFilled : IconCaretDownFilled;
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-px text-[10px] font-medium border rounded-full px-1.25 py-0.5",
-        up
-          ? "text-success bg-success/10 border-success/20"
-          : "text-danger bg-danger/10 border-danger/20",
-      )}
-    >
-      <Icon className="size-2.5" />
-      {label}
+    <span className="inline-flex items-center gap-2 text-sm text-muted">
+      <span
+        className={cn(
+          "inline-flex items-center gap-0.5 rounded-full bg-surface px-2 py-0.5 font-medium shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-line",
+          up ? "text-success" : "text-danger",
+        )}
+      >
+        <Icon className="size-3" />
+        {label.replace(/^[+-]/, "")}
+      </span>
+      {suffix}
+    </span>
+  );
+};
+
+const Money = ({ value, className }: { value: string; className?: string }) => {
+  const [whole, cents = "00"] = formatUsd(value)
+    .replace(/(\.\d)$/, "$10")
+    .split(".");
+  const hasCents = formatUsd(value).includes(".");
+
+  return (
+    <span className={cn("tabular-nums", className)}>
+      {whole}
+      <span className="text-muted/60">.{hasCents ? cents : "00"}</span>
     </span>
   );
 };
 
 const segment = (active: boolean) =>
   cn(
-    "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors",
-    active ? "bg-soft text-ink shadow-sm" : "text-muted hover:text-ink",
+    "flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors",
+    active ? "bg-ink text-white" : "text-muted hover:text-ink",
   );
 
 const RangePicker = ({
@@ -137,7 +169,7 @@ const RangePicker = ({
   const [draft, setDraft] = useState(custom);
 
   return (
-    <div className="flex items-center gap-0.5 rounded-full bg-white p-1">
+    <div className="flex items-center gap-0.5 rounded-full border border-line bg-surface p-1">
       {presets.map((item) =>
         item.value === "custom" ? (
           <Popover key={item.value} open={open} onOpenChange={setOpen}>
@@ -203,40 +235,10 @@ const RangePicker = ({
   );
 };
 
-const Metric = ({
-  label,
-  value,
-  delta,
-  hint,
-  loading,
-}: {
-  label: string;
-  value: ReactNode;
-  delta?: number | null;
-  hint?: ReactNode;
-  loading?: boolean;
-}) => (
-  <div className="space-y-2 p-5">
-    <p className="text-xs text-muted">{label}</p>
-    {loading ? (
-      <Skeleton className="my-1 h-6 w-24 rounded-md" />
-    ) : (
-      <div className="flex items-baseline gap-2">
-        <span className="font-display text-3xl font-semibold tabular-nums tracking-tight">
-          {value}
-        </span>
-        {delta !== undefined && <Delta value={delta} />}
-      </div>
-    )}
-
-    {hint ? <p className="text-xs text-muted">{hint}</p> : null}
-  </div>
-);
-
 const LoadingList = ({ rows, avatar }: { rows: number; avatar?: boolean }) => (
   <div className="divide-y divide-line" aria-busy="true" aria-label="Loading">
     {Array.from({ length: rows }, (_, row) => (
-      <div key={row} className="flex items-center gap-3 px-4 py-3">
+      <div key={row} className="flex items-center gap-3 py-3.5">
         {avatar && <Skeleton className="size-8 shrink-0" />}
         <div className="flex h-9 flex-1 flex-col justify-center gap-2">
           <Skeleton className="h-3 w-1/3" />
@@ -246,6 +248,31 @@ const LoadingList = ({ rows, avatar }: { rows: number; avatar?: boolean }) => (
       </div>
     ))}
   </div>
+);
+
+const Panel = ({
+  title,
+  hint,
+  action,
+  children,
+  className,
+}: {
+  title: string;
+  hint?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) => (
+  <Card className={cn("min-w-0 p-6 sm:p-7", className)}>
+    <div className="mb-5 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-lg font-medium">{title}</h2>
+        {hint ? <p className="mt-0.5 text-sm text-muted">{hint}</p> : null}
+      </div>
+      {action}
+    </div>
+    {children}
+  </Card>
 );
 
 const Section = ({
@@ -266,87 +293,363 @@ const Section = ({
   </Card>
 );
 
-const Brand = "#2f9bde";
-const Line = "#ececec";
-const Muted = "#8a8a8a";
+const Ink = "#0a0a0a";
+const Kite = "#fcc101";
+const Line = "#e8e7e3";
+const Muted = "#75756f";
 
 const bucketLabel = (bucket: string, hourly: boolean) => {
   const date = new Date(bucket);
   return hourly
     ? date.toLocaleTimeString("en-US", { hour: "numeric" })
-    : date.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+    : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+const isHourly = (series: Stats["series"]) =>
+  series.length > 7 && series.length <= 48;
+
 const Growth = ({ series }: { series: Stats["series"] }) => {
-  const hourly = series.length > 0 && series.length <= 48 && series.length > 7;
+  const hourly = isHourly(series);
   const points = series.map((point) => ({
     ...point,
     value: Number(point.amount),
     label: bucketLabel(point.bucket, hourly),
   }));
 
-  const interval = Math.max(0, Math.ceil(points.length / 12) - 1);
+  const interval = Math.max(0, Math.ceil(points.length / 7) - 1);
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={240}>
       <AreaChart
         data={points}
-        margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
+        margin={{ top: 12, right: 4, bottom: 0, left: 4 }}
       >
-        <defs>
-          <linearGradient id="growth" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={Brand} stopOpacity={0.18} />
-            <stop offset="100%" stopColor={Brand} stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid
-          vertical
-          stroke={Line}
-          strokeDasharray="0"
-          horizontal={false}
-        />
+        <CartesianGrid vertical stroke={Line} horizontal={false} />
         <XAxis
           dataKey="label"
           interval={interval}
           tickLine={false}
           axisLine={false}
-          tick={{ fontSize: 11, fill: Muted }}
-          tickMargin={10}
-          padding={{ left: 24, right: 24 }}
+          tick={{ fontSize: 12, fill: Muted }}
+          tickMargin={12}
+          padding={{ left: 28, right: 28 }}
         />
         <Tooltip
-          cursor={{ stroke: Brand, strokeWidth: 1 }}
+          cursor={{ stroke: Ink, strokeWidth: 1, strokeDasharray: "3 3" }}
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             const point = payload[0].payload as (typeof points)[number];
 
             return (
-              <div className="rounded-xl border border-line bg-surface p-3 min-w-30 shadow-lg">
-                <p className="text-[11px] text-muted">
+              <div className="min-w-36 rounded-2xl bg-ink px-3.5 py-3 text-white shadow-xl">
+                <p className="text-xs text-white/60">
                   {new Date(point.bucket).toLocaleString("en-US", {
                     dateStyle: "medium",
                     ...(hourly ? { timeStyle: "short" } : {}),
                   })}
                 </p>
-                <p className="mt-2 text-sm font-semibold font-display">
+                <p className="mt-1 text-base font-medium tabular-nums">
                   {formatUsd(point.amount)}
                 </p>
-                <p className="text-[11px] text-muted">Volume: {point.count}</p>
+                <p className="text-xs text-white/60">
+                  {point.count} {point.count === 1 ? "payment" : "payments"}
+                </p>
               </div>
             );
           }}
         />
         <Area
-          type="linear"
+          type="monotone"
           dataKey="value"
-          stroke={Brand}
-          strokeWidth={1.5}
-          fill="url(#growth)"
+          stroke={Ink}
+          strokeWidth={1.75}
+          fill={Ink}
+          fillOpacity={0.045}
           dot={false}
-          activeDot={{ r: 4, fill: Brand, stroke: "white", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: Kite, stroke: Ink, strokeWidth: 1.5 }}
         />
       </AreaChart>
     </ResponsiveContainer>
+  );
+};
+
+const DotsPerDay = ({ series }: { series: Stats["series"] }) => {
+  const hourly = isHourly(series);
+  const shown = series.slice(-14);
+  const max = Math.max(1, ...shown.map((point) => point.count));
+  const rows = Math.min(10, Math.max(6, max));
+  const peak = shown.reduce(
+    (best, point) => (point.count > best.count ? point : best),
+    shown[0] ?? { bucket: "", count: 0, amount: "0" },
+  );
+
+  return (
+    <div className="flex flex-1 flex-col justify-end">
+      {peak.count > 0 ? (
+        <p className="mb-auto inline-flex w-fit items-center gap-2 rounded-full bg-surface px-3.5 py-1.5 text-sm shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-line">
+          <span className="text-muted">Peak</span>
+          <span className="font-medium">
+            {bucketLabel(peak.bucket, hourly)}
+          </span>
+          <span className="h-3.5 w-px bg-line" aria-hidden />
+          <span className="font-medium tabular-nums">
+            {peak.count} {peak.count === 1 ? "payment" : "payments"}
+          </span>
+        </p>
+      ) : null}
+      <div
+        className="mt-8 flex items-end justify-between gap-1"
+        role="img"
+        aria-label={`Settled payments per ${hourly ? "hour" : "day"}, peaking at ${peak.count}`}
+      >
+        {shown.map((point) => {
+          const lit = Math.round((point.count / max) * rows);
+          const isPeak = point.bucket === peak.bucket && peak.count > 0;
+          return (
+            <div
+              key={point.bucket}
+              className="flex flex-1 flex-col-reverse items-center gap-2"
+              title={`${bucketLabel(point.bucket, hourly)}: ${point.count}`}
+            >
+              {Array.from({ length: rows }, (_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "size-2.5 rounded-full transition-colors sm:size-3.5",
+                    i >= lit ? "bg-line/60" : isPeak ? "bg-kite" : "bg-ink/80",
+                  )}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex justify-between text-xs text-muted">
+        <span>{shown[0] ? bucketLabel(shown[0].bucket, hourly) : ""}</span>
+        <span>
+          {shown.at(-1) ? bucketLabel(shown.at(-1)!.bucket, hourly) : ""}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const Fact = ({
+  label,
+  value,
+  loading,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  loading?: boolean;
+  className?: string;
+}) => (
+  <div className="flex items-center justify-between gap-4 border-b border-line py-4 first:pt-0 last:border-0 last:pb-0">
+    <span className="text-[15px] text-muted">{label}</span>
+    {loading ? (
+      <Skeleton className="h-3.5 w-16" />
+    ) : (
+      <span className={cn("text-[15px] font-medium tabular-nums", className)}>
+        {value}
+      </span>
+    )}
+  </div>
+);
+
+const ChainStack = ({ chains }: { chains: SupportedChain[] }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(6);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () =>
+      setFit(Math.max(1, Math.floor((el.clientWidth - 92) / 32) + 1));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const shown = chains.length > fit ? chains.slice(0, fit) : chains;
+  const rest = chains.length - shown.length;
+
+  return (
+    <div ref={ref} className="flex w-full min-w-0 items-center overflow-hidden">
+      <ul className="flex -space-x-2">
+        {shown.map((chain) => (
+          <li
+            key={chain.caip2Id}
+            title={chain.name}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white ring-2 ring-soft"
+          >
+            <SmartImage
+              url={chain.icon}
+              alt={chain.name}
+              className="size-6 rounded-full border-0"
+            />
+          </li>
+        ))}
+      </ul>
+      {rest > 0 ? (
+        <span className="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-medium text-muted ring-2 ring-soft">
+          +{rest}
+        </span>
+      ) : null}
+    </div>
+  );
+};
+
+const Welcome = () => {
+  const navigate = useNavigate();
+  const chains = useQuery(chainsListOptions());
+  const supported = useQuery(chainsListSupportedOptions());
+  const apps = useQuery(appsListOptions({ query: { pageSize: 1 } }));
+  const firstApp = apps.data?.data[0];
+  const networks = (supported.data ?? []).filter((chain) =>
+    isTestnet ? chain.testnet : !chain.testnet,
+  );
+
+  const steps = [
+    {
+      title: "Add a chain",
+      text: "Pick a network to settle on and give it an RPC.",
+      done: !!chains.data?.data.length,
+      action: "Add a chain",
+      to: "/chains",
+      preview: <ChainStack chains={networks} />,
+    },
+    {
+      title: "Create an app",
+      text: "One for each product or business taking payments.",
+      done: !!apps.data?.total,
+      action: "Create an app",
+      to: "/apps",
+      preview: (
+        <div className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-white">
+            <img src="/icon.svg" alt="" className="h-3.5 w-auto" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">Kite</span>
+            <span className="block text-xs text-muted">
+              Chains, API keys, webhooks
+            </span>
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: "Take a first payment",
+      text: "Make a payment link and pay it from a wallet.",
+      done: false,
+      action: "Create a link",
+      to: firstApp ? `/apps/${firstApp.id}/payment-links` : "/apps",
+      preview: (
+        <div className="rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted">Order #0015</span>
+            <span className="inline-flex h-5 items-center gap-1 rounded-full bg-success/10 px-2 text-[11px] leading-none font-medium text-success">
+              <span className="size-1.5 shrink-0 rounded-full bg-current" />
+              Settled
+            </span>
+          </div>
+          <p className="mt-1 font-display text-2xl font-semibold tracking-tight">
+            $0<span className="text-muted/50">.45</span>
+          </p>
+        </div>
+      ),
+    },
+  ];
+  const next = steps.findIndex((step) => !step.done);
+  const done = steps.filter((step) => step.done).length;
+
+  return (
+    <div className="space-y-4">
+      <section className="relative isolate overflow-hidden rounded-[28px] bg-kite">
+        <img
+          src="/images/sky.webp"
+          alt=""
+          className="absolute inset-x-0 bottom-0 -z-10 h-[34%] w-full object-cover object-[70%_100%] opacity-60"
+        />
+        <img
+          src="/images/kite-bird.webp"
+          alt=""
+          className="kite-glide absolute -end-[8%] -top-4 -z-10 w-[56%] max-sm:hidden lg:-end-[2%] lg:w-[40%]"
+        />
+        <div className="flex min-h-[440px] max-w-2xl flex-col p-8 sm:min-h-[480px] sm:px-12 sm:pt-14 sm:pb-10">
+          <p className="inline-flex w-fit items-center gap-2 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink">
+            {done}/{steps.length} done
+          </p>
+          <h2 className="mt-6 font-display text-[clamp(2.25rem,1.6rem+2.4vw,3.75rem)] leading-[1] font-semibold tracking-[-0.04em] text-ink">
+            Your Kite server is live
+          </h2>
+          <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink/75">
+            Three steps between you and your first settled payment
+          </p>
+          <div className="mt-auto flex flex-wrap items-center gap-2 md:gap-3 pt-10">
+            {next >= 0 ? (
+              <Button
+                className="h-12 md:h-11.25 w-full md:max-w-max px-6"
+                onClick={() => navigate(steps[next]!.to)}
+              >
+                {steps[next]!.action}
+              </Button>
+            ) : null}
+            <a
+              href={docs.firstRun}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex justify-center h-12 md:h-11.25 w-full md:max-w-max items-center rounded-full bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-white gap-1.25"
+            >
+              <IconBook2 className="size-5" strokeWidth={1.5} />
+              Read the guide
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <ol className="grid gap-4 xl:grid-cols-3">
+        {steps.map((step, i) => (
+          <li key={step.title} className="min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate(step.to)}
+              className={cn(
+                "group flex h-full w-full min-w-0 flex-col rounded-[24px] border p-6 text-start transition-colors",
+                i === next
+                  ? "border-ink/40 bg-surface"
+                  : "border-line bg-surface hover:border-ink/20",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-full text-sm font-medium",
+                    step.done
+                      ? "bg-success/10 text-success"
+                      : i === next
+                        ? "bg-ink text-white"
+                        : "bg-soft text-muted",
+                  )}
+                >
+                  {step.done ? <IconCheck className="size-4" /> : i + 1}
+                </span>
+                <IconChevronRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <p className="mt-5 font-display text-lg font-semibold tracking-tight">
+                {step.title}
+              </p>
+              <p className="mt-1 text-sm text-muted">{step.text}</p>
+              <div className="mt-6 flex min-h-24 min-w-0 flex-col justify-end rounded-2xl bg-soft p-3">
+                {step.preview}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 };
 
@@ -358,7 +661,10 @@ export const Dashboard = () => {
   const [rank, setRank] = useState<"value" | "volume">("value");
   const [custom, setCustom] = useState(() => {
     const today = new Date();
-    return { from: toInputDate(addDays(today, -6)), to: toInputDate(today) };
+    return {
+      from: toInputDate(addDays(today, -6)),
+      to: toInputDate(today),
+    };
   });
 
   const range = useMemo(() => {
@@ -367,7 +673,6 @@ export const Dashboard = () => {
   }, [preset, custom]);
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
   const stats = useQuery(
     overviewStatsOptions({
       query: { ...range, timeZone, rank },
@@ -379,11 +684,36 @@ export const Dashboard = () => {
     transfersListOptions({ query: { pageSize: 6 }, headers }),
   );
 
+  const supportedChains = useSupportedChains();
+
   const data = stats.data;
   const hasVolume = !!data?.series.some((point) => Number(point.amount) > 0);
+  const count = data?.amountProcessed.count ?? 0;
+  const average = count ? Number(data!.amountProcessed.amount) / count : 0;
+  const busiest = data?.series.reduce(
+    (best, point) =>
+      Number(point.amount) > Number(best.amount) ? point : best,
+    data.series[0],
+  );
+
+  const tokenTotal =
+    data?.topTokens.reduce(
+      (sum, token) =>
+        sum + (rank === "value" ? Number(token.value) : token.volume),
+      0,
+    ) ?? 0;
+
+  if (!appId && transfers.data?.total === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Overview" />
+        <Welcome />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Overview"
         action={
@@ -396,65 +726,128 @@ export const Dashboard = () => {
         }
       />
 
-      <Card className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <Metric
-          label="Amount processed"
-          value={data ? formatCompactUsd(data.amountProcessed.amount) : "—"}
-          delta={data?.amountProcessed.change ?? null}
-          loading={stats.isLoading}
-        />
-        <Metric
-          label="Settled transfers"
-          value={data ? formatCount(data.amountProcessed.count) : "—"}
-          loading={stats.isLoading}
-        />
-        <Metric
-          label="Customers"
-          value={data ? formatCount(data.customers.total) : "—"}
-          delta={data?.customers.change ?? null}
-          loading={stats.isLoading}
-        />
+      <Card className="grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 p-6 sm:p-8">
+          <p className="text-[15px] text-muted">Processed volume</p>
+          {stats.isLoading ? (
+            <Skeleton className="my-3 h-12 w-56 rounded-xl" />
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Money
+                value={data?.amountProcessed.amount ?? "0"}
+                className="text-[44px] leading-none tracking-[-0.045em] sm:text-[56px]"
+              />
+              <Delta
+                value={data?.amountProcessed.change ?? null}
+                suffix="vs the period before"
+              />
+            </div>
+          )}
+
+          <div className="mt-6">
+            {stats.isLoading ? (
+              <Skeleton className="h-60 w-full rounded-2xl" />
+            ) : stats.error ? (
+              <EmptyState
+                icon={IconChartLine}
+                title="Couldn't load volume"
+                description={stats.error.message}
+              />
+            ) : data && !hasVolume ? (
+              <EmptyState
+                icon={IconChartLine}
+                title="No volume in this range"
+                description="Settled transfers chart here. Try a wider range."
+              />
+            ) : (
+              <Growth series={data?.series ?? []} />
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col justify-between gap-8 bg-soft/60 p-6 sm:p-8 lg:border-s lg:border-line">
+          <div>
+            <Fact
+              label="Settled payments"
+              value={formatCount(count)}
+              loading={stats.isLoading}
+            />
+            <Fact
+              label="Average payment"
+              className={count ? undefined : "text-muted"}
+              value={count ? formatUsd(average) : "None"}
+              loading={stats.isLoading}
+            />
+            <Fact
+              label="Customers"
+              className={
+                data && data.customers.total ? undefined : "text-muted"
+              }
+              value={
+                data && data.customers.total
+                  ? formatCount(data.customers.total)
+                  : "None"
+              }
+              loading={stats.isLoading}
+            />
+            <Fact
+              label="Tokens paid in"
+              className={
+                data && data.topTokens.length ? undefined : "text-muted"
+              }
+              value={
+                data && data.topTokens.length ? data.topTokens.length : "None"
+              }
+              loading={stats.isLoading}
+            />
+          </div>
+          {busiest && Number(busiest.amount) > 0 ? (
+            <p className="text-[15px] leading-relaxed text-muted">
+              Your busiest {isHourly(data!.series) ? "hour" : "day"} was{" "}
+              <span className="font-medium text-ink">
+                {bucketLabel(busiest.bucket, isHourly(data!.series))}
+              </span>
+              , with{" "}
+              <span className="font-medium text-ink">
+                {formatUsd(busiest.amount)}
+              </span>{" "}
+              across {busiest.count}{" "}
+              {busiest.count === 1 ? "payment" : "payments"}.
+            </p>
+          ) : null}
+        </div>
       </Card>
 
-      <Section title="Volume">
-        {stats.isLoading ? (
-          <div className="p-4" aria-busy="true" aria-label="Loading">
-            <Skeleton className="h-65 w-full rounded-lg" />
-          </div>
-        ) : stats.error ? (
-          <EmptyState
-            icon={IconChartLine}
-            title="Couldn't load volume"
-            description={stats.error.message}
-          />
-        ) : data && !hasVolume ? (
-          <EmptyState
-            icon={IconChartLine}
-            title="No volume in this range"
-            description="Settled transfers will chart here. Try a wider range."
-          />
-        ) : (
-          <div className="p-4">
-            <Growth series={data?.series ?? []} />
-          </div>
-        )}
-      </Section>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel
+          className="flex flex-col"
+          title="Payments settled"
+          hint={`Per ${data && isHourly(data.series) ? "hour" : "day"}, most recent last`}
+        >
+          {stats.isLoading ? (
+            <Skeleton className="h-44 w-full rounded-2xl" />
+          ) : hasVolume ? (
+            <DotsPerDay series={data!.series} />
+          ) : (
+            <EmptyState
+              icon={IconChartLine}
+              title="Nothing settled yet"
+              description="Each settled payment adds a dot here."
+            />
+          )}
+        </Panel>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <Section
+        <Panel
           title="Top tokens"
+          hint="What customers pay with"
           action={
-            <div className="flex rounded-full bg-soft p-0.5">
+            <div className="flex rounded-full border border-line p-0.5">
               {(["value", "volume"] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setRank(item)}
-                  className={cn(
-                    segment(rank === item),
-                    "capitalize",
-                    rank === item && "bg-white",
-                  )}
+                  className={cn(segment(rank === item), "h-7 capitalize")}
                 >
                   {item}
                 </button>
@@ -471,130 +864,157 @@ export const Dashboard = () => {
               description="Tokens customers pay with show up once transfers settle."
             />
           ) : (
-            <div className="divide-y divide-line">
-              {data?.topTokens.map((token) => (
-                <div
-                  key={token.id}
-                  className="flex items-center gap-2 px-4.5 py-3"
-                >
-                  <div className="relative shrink-0">
-                    <SmartImage url={token.icon} className="size-8" />
-                    {token.chainIcon && (
-                      <span
-                        className="absolute -bottom-0.5 -right-0.5"
-                        title={token.chainName ?? undefined}
-                      >
-                        <SmartImage
-                          url={token.chainIcon}
-                          alt={token.chainName ?? ""}
-                          className="size-4 border-line bg-white"
-                        />
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium">
-                      {token.symbol}
-                    </p>
-                    <p className="truncate text-[11px] text-muted">
-                      {token.name} ({token.chainName})
-                    </p>
-                  </div>
-                  <p className="text-sm tabular-nums font-medium">
-                    {rank === "value"
-                      ? formatCompactUsd(token.value)
-                      : token.volume.toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        <Section
-          title="Recent transfers"
-          action={
-            appId ? (
-              <Button
-                variant={"outline"}
-                size={"iconSm"}
-                onClick={() => navigate(`/apps/${appId}/transfers`)}
-              >
-                <IconArrowRight className="size-4" />
-              </Button>
-            ) : null
-          }
-        >
-          {transfers.isLoading ? (
-            <LoadingList rows={6} />
-          ) : transfers.data?.data.length === 0 ? (
-            <EmptyState
-              icon={IconArrowsExchange}
-              title="No transfers yet"
-              description={
-                appId
-                  ? "Share a payment link or create a quote to take a first payment."
-                  : "Transfers from every app appear here as customers pay."
-              }
-              action={
-                appId ? (
-                  <Button
-                    className="h-9.5 px-5"
-                    onClick={() => navigate(`/apps/${appId}/payment-links`)}
-                  >
-                    Create payment link
-                  </Button>
-                ) : null
-              }
-            />
-          ) : (
-            <div className="divide-y divide-line">
-              {transfers.data?.data.map((transfer) => {
+            <ol className="divide-y divide-line">
+              {data?.topTokens.slice(0, 6).map((token, i) => {
+                const amount =
+                  rank === "value" ? Number(token.value) : token.volume;
+                const share = tokenTotal ? (amount / tokenTotal) * 100 : 0;
                 return (
-                  <div
-                    key={transfer.id}
-                    className="flex flex-wrap items-center gap-3 px-4.5 py-3"
-                  >
-                    <div className="min-w-0 flex-1 basis-40">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate font-display text-muted">
-                          #{shortId(transfer.id)}...
-                        </p>
-                        <StatusBadge status={transfer.status} />
-                      </div>
-                      {!appId ? (
-                        <Link
-                          to={`/apps/${transfer.app.id}`}
-                          className="flex items-center gap-1"
+                  <li key={token.id} className="flex items-center gap-3 py-3">
+                    <span className="w-4 text-sm text-muted tabular-nums">
+                      {i + 1}
+                    </span>
+                    <div className="relative shrink-0">
+                      <SmartImage url={token.icon} className="size-8" />
+                      {token.chainIcon && (
+                        <span
+                          className="absolute -bottom-0.5 -right-0.5"
+                          title={token.chainName ?? undefined}
                         >
                           <SmartImage
-                            url={transfer.app.icon}
-                            className="size-7"
+                            url={token.chainIcon}
+                            alt={token.chainName ?? ""}
+                            className="size-4 border-white bg-white"
                           />
-                          <p className="truncate text-sm font-">
-                            {transfer.app.name}
-                          </p>
-                        </Link>
-                      ) : null}
+                        </span>
+                      )}
                     </div>
-
-                    <div className="ml-auto min-w-20 text-right space-y-1">
-                      <p className="text-sm tabular-nums font-medium">
-                        {formatUsd(transfer.quote.targetUsdAmount)}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-medium">
+                        {token.symbol}
                       </p>
-
-                      <p className="text-xs text-muted">
-                        {formatDate(transfer.createdAt)}
+                      <p className="truncate text-xs text-muted">
+                        {token.chainName}
                       </p>
                     </div>
-                  </div>
+                    <span className="hidden text-sm text-muted tabular-nums sm:inline">
+                      {share.toFixed(1)}%
+                    </span>
+                    <span className="w-20 text-end text-[15px] font-medium tabular-nums">
+                      {rank === "value"
+                        ? formatCompactUsd(token.value)
+                        : token.volume.toLocaleString()}
+                    </span>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           )}
-        </Section>
+        </Panel>
       </div>
+
+      <Section
+        title="Recent transfers"
+        action={
+          appId ? (
+            <Button
+              variant={"outline"}
+              size={"iconSm"}
+              onClick={() => navigate(`/apps/${appId}/transfers`)}
+            >
+              <IconArrowRight className="size-4" />
+            </Button>
+          ) : null
+        }
+      >
+        {transfers.isLoading ? (
+          <LoadingList rows={6} />
+        ) : transfers.data?.data.length === 0 ? (
+          <EmptyState
+            icon={IconArrowsExchange}
+            title="No transfers yet"
+            description={
+              appId
+                ? "Share a payment link or create a quote to take a first payment."
+                : "Transfers from every app appear here as customers pay."
+            }
+            action={
+              appId ? (
+                <Button
+                  className="h-9.5 px-5"
+                  onClick={() => navigate(`/apps/${appId}/payment-links`)}
+                >
+                  Create payment link
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Transfer</Th>
+                {!appId ? <Th>App</Th> : null}
+                <Th>Status</Th>
+                <Th>Chain</Th>
+                <Th>Customer pays</Th>
+                <Th className="text-right">Amount</Th>
+                <Th className="text-right">Created</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {transfers.data?.data.map((transfer) => (
+                <tr
+                  key={transfer.id}
+                  onClick={() =>
+                    navigate(`/apps/${appId ?? transfer.app.id}/transfers`)
+                  }
+                  className="cursor-pointer transition-colors hover:bg-soft/60"
+                >
+                  <Td className="font-display text-muted">
+                    #{shortId(transfer.id)}
+                  </Td>
+                  {!appId ? (
+                    <Td>
+                      <span className="flex items-center gap-2">
+                        <SmartImage
+                          url={transfer.app.icon}
+                          className="size-6"
+                        />
+                        <span className="truncate">{transfer.app.name}</span>
+                      </span>
+                    </Td>
+                  ) : null}
+                  <Td>
+                    <StatusBadge status={transfer.status} />
+                  </Td>
+                  <Td>
+                    <div className="pr-4">
+                      <ChainName
+                        caip2Id={transfer.quote.chain.caip2Id}
+                        supported={supportedChains.data}
+                      />
+                    </div>
+                  </Td>
+                  <Td className="font-mediu">
+                    {formatTokenAmount(
+                      transfer.quote.sourceAmount,
+                      transfer.quote.sourceToken.decimals,
+                    )}
+                    &nbsp;{transfer.quote.sourceToken.symbol}
+                  </Td>
+                  <Td className="text-right font-medium tabular-nums">
+                    {formatUsd(transfer.quote.targetUsdAmount)}
+                  </Td>
+                  <Td className="text-right text-muted">
+                    {formatDate(transfer.createdAt)}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Section>
     </div>
   );
 };

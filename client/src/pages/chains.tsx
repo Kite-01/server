@@ -28,13 +28,22 @@ import { Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useMutate } from "@/lib/queries";
 import None from "@/components/none";
+import SmartImage from "@/components/smart-image";
 
 export const useSupportedChains = () => useQuery(chainsListSupportedOptions());
 
-export const chainName = (caip2Id: string, supported?: SupportedChain[]) =>
+type CustomSupportedChains = (Pick<
+  SupportedChain,
+  "name" | "icon" | "caip2Id"
+> & { beta?: boolean })[];
+
+export const chainIcon = (caip2Id: string, supported?: CustomSupportedChains) =>
+  supported?.find((chain) => chain.caip2Id === caip2Id)?.icon;
+
+export const chainName = (caip2Id: string, supported?: CustomSupportedChains) =>
   supported?.find((chain) => chain.caip2Id === caip2Id)?.name ?? caip2Id;
 
-const isBeta = (caip2Id: string, supported?: SupportedChain[]) =>
+const isBeta = (caip2Id: string, supported?: CustomSupportedChains) =>
   !!supported?.find((chain) => chain.caip2Id === caip2Id)?.beta;
 
 export const ChainName = ({
@@ -42,15 +51,18 @@ export const ChainName = ({
   supported,
 }: {
   caip2Id: string;
-  supported?: SupportedChain[];
+  supported?: CustomSupportedChains;
 }) => (
-  <span className="inline-flex items-center gap-2">
-    {chainName(caip2Id, supported)}
-    {isBeta(caip2Id, supported) && (
-      <Badge variant={"count"} className="text-[11px] px-2.25">
-        Beta
-      </Badge>
-    )}
+  <span className="flex items-center gap-1.75">
+    <SmartImage src={chainIcon(caip2Id, supported)} className="size-7" />
+    <span className="inline-flex items-center gap-1.5">
+      {chainName(caip2Id, supported)}
+      {isBeta(caip2Id, supported) && (
+        <Badge variant={"pending"} className="text-[10px] px-2 py-0.5">
+          Beta
+        </Badge>
+      )}
+    </span>
   </span>
 );
 

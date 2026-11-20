@@ -32,6 +32,7 @@ import { useAppHeaders, useAppScope, useMutate } from "@/lib/queries";
 import { toast } from "sonner";
 import { NewTransferDialog } from "./transfers";
 import None from "@/components/none";
+import { ChainName, useSupportedChains } from "./chains";
 
 const NewQuoteForm = ({ onClose }: { onClose: () => void }) => {
   const headers = useAppHeaders();
@@ -138,6 +139,7 @@ export const Quotes = () => {
   const chains = useQuery(chainsListOptions({ headers }));
   const [creating, setCreating] = useState(false);
   const [transferFor, setTransferFor] = useState<string | null>(null);
+  const supportedChains = useSupportedChains();
 
   return (
     <>
@@ -191,12 +193,22 @@ export const Quotes = () => {
               row.customer?.name ?? row.customer?.externalId ?? <None />,
           },
           {
+            header: "Chain",
+            cell: (row) => (
+              <div className="pr-4">
+                <ChainName
+                  caip2Id={row.chain.caip2Id}
+                  supported={supportedChains.data}
+                />
+              </div>
+            ),
+          },
+          {
             header: "Customer pays",
             cell: (row) =>
               `${formatTokenAmount(row.sourceAmount, row.sourceToken.decimals)} ${row.sourceToken.symbol}`,
           },
           { header: "Value", cell: (row) => formatUsd(row.targetUsdAmount) },
-          { header: "Created", cell: (row) => formatDateTime(row.createdAt) },
           {
             header: "Status",
             cell: (row) =>
@@ -206,6 +218,11 @@ export const Quotes = () => {
                 <Badge variant="success">Open</Badge>
               ),
           },
+          {
+            header: "Expires at",
+            cell: (row) => formatDateTime(row.expiresAt),
+          },
+          { header: "Created", cell: (row) => formatDateTime(row.createdAt) },
           {
             header: "",
             className: "w-12 text-right",

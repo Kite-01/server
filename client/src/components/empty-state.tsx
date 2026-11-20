@@ -1,4 +1,4 @@
-import { IconInbox, type Icon } from "@tabler/icons-react";
+import type { Icon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,6 @@ export type EmptyStateProps = {
 };
 
 export const EmptyState = ({
-  icon: Icon = IconInbox,
   title,
   description,
   action,
@@ -23,11 +22,14 @@ export const EmptyState = ({
       className,
     )}
   >
-    <span className="flex size-10 items-center justify-center rounded-xl border border-line bg-surface text-muted shadow-[0_1px_0_var(--color-line)]">
-      <Icon className="size-5" stroke={1.5} />
-    </span>
+    <img
+      src="/empty.svg"
+      alt=""
+      className="h-40 w-auto select-none mb-3"
+      draggable={false}
+    />
     <div className="space-y-1">
-      <p className="font-display text-sm font-medium text-ink">{title}</p>
+      <p className="font-display text-base font-medium text-ink">{title}</p>
       {description ? (
         <p className="mx-auto max-w-sm text-sm text-muted">{description}</p>
       ) : null}

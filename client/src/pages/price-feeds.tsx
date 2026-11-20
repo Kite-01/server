@@ -89,7 +89,12 @@ export const PriceFeeds = () => {
           {
             header: "Rate",
             exportValue: (row) => row.rate,
-            cell: (row) => row.rate ?? <None text="N/A" />,
+            cell: (row) =>
+              row.rate ? (
+                Number(row.rate).toLocaleString()
+              ) : (
+                <None text="N/A" />
+              ),
           },
           {
             header: "Aggregator",

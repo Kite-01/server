@@ -67,6 +67,7 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       return getSupportedChains().map((chain) => ({
         caip2Id: chain.caip2Id,
         name: chain.name,
+        icon: chain.icon,
         chainId: "chainId" in chain ? chain.chainId : null,
         testnet: !!chain.testnet,
         beta: !!chain.beta,
