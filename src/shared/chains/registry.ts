@@ -84,7 +84,23 @@ export type NearChain = ChainBase & {
   };
 };
 
-export type Chain = EvmChain | NearChain;
+export type StellarChain = ChainBase & {
+  type: ChainType.Stellar;
+  networkPassphrase: string;
+  contracts: {
+    /** The Stellar Asset Contracts of native XLM and of USDC. */
+    nativeToken: string;
+    usdc: string;
+    /**
+     * @see https://github.com/soroswap/core/blob/main/public/testnet.contracts.json
+     */
+    Soroswap?: {
+      router: string;
+    };
+  };
+};
+
+export type Chain = EvmChain | NearChain | StellarChain;
 
 const icon = (folder: string) => {
   return `https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/${folder}/info/logo.png`;
@@ -887,6 +903,38 @@ export const Chains: Record<Caip2Id, Chain> = {
       Rhea: {
         dcl: "dclv2.ref-dev.testnet",
         refV1: "ref-finance-101.testnet",
+      },
+    },
+  },
+  "stellar:testnet": {
+    caip2Id: "stellar:testnet",
+    type: ChainType.Stellar,
+    networkPassphrase: "Test SDF Network ; September 2015",
+    name: "Stellar Testnet",
+    icon: icon("stellar"),
+    testnet: true,
+    beta: true,
+    publicRpcUrls: ["https://soroban-testnet.stellar.org"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "StellarExpert",
+      url: "https://stellar.expert/explorer/testnet",
+    },
+    nativeCurrency: {
+      name: "Stellar Lumens",
+      symbol: "XLM",
+      decimals: 7,
+    },
+    descriptors: {
+      // NEAR Intents has no testnet: a testnet token never matches one of its assets
+      NearIntents: "stellar",
+      TrustWallet: "stellar",
+    },
+    contracts: {
+      nativeToken: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      Soroswap: {
+        router: "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD",
       },
     },
   },

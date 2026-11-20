@@ -18,6 +18,7 @@ export enum Queue {
 export enum ChainType {
   Evm = "Evm",
   Near = "Near",
+  Stellar = "Stellar",
 }
 
 export enum ApiKeyScope {
