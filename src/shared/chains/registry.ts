@@ -88,7 +88,6 @@ export type StellarChain = ChainBase & {
   type: ChainType.Stellar;
   networkPassphrase: string;
   contracts: {
-    /** The Stellar Asset Contracts of native XLM and of USDC. */
     nativeToken: string;
     usdc: string;
     /**
@@ -476,14 +475,17 @@ export const Chains: Record<Caip2Id, Chain> = {
     chainId: 44001,
     name: "QDay Aevum",
     icon: "https://qday.io/apple-icon.png",
-    beta: true,
     publicRpcUrls: ["https://rpc.qday.io"],
     confirmations: 2,
     blockExplorer: {
       name: "QDay Explorer",
       url: "https://explorer.qday.io",
     },
-    nativeCurrency: { name: "QDay", symbol: "QDAY", decimals: 18 },
+    nativeCurrency: {
+      name: "QDay",
+      symbol: "QDAY",
+      decimals: 18,
+    },
     contracts: {
       WETH9: "0xEF253e9FC2d063869FD5B3C0E1c326aB7E030660",
     },
@@ -868,7 +870,11 @@ export const Chains: Record<Caip2Id, Chain> = {
       name: "QDay Testnet Explorer",
       url: "https://explorer-test.qday.info",
     },
-    nativeCurrency: { name: "QDay Testnet", symbol: "tQDAY", decimals: 18 },
+    nativeCurrency: {
+      name: "QDay Testnet",
+      symbol: "tQDAY",
+      decimals: 18,
+    },
     contracts: {
       multicall3: {
         address: "0xcA11bde05977b3631167028862bE2a173976CA11",
@@ -926,8 +932,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       decimals: 7,
     },
     descriptors: {
-      // NEAR Intents has no testnet: a testnet token never matches one of its assets
-      NearIntents: "stellar",
       TrustWallet: "stellar",
     },
     contracts: {
