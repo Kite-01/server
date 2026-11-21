@@ -241,13 +241,13 @@ export class ChainService {
     } else if (internalChain.type === ChainType.Stellar) {
       await this.assertStellarFactory(chain.caip2Id, input);
 
-      const tokens = await db.query.token.findMany({
-        where: and(eq(token.chainId, chainId), isNull(token.deletedAt)),
+      const settlementToken = await db.query.token.findFirst({
+        where: eq(token.id, input.settlementTokenId),
       });
-      for (const item of tokens) {
+      if (settlementToken) {
         await getStellarActor().trust(
           chain.caip2Id,
-          item.address,
+          settlementToken.address,
           input.rpcUrls ?? [],
         );
       }

@@ -172,8 +172,6 @@ export class TokenService {
         throw new AppError("Could not get meta information for token");
       }
 
-      await actor.trust(chain.caip2Id, address, chain.config?.rpcUrls ?? []);
-
       return saveToken({
         chainId,
         address,

@@ -296,7 +296,7 @@ describe("ChainService", () => {
     });
   });
 
-  it("has the Stellar operator trust every token on the chain when it's configured", async () => {
+  it("has the Stellar operator trust the settlement token when it's configured", async () => {
     env.KITE_IS_TESTNET = true;
     const created = await service.createChain({ caip2Id: "stellar:testnet" });
     const usdc = await createToken(created.id, {
@@ -304,7 +304,7 @@ describe("ChainService", () => {
       symbol: "USDC",
       decimals: 7,
     });
-    const xlm = await createToken(created.id, {
+    await createToken(created.id, {
       address: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
       symbol: "XLM",
       decimals: 7,
@@ -322,9 +322,9 @@ describe("ChainService", () => {
       gasSponsorProviders: [],
     });
 
-    expect(fakeStellarActor.trust.mock.calls.map((call) => call[1])).toEqual(
-      expect.arrayContaining([usdc.address, xlm.address]),
-    );
+    expect(fakeStellarActor.trust.mock.calls.map((call) => call[1])).toEqual([
+      usdc.address,
+    ]);
   });
 
   it("is untouched by app data", async () => {
