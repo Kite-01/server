@@ -10,7 +10,7 @@ import {
   TransactionBuilder,
   xdr,
   Address,
-  type Keypair,
+  Keypair,
 } from "@stellar/stellar-sdk";
 import { getStellarChain } from "../shared/chains";
 import { AppError } from "../shared/errors";
@@ -244,20 +244,40 @@ export class StellarActor implements OnchainActor {
     !!(await this.assetOf(caip2Id, token, rpcUrls));
 
   // the operator can only hold an issued asset through a trustline
-  trust = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
+  // a G… account needs a trustline to hold an issued asset
+  canHold = async (
+    caip2Id: Caip2Id,
+    token: string,
+    address: string,
+    rpcUrls?: string[],
+  ) => {
+    if (StrKey.isValidContract(address)) return true;
+
+    const account = StrKey.isValidMed25519PublicKey(address)
+      ? StrKey.encodeEd25519PublicKey(
+          StrKey.decodeMed25519PublicKey(address).subarray(0, 32),
+        )
+      : address;
     const asset = await this.assetOf(caip2Id, token, rpcUrls);
-    if (!asset || asset.isNative() || asset.getIssuer() === this.getAddress()) {
-      return;
+    if (!asset || asset.isNative() || asset.getIssuer() === account) {
+      return true;
     }
 
-    const server = this.rpc(caip2Id, rpcUrls);
     const key = xdr.LedgerKey.trustline(
       new xdr.LedgerKeyTrustLine({
-        accountId: this.keypair().xdrAccountId(),
+        accountId: Keypair.fromPublicKey(account).xdrAccountId(),
         asset: asset.toTrustLineXDRObject(),
       }),
     );
-    if ((await server.getLedgerEntries(key)).entries.length) return;
+    const { entries } = await this.rpc(caip2Id, rpcUrls).getLedgerEntries(key);
+    return entries.length > 0;
+  };
+
+  trust = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
+    if (await this.canHold(caip2Id, token, this.getAddress(), rpcUrls)) return;
+
+    const server = this.rpc(caip2Id, rpcUrls);
+    const asset = (await this.assetOf(caip2Id, token, rpcUrls))!;
 
     await this.serialize(caip2Id, async () => {
       const account = await server.getAccount(this.getAddress());

@@ -118,6 +118,7 @@ export const fakeStellarActor = {
   }),
   isSac: vi.fn(async (..._args: unknown[]) => true),
   trust: vi.fn(async (..._args: unknown[]) => undefined),
+  canHold: vi.fn(async (..._args: unknown[]) => true),
   getTransactionStatus: vi.fn(
     async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
   ),
@@ -175,6 +176,7 @@ export const resetMocks = () => {
   );
   fakeStellarActor.getBalance.mockResolvedValue(0n);
   fakeStellarActor.isSac.mockResolvedValue(true);
+  fakeStellarActor.canHold.mockResolvedValue(true);
   fakeStellarActor.getBlockNumber.mockResolvedValue(1000n);
   fakeStellarActor.getConfirmations.mockResolvedValue(1n);
   fakeStellarActor.getTransactionStatus.mockResolvedValue({
