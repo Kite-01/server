@@ -30,16 +30,25 @@ export class StellarSimulationError extends AppError {
   }
 }
 
-const simulationError = (result: rpc.Api.SimulateTransactionErrorResponse) => {
+// the contract that raised the final error, not one a `try_` call recovered from
+export const simulationError = (
+  result: rpc.Api.SimulateTransactionErrorResponse,
+) => {
+  const code = /Error\(Contract, #(\d+)\)/.exec(result.error)?.[1];
   const raised = (result.events ?? [])
     .map((event) => event.event())
-    .find(
-      (event) =>
+    .find((event) => {
+      const [name, error] = event.body().v0().topics();
+      return (
         event.contractId() &&
-        event.body().v0().topics()[0]?.sym?.()?.toString() === "error",
-    );
+        name?.switch().name === "scvSymbol" &&
+        name.sym().toString() === "error" &&
+        error?.switch().name === "scvError" &&
+        error.error().switch().name === "sceContract" &&
+        String(error.error().contractCode()) === code
+      );
+    });
   const contractId = raised?.contractId();
-  const code = /Error\(Contract, #(\d+)\)/.exec(result.error)?.[1];
 
   return new StellarSimulationError(
     result.error,

@@ -59,6 +59,7 @@ import {
 import {
   kiteStellar,
   StellarKiteErrors,
+  StellarSacErrors,
   type StellarKiteStatus,
   type StellarKiteTransfer,
 } from "../shared/kiteStellarContract";
@@ -1570,10 +1571,16 @@ export class TransferService {
       return null;
     }
 
-    const ours = [ctx.factory, ctx.row.payinAddress].includes(
-      error.contract ?? "",
+    if ([ctx.factory, ctx.row.payinAddress].includes(error.contract ?? "")) {
+      return StellarKiteErrors[error.code] ?? null;
+    }
+
+    const token = [ctx.row.quote.sourceToken, ctx.row.quote.targetToken].find(
+      (item) => item.address === error.contract,
     );
-    return ours ? (StellarKiteErrors[error.code] ?? null) : null;
+    return token
+      ? `${StellarSacErrors[error.code] ?? `Error #${error.code}`} on ${token.symbol}`
+      : null;
   };
 
   private sendStellarFactoryCall = async (

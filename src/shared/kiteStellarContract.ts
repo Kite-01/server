@@ -49,6 +49,13 @@ export const StellarKiteErrors: Record<number, string> = {
   15: "NothingToRecover",
 };
 
+export const StellarSacErrors: Record<number, string> = {
+  6: "AccountMissing",
+  10: "InsufficientBalance",
+  11: "BalanceDeauthorized",
+  13: "TrustlineMissing",
+};
+
 export const StellarMaxPath = 4;
 
 const symbol = (value: string) => xdr.ScVal.scvSymbol(value);

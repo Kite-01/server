@@ -43,7 +43,11 @@ export const ProfileMenu = () => {
           <IconSelector className="size-4 shrink-0 text-muted" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top" className="w-72 p-0">
+      <DropdownMenuContent
+        align="start"
+        side="top"
+        className="w-(--radix-dropdown-menu-trigger-width) p-0"
+      >
         <div className="flex items-center justify-between p-4 text-sm">
           <span className="font-medium">Operator wallets</span>
           {data ? (

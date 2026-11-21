@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { Address, nativeToScVal, Networks, xdr } from "@stellar/stellar-sdk";
 import { db } from "../../db";
-import { quoteFee, transfer } from "../../db/schema";
+import { quoteFee, transfer, transferTimeline } from "../../db/schema";
 import {
   STELLAR_CAIP2 as CAIP2,
   STELLAR_FACTORY as FACTORY,
@@ -259,11 +259,17 @@ describe("TransferService on Stellar", () => {
     it("doesn't mistake a token's error for one of Kite's", async () => {
       const created = await create();
       fakeStellarActor.getBalance.mockResolvedValue(10_000_000n);
-      fakeStellarActor.invoke.mockRejectedValue(kiteError(USDC, 10));
+      fakeStellarActor.invoke.mockRejectedValue(kiteError(USDC, 13));
 
       await service.settleTransfer(created.id);
 
       expect((await reload(created.id)).status).toBe(TransferStatus.Failed);
+      const timeline = await db.query.transferTimeline.findMany({
+        where: eq(transferTimeline.transferId, created.id),
+      });
+      expect(timeline.map((item) => item.description)).toContain(
+        "Settlement failed (TrustlineMissing on USDC)",
+      );
     });
   });
 

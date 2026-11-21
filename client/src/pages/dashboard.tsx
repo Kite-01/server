@@ -981,7 +981,9 @@ export const Dashboard = () => {
                           url={transfer.app.icon}
                           className="size-6"
                         />
-                        <span className="truncate">{transfer.app.name}</span>
+                        <span className="whitespace-nowrap">
+                          {transfer.app.name}
+                        </span>
                       </span>
                     </Td>
                   ) : null}
