@@ -843,6 +843,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     nativeCurrency: avalancheFuji.nativeCurrency,
     descriptors: {
       Alchemy: "AVAX_FUJI",
+      QuickNode: "avalanche-fuji",
     },
     contracts: {
       multicall3: avalancheFuji.contracts.multicall3,
