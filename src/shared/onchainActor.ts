@@ -2,10 +2,12 @@ import { OnchainActor } from "../sdks/interfaces/OnchainActor";
 import { ChainType } from "./constants";
 import { EvmActor } from "../sdks/EvmActor";
 import { NearActor } from "../sdks/NearActor";
+import { StellarActor } from "../sdks/StellarActor";
 
 export const OnchainActorMap = {
   [ChainType.Evm]: new EvmActor(),
   [ChainType.Near]: new NearActor(),
+  [ChainType.Stellar]: new StellarActor(),
 };
 
 export const getOnchainActor = <T = OnchainActor>(chainType: ChainType) => {
@@ -13,3 +15,5 @@ export const getOnchainActor = <T = OnchainActor>(chainType: ChainType) => {
 };
 
 export const getNearActor = () => OnchainActorMap[ChainType.Near];
+
+export const getStellarActor = () => OnchainActorMap[ChainType.Stellar];

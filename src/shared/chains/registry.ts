@@ -84,7 +84,19 @@ export type NearChain = ChainBase & {
   };
 };
 
-export type Chain = EvmChain | NearChain;
+export type StellarChain = ChainBase & {
+  type: ChainType.Stellar;
+  networkPassphrase: string;
+  contracts: {
+    nativeToken: string;
+    usdc: string;
+    Soroswap?: {
+      router: string;
+    };
+  };
+};
+
+export type Chain = EvmChain | NearChain | StellarChain;
 
 const icon = (folder: string) => {
   return `https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/${folder}/info/logo.png`;
@@ -460,14 +472,17 @@ export const Chains: Record<Caip2Id, Chain> = {
     chainId: 44001,
     name: "QDay Aevum",
     icon: "https://qday.io/apple-icon.png",
-    beta: true,
     publicRpcUrls: ["https://rpc.qday.io"],
     confirmations: 2,
     blockExplorer: {
       name: "QDay Explorer",
       url: "https://explorer.qday.io",
     },
-    nativeCurrency: { name: "QDay", symbol: "QDAY", decimals: 18 },
+    nativeCurrency: {
+      name: "QDay",
+      symbol: "QDAY",
+      decimals: 18,
+    },
     contracts: {
       WETH9: "0xEF253e9FC2d063869FD5B3C0E1c326aB7E030660",
     },
@@ -825,6 +840,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     nativeCurrency: avalancheFuji.nativeCurrency,
     descriptors: {
       Alchemy: "AVAX_FUJI",
+      QuickNode: "avalanche-fuji",
     },
     contracts: {
       multicall3: avalancheFuji.contracts.multicall3,
@@ -852,12 +868,46 @@ export const Chains: Record<Caip2Id, Chain> = {
       name: "QDay Testnet Explorer",
       url: "https://explorer-test.qday.info",
     },
-    nativeCurrency: { name: "QDay Testnet", symbol: "tQDAY", decimals: 18 },
+    nativeCurrency: {
+      name: "QDay Testnet",
+      symbol: "tQDAY",
+      decimals: 18,
+    },
     contracts: {
       multicall3: {
         address: "0xcA11bde05977b3631167028862bE2a173976CA11",
       },
       WETH9: "0x4465f7e83932D2423dC60FdF364d551366c78344",
+    },
+  },
+  "near:mainnet": {
+    caip2Id: "near:mainnet",
+    type: ChainType.Near,
+    networkId: "mainnet",
+    name: "NEAR",
+    icon: icon("near"),
+    beta: true,
+    publicRpcUrls: ["https://free.rpc.fastnear.com"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "NearBlocks",
+      url: "https://nearblocks.io",
+    },
+    nativeCurrency: {
+      name: "NEAR",
+      symbol: "NEAR",
+      decimals: 24,
+    },
+    descriptors: {
+      NearIntents: "near",
+      TrustWallet: "near",
+    },
+    contracts: {
+      wrapNear: "wrap.near",
+      Rhea: {
+        dcl: "dclv2.ref-labs.near",
+        refV1: "v2.ref-finance.near",
+      },
     },
   },
   "near:testnet": {
@@ -887,6 +937,36 @@ export const Chains: Record<Caip2Id, Chain> = {
       Rhea: {
         dcl: "dclv2.ref-dev.testnet",
         refV1: "ref-finance-101.testnet",
+      },
+    },
+  },
+  "stellar:testnet": {
+    caip2Id: "stellar:testnet",
+    type: ChainType.Stellar,
+    networkPassphrase: "Test SDF Network ; September 2015",
+    name: "Stellar Testnet",
+    icon: icon("stellar"),
+    testnet: true,
+    beta: true,
+    publicRpcUrls: ["https://soroban-testnet.stellar.org"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "StellarExpert",
+      url: "https://stellar.expert/explorer/testnet",
+    },
+    nativeCurrency: {
+      name: "Stellar Lumens",
+      symbol: "XLM",
+      decimals: 7,
+    },
+    descriptors: {
+      TrustWallet: "stellar",
+    },
+    contracts: {
+      nativeToken: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      Soroswap: {
+        router: "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD",
       },
     },
   },

@@ -1,10 +1,14 @@
 import { isAddress } from "viem";
 import { z } from "zod";
 import { isNearAccountId } from "../shared/nearAccount";
+import { isStellarAddress } from "../shared/stellarAddress";
 
 const AddressSchema = z
   .string()
-  .refine((value) => isAddress(value) || isNearAccountId(value));
+  .refine(
+    (value) =>
+      isAddress(value) || isNearAccountId(value) || isStellarAddress(value),
+  );
 
 // EIP-3009 transferWithAuthorization, on EVM
 const EvmPayloadSchema = z.object({
@@ -24,9 +28,15 @@ const NearPayloadSchema = z.object({
   signedDelegateAction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });
 
+const StellarPayloadSchema = z.object({
+  transaction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
+});
+
 export const x402_RequirementSchema = z.object({
   scheme: z.string(),
-  network: z.string().regex(/^(eip155:[0-9]+|near:(mainnet|testnet))$/),
+  network: z
+    .string()
+    .regex(/^(eip155:[0-9]+|near:(mainnet|testnet)|stellar:(pubnet|testnet))$/),
   asset: AddressSchema,
   amount: z.string().regex(/^[0-9]+$/),
   payTo: AddressSchema,
@@ -37,5 +47,5 @@ export const x402_RequirementSchema = z.object({
 export const x402_PaymentPayloadSchema = z.object({
   x402Version: z.literal(2),
   accepted: x402_RequirementSchema,
-  payload: z.union([EvmPayloadSchema, NearPayloadSchema]),
+  payload: z.union([EvmPayloadSchema, NearPayloadSchema, StellarPayloadSchema]),
 });

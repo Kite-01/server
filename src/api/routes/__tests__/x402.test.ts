@@ -9,6 +9,7 @@ import {
 import {
   fakeActor,
   nearOperator,
+  fakeStellarActor,
   operatorAddress,
   resetMocks,
 } from "../../../test/mocks";
@@ -140,6 +141,7 @@ describe("x402 API", () => {
     expect(res.json.signers).toEqual({
       "eip155:*": [operatorAddress],
       "near:*": [nearOperator],
+      "stellar:*": [fakeStellarActor.keypair(1).publicKey()],
     });
   });
 

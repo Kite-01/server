@@ -9,7 +9,13 @@ import { chain, chainConfig, token } from "../db/schema";
 import { AppError, NotFoundError } from "../shared/errors";
 import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
-import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import {
+  getNearActor,
+  getOnchainActor,
+  getStellarActor,
+} from "../shared/onchainActor";
+import { isStellarContract } from "../shared/stellarAddress";
+import { Address as StellarAddress } from "@stellar/stellar-sdk";
 import { isNearAccountId } from "../shared/kiteNearContract";
 import { ChainType, ProviderAction } from "../shared/constants";
 import { NearIntents } from "../sdks/NearIntents";
@@ -178,6 +184,44 @@ export class ChainService {
     }
   };
 
+  private assertStellarFactory = async (
+    caip2Id: Caip2Id,
+    input: Omit<typeof chainConfig.$inferInsert, "chainId">,
+  ) => {
+    if (!isStellarContract(input.kiteFactoryAddress)) {
+      throw new AppError("The Kite factory is not a Stellar contract address");
+    }
+
+    if (input.onchainNotifierProviders?.length) {
+      throw new AppError(
+        "Stellar has no onchain notifier; deposits are found by the balance check",
+      );
+    }
+
+    if (input.gasSponsorProviders?.length) {
+      throw new AppError("Stellar has no gas sponsor; the operator pays fees");
+    }
+
+    const actor = getStellarActor();
+    const isOperator = await actor
+      .view<boolean>(
+        caip2Id,
+        input.kiteFactoryAddress,
+        "is_operator",
+        [StellarAddress.fromString(actor.getAddress()).toScVal()],
+        input.rpcUrls ?? [],
+      )
+      .catch(() => {
+        throw new AppError("Is this a valid Kite factory contract?");
+      });
+
+    if (!isOperator) {
+      throw new AppError(
+        `The server's Stellar account ${actor.getAddress()} is not an operator on the provided Kite factory`,
+      );
+    }
+  };
+
   upsertChainConfig = async (
     chainId: string,
     input: Omit<typeof chainConfig.$inferInsert, "chainId">,
@@ -194,6 +238,8 @@ export class ChainService {
 
     if (internalChain.type === ChainType.Near) {
       await this.assertNearFactory(chain.caip2Id, input);
+    } else if (internalChain.type === ChainType.Stellar) {
+      await this.assertStellarFactory(chain.caip2Id, input);
     } else {
       await this.assertEvmFactory(chain.caip2Id, input);
     }

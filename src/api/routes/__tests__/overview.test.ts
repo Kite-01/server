@@ -4,7 +4,11 @@ import {
   createCustomer,
 } from "../../../test/factories";
 import { client, rootCredentials } from "../../../test/api";
-import { nearOperator, operatorAddress } from "../../../test/mocks";
+import {
+  nearOperator,
+  operatorAddress,
+  stellarOperator,
+} from "../../../test/mocks";
 import { describe, expect, it } from "vitest";
 import { eventFor } from "../../../test/events";
 
@@ -23,6 +27,7 @@ describe("overview", () => {
     expect(res.json.operators).toEqual([
       { chainType: "Evm", address: operatorAddress },
       { chainType: "Near", address: nearOperator },
+      { chainType: "Stellar", address: stellarOperator },
     ]);
   });
 

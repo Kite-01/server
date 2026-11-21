@@ -68,11 +68,17 @@ vi.mock("../sdks/NearIntents", async () => {
 });
 
 vi.mock("../shared/onchainActor", async () => {
-  const { fakeActor, fakeNearActor } = await import("./mocks.js");
+  const { fakeActor, fakeNearActor, fakeStellarActor } =
+    await import("./mocks.js");
   return {
     getOnchainActor: (chainType: string) =>
-      chainType === "Near" ? fakeNearActor : fakeActor,
+      chainType === "Near"
+        ? fakeNearActor
+        : chainType === "Stellar"
+          ? fakeStellarActor
+          : fakeActor,
     getNearActor: () => fakeNearActor,
+    getStellarActor: () => fakeStellarActor,
     OnchainActorMap: {},
   };
 });

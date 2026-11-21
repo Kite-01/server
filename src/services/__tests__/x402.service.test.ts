@@ -23,6 +23,7 @@ import {
 import {
   fakeActor,
   nearOperator,
+  fakeStellarActor,
   operatorAddress,
   resetMocks,
   schedulerMock,
@@ -232,6 +233,7 @@ describe("x402Service", () => {
       expect(supported.signers).toEqual({
         "eip155:*": [operatorAddress],
         "near:*": [nearOperator],
+        "stellar:*": [fakeStellarActor.keypair(1).publicKey()],
       });
     });
 

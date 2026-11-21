@@ -49,6 +49,15 @@ export const getNearChain = (caip2Id: Caip2Id) => {
   return chain;
 };
 
+export const getStellarChain = (caip2Id: Caip2Id) => {
+  const chain = getChain(caip2Id);
+  if (chain.type !== ChainType.Stellar) {
+    throw new AppError(`${chain.name} is not a Stellar chain`);
+  }
+
+  return chain;
+};
+
 export const getRpcsTransport = (urls: string[]) => {
   return fallback(
     urls.map((url) => http(url)),

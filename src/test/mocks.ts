@@ -7,6 +7,7 @@ import {
 } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { vi } from "vitest";
+import { stellarKeypair } from "../shared/stellarAddress";
 
 export const testMnemonic =
   "test test test test test test test test test test test junk";
@@ -97,6 +98,36 @@ export const fakeNearActor = {
   ),
 };
 
+export const stellarOperator = stellarKeypair(testMnemonic, 0).publicKey();
+
+export const fakeStellarActor = {
+  getAddress: vi.fn(() => stellarOperator),
+  keypair: vi.fn((index = 0) => stellarKeypair(testMnemonic, index)),
+  passphrase: vi.fn(
+    (..._args: unknown[]) => "Test SDF Network ; September 2015",
+  ),
+  getBalance: vi.fn(async (..._args: unknown[]) => 0n),
+  simulate: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("simulate not stubbed");
+  }),
+  view: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("view not stubbed");
+  }),
+  invoke: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("invoke not stubbed");
+  }),
+  isSac: vi.fn(async (..._args: unknown[]) => true),
+  getTransactionStatus: vi.fn(
+    async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
+  ),
+  getConfirmations: vi.fn(async (..._args: unknown[]) => 1n),
+  getBlockNumber: vi.fn(async (..._args: unknown[]) => 1000n),
+  getSponsorshipError: vi.fn(
+    async (..._args: unknown[]): Promise<string | null> =>
+      "Gas sponsors aren't available on Stellar; the operator pays fees",
+  ),
+};
+
 export const nearIntentsMock = {
   getTokens: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []),
   getAssetId: vi.fn(
@@ -132,6 +163,27 @@ export const resetMocks = () => {
   fakeNearActor.functionCall.mockRejectedValue(
     new Error("functionCall not stubbed"),
   );
+
+  for (const fn of Object.values(fakeStellarActor)) fn.mockReset();
+  fakeStellarActor.getAddress.mockReturnValue(stellarOperator);
+  fakeStellarActor.keypair.mockImplementation((index = 0) =>
+    stellarKeypair(testMnemonic, index),
+  );
+  fakeStellarActor.passphrase.mockReturnValue(
+    "Test SDF Network ; September 2015",
+  );
+  fakeStellarActor.getBalance.mockResolvedValue(0n);
+  fakeStellarActor.isSac.mockResolvedValue(true);
+  fakeStellarActor.getBlockNumber.mockResolvedValue(1000n);
+  fakeStellarActor.getConfirmations.mockResolvedValue(1n);
+  fakeStellarActor.getTransactionStatus.mockResolvedValue({
+    status: "pending",
+  });
+  fakeStellarActor.simulate.mockRejectedValue(
+    new Error("simulate not stubbed"),
+  );
+  fakeStellarActor.view.mockRejectedValue(new Error("view not stubbed"));
+  fakeStellarActor.invoke.mockRejectedValue(new Error("invoke not stubbed"));
 
   fakeActor.getAddress.mockReturnValue(operatorAddress);
   fakeActor.getBalance.mockResolvedValue(0n);

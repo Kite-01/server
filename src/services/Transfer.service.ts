@@ -51,7 +51,24 @@ import { OperatorForwardService } from "./OperatorForward.service";
 import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import { PaymentLinkService } from "./PaymentLink.service";
 import { runProviderMethod } from "../shared/providers";
-import { getNearActor, getOnchainActor } from "../shared/onchainActor";
+import {
+  getNearActor,
+  getOnchainActor,
+  getStellarActor,
+} from "../shared/onchainActor";
+import {
+  kiteStellar,
+  StellarKiteErrors,
+  type StellarKiteStatus,
+  type StellarKiteTransfer,
+} from "../shared/kiteStellarContract";
+import { StellarSimulationError } from "../sdks/StellarActor";
+import { isStellarMuxed } from "../shared/stellarAddress";
+import {
+  Address as StellarAddress,
+  nativeToScVal,
+  type xdr,
+} from "@stellar/stellar-sdk";
 import {
   isLegacyNearImplementation,
   kiteNear,
@@ -66,7 +83,12 @@ import { TokenService } from "./Token.service";
 import { QuoteService } from "./Quote.service";
 import { KvService } from "./Kv.service";
 import { Scheduler } from "../shared/scheduler";
-import { getChain, getEvmChain, getNearChain } from "../shared/chains";
+import {
+  getChain,
+  getEvmChain,
+  getNearChain,
+  getStellarChain,
+} from "../shared/chains";
 import { common } from "../shared/common";
 import { kite } from "../shared/kiteContract";
 import { omit } from "lodash";
@@ -381,6 +403,14 @@ export class TransferService {
   ) => {
     if (await this.isNearTransfer(transferId)) {
       return this.recoverNearToken(
+        transferId,
+        tokenAddress,
+        destinationAddress,
+      );
+    }
+
+    if (await this.isStellarTransfer(transferId)) {
+      return this.recoverStellarToken(
         transferId,
         tokenAddress,
         destinationAddress,
@@ -1377,6 +1407,415 @@ export class TransferService {
     } as const;
   };
 
+  private prepareStellarTransfer = async (
+    input: PrepareTransferInput,
+  ): Promise<PreparedTransfer> => {
+    const { quote: quote_, config } = input;
+    const caip2Id = quote_.chain.caip2Id;
+    const chain = getStellarChain(caip2Id);
+    const actor = getStellarActor();
+    const rpcUrls = config.rpcUrls ?? [];
+    const factory = config.kiteFactoryAddress;
+
+    const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
+    const router = chain.contracts.Soroswap?.router;
+    if (!isSameToken && (!router || !quote_.swapPool))
+      throw new AppError("This chain has no swap route for this token");
+
+    const implementation = await actor.view<Buffer>(
+      caip2Id,
+      factory,
+      "implementation",
+      [],
+      rpcUrls,
+    );
+
+    const struct = kiteStellar.buildTransferInput({
+      transferId: input.transferId,
+      payInToken: quote_.sourceToken.address,
+      amountIn: quote_.sourceAmount,
+      settlementToken: quote_.targetToken.address,
+      settlementRecipient: input.settlementRecipient,
+      minAmountOut: input.minAmountOut,
+      fees: quote_.fees.map((fee) => ({
+        id: fee.id,
+        recipient: fee.feeAddress,
+        amount: fee.amount,
+      })),
+      refundAddress: input.refundAddress,
+      expiresAt: quote_.expiresAt,
+      swap:
+        isSameToken || !router || !quote_.swapPool
+          ? null
+          : { router, path: quote_.swapPool.split(",") },
+      implementation: Buffer.from(implementation).toString("hex"),
+    });
+
+    const muxed = [
+      struct.settlement_recipient,
+      struct.refund_address,
+      ...struct.fees.map((fee) => fee.recipient),
+    ].some(isStellarMuxed);
+    const sac = muxed
+      ? {
+          payIn: await actor.isSac(caip2Id, struct.pay_in, rpcUrls),
+          settlement: await actor.isSac(
+            caip2Id,
+            struct.settlement_token,
+            rpcUrls,
+          ),
+        }
+      : undefined;
+
+    const error = kiteStellar.validateTransferInput(struct, sac);
+    if (error) throw new AppError(error);
+
+    const payinAddress = kiteStellar.predictAddress(
+      factory,
+      struct,
+      chain.networkPassphrase,
+    );
+    const derived = await actor.view<string>(
+      caip2Id,
+      factory,
+      "predict_address",
+      [kiteStellar.toScVal(struct)],
+      rpcUrls,
+    );
+    if (derived !== payinAddress) {
+      throw new AppError(
+        `The Kite factory derives ${derived} for this transfer, not ${payinAddress}`,
+      );
+    }
+
+    return {
+      kiteTransferInput: struct,
+      payinAddress,
+      trackedBy: [],
+      refundAddress: input.refundAddress,
+      settlementRecipient: input.settlementRecipient,
+    };
+  };
+
+  private isStellarTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    return (
+      !!row && getChain(row.quote.chain.caip2Id).type === ChainType.Stellar
+    );
+  };
+
+  private getStellarTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    if (!row) throw new NotFoundError("transfer", transferId);
+
+    const config = row.quote.chain.config;
+    if (!config) throw new AppError("Selected chain is not configured");
+
+    const caip2Id = row.quote.chain.caip2Id;
+    const struct = row.kiteTransferInput as unknown as StellarKiteTransfer;
+    const predicted = kiteStellar.predictAddress(
+      config.kiteFactoryAddress,
+      struct,
+      getStellarChain(caip2Id).networkPassphrase,
+    );
+    if (predicted !== row.payinAddress) {
+      throw new TransferStructMismatchError(
+        row.id,
+        row.payinAddress,
+        predicted,
+      );
+    }
+
+    const fees = await db.query.quoteFee.findMany({
+      where: eq(quoteFee.quoteId, row.quoteId),
+      columns: { id: true },
+    });
+
+    return {
+      row,
+      caip2Id,
+      factory: config.kiteFactoryAddress,
+      rpcUrls: config.rpcUrls ?? [],
+      struct,
+      feeIds: kiteStellar.sortFees(fees).map((fee) => fee.id),
+      actor: getStellarActor(),
+    };
+  };
+
+  private stellarStatus = async (
+    ctx: Awaited<ReturnType<TransferService["getStellarTransfer"]>>,
+  ): Promise<StellarKiteStatus | null> => {
+    try {
+      return kiteStellar.status(
+        await ctx.actor.simulate(
+          ctx.caip2Id,
+          ctx.row.payinAddress,
+          "get_status",
+          [],
+          ctx.rpcUrls,
+        ),
+      );
+    } catch (e) {
+      // not deployed yet
+      if (e instanceof StellarSimulationError) return null;
+      throw e;
+    }
+  };
+
+  private stellarErrorName = (
+    ctx: Awaited<ReturnType<TransferService["getStellarTransfer"]>>,
+    error: unknown,
+  ) => {
+    if (!(error instanceof StellarSimulationError) || error.code === null) {
+      return null;
+    }
+
+    const ours = [ctx.factory, ctx.row.payinAddress].includes(
+      error.contract ?? "",
+    );
+    return ours ? (StellarKiteErrors[error.code] ?? null) : null;
+  };
+
+  private sendStellarFactoryCall = async (
+    ctx: Awaited<ReturnType<TransferService["getStellarTransfer"]>>,
+    method: "settle" | "refund" | "recover",
+    args: xdr.ScVal[],
+  ) => {
+    const result = await ctx.actor.invoke(
+      ctx.caip2Id,
+      ctx.factory,
+      method,
+      args,
+      ctx.rpcUrls,
+    );
+
+    if (result.status === "success") {
+      await this.handleOnchainNotifierCallback(
+        kiteStellar
+          .parseEvents(
+            ctx.caip2Id,
+            result.transactionHash,
+            result.events,
+            ctx.feeIds,
+          )
+          .filter((item) => item.payinAddress === ctx.row.payinAddress),
+      );
+    }
+
+    return result;
+  };
+
+  private stellarOperator = () =>
+    StellarAddress.fromString(getStellarActor().getAddress()).toScVal();
+
+  private settleStellarTransfer = async (transferId: string) => {
+    const ctx = await this.getStellarTransfer(transferId);
+    let row = ctx.row;
+
+    if (!SettleableTransferStatuses.includes(row.status)) {
+      return;
+    }
+
+    const status = await this.stellarStatus(ctx);
+    if (status === "Settled" || status === "Refunded") {
+      return this.reconcileClosedTransfer(ctx, status);
+    }
+
+    const balance = await ctx.actor.getBalance(
+      ctx.caip2Id,
+      ctx.struct.pay_in,
+      row.payinAddress,
+    );
+    const expired =
+      BigInt(Math.floor(Date.now() / 1000)) > BigInt(ctx.struct.expires_at);
+
+    if (balance < BigInt(ctx.struct.amount_in)) {
+      if (expired) {
+        return this.abandonSettlement(
+          row,
+          "Transfer expired before it was paid in full",
+          balance,
+        );
+      }
+
+      if (row.status === TransferStatus.AwaitingDeposit) {
+        return;
+      }
+
+      throw new AppError("Transfer is awaiting full deposit");
+    }
+
+    if (expired) {
+      return this.abandonSettlement(
+        row,
+        "Transfer expired before it was settled",
+        balance,
+      );
+    }
+
+    const payout_ = await db.query.payout.findFirst({
+      where: eq(payout.transferId, row.id),
+      columns: { deadline: true },
+    });
+
+    if (
+      payout_ &&
+      payout_.deadline.getTime() - Date.now() <
+        common.toMs(PayoutDeadlineMarginSeconds)
+    ) {
+      return this.abandonSettlement(
+        row,
+        "The NEAR Intents deposit address for the payout is about to expire",
+        balance,
+      );
+    }
+
+    if (row.status !== TransferStatus.Processing) {
+      const moved = await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Processing,
+        "Transfer settlement submitted",
+      );
+
+      if (!moved) {
+        return;
+      }
+
+      row = {
+        ...row,
+        status: TransferStatus.Processing,
+      };
+    }
+
+    let result;
+    try {
+      result = await this.sendStellarFactoryCall(ctx, "settle", [
+        this.stellarOperator(),
+        kiteStellar.toScVal(ctx.struct),
+      ]);
+    } catch (e) {
+      if (!(e instanceof StellarSimulationError)) throw e;
+
+      const name = this.stellarErrorName(ctx, e);
+      if (name === "NotOpen") {
+        return this.reconcileClosedTransfer(
+          { row },
+          await this.stellarStatus(ctx),
+        );
+      }
+
+      if (name === "InsufficientPayment") {
+        throw new AppError("Deposit not visible to the contract yet");
+      }
+
+      return this.abandonSettlement(row, name ?? e.message, balance);
+    }
+
+    if (result.status !== "success") {
+      throw new AppError(`Settlement failed: ${result.failure}`);
+    }
+  };
+
+  private refundStellarTransfer = async (
+    transferId: string,
+  ): Promise<{ refunded: true } | { refunded: false; reason: string }> => {
+    const ctx = await this.getStellarTransfer(transferId);
+    const row = ctx.row;
+
+    const closed = this.closedReason(row);
+    if (closed) return { refunded: false, reason: closed };
+
+    const status = await this.stellarStatus(ctx);
+    if (status === "Settled" || status === "Refunded") {
+      await this.reconcileClosedTransfer(ctx, status);
+      return {
+        refunded: false,
+        reason: "The transfer has already closed on-chain",
+      };
+    }
+
+    const balance = await ctx.actor.getBalance(
+      ctx.caip2Id,
+      ctx.struct.pay_in,
+      row.payinAddress,
+    );
+
+    if (balance === 0n) {
+      return {
+        refunded: false,
+        reason: `There is nothing to refund: the pay-in address holds no ${row.quote.sourceToken.symbol}`,
+      };
+    }
+
+    const result = await this.sendStellarFactoryCall(ctx, "refund", [
+      kiteStellar.toScVal(ctx.struct),
+      this.stellarOperator(),
+    ]).catch((e: unknown) => {
+      throw new AppError(
+        `Refund failed: ${this.stellarErrorName(ctx, e) ?? (e as Error).message}`,
+      );
+    });
+
+    if (result.status !== "success") {
+      throw new AppError(`Refund failed: ${result.failure}`);
+    }
+
+    return { refunded: true };
+  };
+
+  private recoverStellarToken = async (
+    transferId: string,
+    tokenAddress: string,
+    destinationAddress: string,
+  ) => {
+    const ctx = await this.getStellarTransfer(transferId);
+    const balance = await ctx.actor.getBalance(
+      ctx.caip2Id,
+      tokenAddress,
+      ctx.row.payinAddress,
+    );
+
+    if (balance === 0n) {
+      return {
+        status: "empty",
+      } as const;
+    }
+
+    const failed = (errorName: string, message = errorName) =>
+      ({
+        status: "failed",
+        failure: { ok: false, kind: "revert", errorName, message },
+      }) as const;
+
+    const destination =
+      !destinationAddress || common.isZeroAddress(destinationAddress)
+        ? null
+        : destinationAddress;
+
+    try {
+      const result = await this.sendStellarFactoryCall(ctx, "recover", [
+        this.stellarOperator(),
+        kiteStellar.toScVal(ctx.struct),
+        StellarAddress.fromString(tokenAddress).toScVal(),
+        destination
+          ? StellarAddress.fromString(destination).toScVal()
+          : nativeToScVal(null),
+      ]);
+
+      if (result.status !== "success") {
+        return failed("Unknown", result.failure ?? "Recovery failed");
+      }
+    } catch (e) {
+      if (!(e instanceof StellarSimulationError)) throw e;
+      return failed(this.stellarErrorName(ctx, e) ?? "Unknown", e.message);
+    }
+
+    return {
+      status: "sent",
+    } as const;
+  };
+
   createTransfer = async (
     appId: string,
     quoteId: string,
@@ -1450,10 +1889,11 @@ export class TransferService {
       (quote_.targetAmount * (10000n - BigInt(config.slippageBps))) / 10000n;
     const transferId = common.uuidv4();
 
-    const prepare =
-      chain.type === ChainType.Near
-        ? this.prepareNearTransfer
-        : this.prepareEvmTransfer;
+    const prepare = {
+      [ChainType.Evm]: this.prepareEvmTransfer,
+      [ChainType.Near]: this.prepareNearTransfer,
+      [ChainType.Stellar]: this.prepareStellarTransfer,
+    }[chain.type];
     const prepared = await prepare({
       transferId,
       quote: quote_,
@@ -1561,6 +2001,10 @@ export class TransferService {
   settleTransfer = async (transferId: string) => {
     if (await this.isNearTransfer(transferId)) {
       return this.settleNearTransfer(transferId);
+    }
+
+    if (await this.isStellarTransfer(transferId)) {
+      return this.settleStellarTransfer(transferId);
     }
 
     const ctx = await this.getOnchainTransfer(transferId);
@@ -1702,6 +2146,10 @@ export class TransferService {
       return this.refundNearTransfer(transferId);
     }
 
+    if (await this.isStellarTransfer(transferId)) {
+      return this.refundStellarTransfer(transferId);
+    }
+
     const ctx = await this.getOnchainTransfer(transferId);
     const row = ctx.row;
 
@@ -1838,6 +2286,15 @@ export class TransferService {
       return this.nearBalance(
         await this.getNearTransfer(transferId),
         common.normalizeAddress(tokenAddress),
+      );
+    }
+
+    if (await this.isStellarTransfer(transferId)) {
+      const ctx = await this.getStellarTransfer(transferId);
+      return ctx.actor.getBalance(
+        ctx.caip2Id,
+        common.normalizeAddress(tokenAddress),
+        ctx.row.payinAddress,
       );
     }
 
