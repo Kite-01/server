@@ -76,6 +76,9 @@ const ConfigurationForm = ({
 }) => {
   const config = chain.config;
   const near = chain.caip2Id.startsWith("near:");
+  const stellar = chain.caip2Id.startsWith("stellar:");
+  // only EVM chains have deposit notifiers, gas sponsors and a gas price
+  const evm = !near && !stellar;
   const [values, setValues] = useState({
     rpcUrls: (config?.rpcUrls ?? []).join("\n"),
     slippageBps: String(config?.slippageBps ?? 100),
@@ -84,11 +87,11 @@ const ConfigurationForm = ({
     usdPeggedTokenId: config?.usdPeggedTokenId ?? "",
     maxGasPrice: config?.maxGasPrice ?? "",
     // A new configuration starts with every provider that is ready.
-    onchainNotifierProviders: near
+    onchainNotifierProviders: !evm
       ? []
       : (config?.onchainNotifierProviders ??
         configuredProviders(providers, "OnchainNotifier")),
-    gasSponsorProviders: near
+    gasSponsorProviders: !evm
       ? []
       : (config?.gasSponsorProviders ??
         configuredProviders(providers, "GasSponsor")),
@@ -148,7 +151,9 @@ const ConfigurationForm = ({
           hint={
             near
               ? "The account the Kite factory contract is deployed to, e.g. kite-factory.near."
-              : undefined
+              : stellar
+                ? "The factory's contract address (C…)."
+                : undefined
           }
         >
           <Input
@@ -202,7 +207,7 @@ const ConfigurationForm = ({
               onChange={set("slippageBps")}
             />
           </Field>
-          {!near && (
+          {evm && (
             <Field label="Max gas price in wei (optional)">
               <Input
                 inputMode="numeric"
@@ -220,7 +225,7 @@ const ConfigurationForm = ({
           <Textarea value={values.rpcUrls} onChange={set("rpcUrls")} />
         </Field>
 
-        {!near && (
+        {evm && (
           <>
             <Field
               label="Deposit notifier providers"
@@ -303,9 +308,10 @@ const IconForm = ({
 };
 
 const supportsX402 = (token: TokenWithChain) =>
-  token.chain.caip2Id.startsWith("near:")
+  token.chain.caip2Id.startsWith("stellar:") ||
+  (token.chain.caip2Id.startsWith("near:")
     ? token.address !== NearNativeToken
-    : token.supportsEIP3009 && !!token.version;
+    : token.supportsEIP3009 && !!token.version);
 
 const TokensTab = ({
   chainId,

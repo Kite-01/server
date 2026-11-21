@@ -112,6 +112,32 @@ describe("testnets", () => {
       expect(mainnet.status).toBe(422);
     });
 
+    it("adds Stellar testnet, with no EVM chain id", async () => {
+      const created = await root.post("/api/chains", {
+        caip2Id: "stellar:testnet",
+      });
+      expect(created.status).toBe(201);
+
+      const supported = await root.get("/api/chains/supported");
+      expect(supported.json).toContainEqual(
+        expect.objectContaining({
+          caip2Id: "stellar:testnet",
+          chainId: null,
+          beta: true,
+          nativeCurrency: {
+            name: "Stellar Lumens",
+            symbol: "XLM",
+            decimals: 7,
+          },
+        }),
+      );
+
+      const mainnet = await root.post("/api/chains", {
+        caip2Id: "stellar:pubnet",
+      });
+      expect(mainnet.status).toBe(422);
+    });
+
     it("hides mainnet chains already in the database instead of failing", async () => {
       await createConfiguredChain("eip155:8453");
       const sepolia = await createChain("eip155:11155111");

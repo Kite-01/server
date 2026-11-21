@@ -103,7 +103,8 @@ export const chainRoutes = new Elysia({ name: "ChainsRoute" })
       parse: "json",
       body: t.Object({
         caip2Id: t.String({
-          pattern: "^(eip155:[0-9]+|near:(mainnet|testnet))$",
+          pattern:
+            "^(eip155:[0-9]+|near:(mainnet|testnet)|stellar:(pubnet|testnet))$",
         }),
       }),
       response: {
