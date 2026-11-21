@@ -240,6 +240,17 @@ export class ChainService {
       await this.assertNearFactory(chain.caip2Id, input);
     } else if (internalChain.type === ChainType.Stellar) {
       await this.assertStellarFactory(chain.caip2Id, input);
+
+      const tokens = await db.query.token.findMany({
+        where: and(eq(token.chainId, chainId), isNull(token.deletedAt)),
+      });
+      for (const item of tokens) {
+        await getStellarActor().trust(
+          chain.caip2Id,
+          item.address,
+          input.rpcUrls ?? [],
+        );
+      }
     } else {
       await this.assertEvmFactory(chain.caip2Id, input);
     }
