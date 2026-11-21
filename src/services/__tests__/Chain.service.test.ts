@@ -13,6 +13,7 @@ import {
 } from "../../shared/errors";
 import {
   fakeActor,
+  fakeStellarActor,
   nearIntentsMock,
   operatorAddress,
   resetMocks,
@@ -21,6 +22,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KeyType, KeyVars, Provider } from "../../shared/constants";
 import { ChainService } from "../Chain.service";
 import { KvService } from "../Kv.service";
+import { env } from "../../shared/env";
 
 const service = new ChainService();
 
@@ -292,6 +294,37 @@ describe("ChainService", () => {
         }),
       ).rejects.toThrow();
     });
+  });
+
+  it("has the Stellar operator trust every token on the chain when it's configured", async () => {
+    env.KITE_IS_TESTNET = true;
+    const created = await service.createChain({ caip2Id: "stellar:testnet" });
+    const usdc = await createToken(created.id, {
+      address: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      symbol: "USDC",
+      decimals: 7,
+    });
+    const xlm = await createToken(created.id, {
+      address: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      symbol: "XLM",
+      decimals: 7,
+    });
+    fakeStellarActor.view.mockResolvedValue(true);
+
+    await service.upsertChainConfig(created.id, {
+      rpcUrls: [],
+      slippageBps: 100,
+      kiteFactoryAddress:
+        "CA7OSTMOZ5LSMQYSKXONCDKCPHVCNEF6E2IK7GUX2IX4C65RLUDCFLMK",
+      usdPeggedTokenId: usdc.id,
+      settlementTokenId: usdc.id,
+      onchainNotifierProviders: [],
+      gasSponsorProviders: [],
+    });
+
+    expect(fakeStellarActor.trust.mock.calls.map((call) => call[1])).toEqual(
+      expect.arrayContaining([usdc.address, xlm.address]),
+    );
   });
 
   it("is untouched by app data", async () => {

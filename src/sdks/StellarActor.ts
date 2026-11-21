@@ -1,6 +1,7 @@
 import {
   Account,
   Asset,
+  Operation,
   StrKey,
   BASE_FEE,
   Contract,
@@ -30,16 +31,25 @@ export class StellarSimulationError extends AppError {
   }
 }
 
-const simulationError = (result: rpc.Api.SimulateTransactionErrorResponse) => {
+// the contract that raised the final error, not one a `try_` call recovered from
+export const simulationError = (
+  result: rpc.Api.SimulateTransactionErrorResponse,
+) => {
+  const code = /Error\(Contract, #(\d+)\)/.exec(result.error)?.[1];
   const raised = (result.events ?? [])
     .map((event) => event.event())
-    .find(
-      (event) =>
+    .find((event) => {
+      const [name, error] = event.body().v0().topics();
+      return (
         event.contractId() &&
-        event.body().v0().topics()[0]?.sym?.()?.toString() === "error",
-    );
+        name?.switch().name === "scvSymbol" &&
+        name.sym().toString() === "error" &&
+        error?.switch().name === "scvError" &&
+        error.error().switch().name === "sceContract" &&
+        String(error.error().contractCode()) === code
+      );
+    });
   const contractId = raised?.contractId();
-  const code = /Error\(Contract, #(\d+)\)/.exec(result.error)?.[1];
 
   return new StellarSimulationError(
     result.error,
@@ -217,7 +227,8 @@ export class StellarActor implements OnchainActor {
     );
   };
 
-  isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
+  // the asset a Stellar Asset Contract wraps, or null for any other token
+  assetOf = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
     const name = await this.view<string>(caip2Id, token, "name", [], rpcUrls);
     const [code, issuer] = name.split(":");
     const asset =
@@ -226,7 +237,50 @@ export class StellarActor implements OnchainActor {
         : issuer
           ? new Asset(code, issuer)
           : null;
-    return asset?.contractId(this.passphrase(caip2Id)) === token;
+    return asset?.contractId(this.passphrase(caip2Id)) === token ? asset : null;
+  };
+
+  isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) =>
+    !!(await this.assetOf(caip2Id, token, rpcUrls));
+
+  // the operator can only hold an issued asset through a trustline
+  trust = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
+    const asset = await this.assetOf(caip2Id, token, rpcUrls);
+    if (!asset || asset.isNative() || asset.getIssuer() === this.getAddress()) {
+      return;
+    }
+
+    const server = this.rpc(caip2Id, rpcUrls);
+    const key = xdr.LedgerKey.trustline(
+      new xdr.LedgerKeyTrustLine({
+        accountId: this.keypair().xdrAccountId(),
+        asset: asset.toTrustLineXDRObject(),
+      }),
+    );
+    if ((await server.getLedgerEntries(key)).entries.length) return;
+
+    await this.serialize(caip2Id, async () => {
+      const account = await server.getAccount(this.getAddress());
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: this.passphrase(caip2Id),
+      })
+        .addOperation(Operation.changeTrust({ asset }))
+        .setTimeout(TxTimeoutSeconds)
+        .build();
+      tx.sign(this.keypair());
+
+      const sent = await server.sendTransaction(tx);
+      const result =
+        sent.status === "PENDING"
+          ? await server.pollTransaction(sent.hash, { attempts: PollAttempts })
+          : null;
+      if (result?.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
+        throw new AppError(
+          `The operator ${this.getAddress()} couldn't add a trustline for ${asset.getCode()}; check it holds enough XLM`,
+        );
+      }
+    });
   };
 
   getBlockNumber = async (caip2Id: Caip2Id): Promise<bigint> => {

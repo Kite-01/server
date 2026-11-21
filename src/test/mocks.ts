@@ -117,6 +117,7 @@ export const fakeStellarActor = {
     throw new Error("invoke not stubbed");
   }),
   isSac: vi.fn(async (..._args: unknown[]) => true),
+  trust: vi.fn(async (..._args: unknown[]) => undefined),
   getTransactionStatus: vi.fn(
     async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
   ),
