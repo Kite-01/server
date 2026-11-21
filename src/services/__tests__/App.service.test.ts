@@ -5,10 +5,20 @@ import {
 } from "../../test/factories";
 import { beforeEach, describe, expect, it } from "vitest";
 import { NotFoundError, SdkRequestError } from "../../shared/errors";
-import { nearIntentsMock, resetMocks } from "../../test/mocks";
+import {
+  fakeStellarActor,
+  nearIntentsMock,
+  resetMocks,
+} from "../../test/mocks";
+import {
+  STELLAR_SHOP,
+  STELLAR_USDC,
+  setupStellarChain,
+} from "../../test/stellar";
 import { ChainService } from "../Chain.service";
 import { AppService } from "../App.service";
 import { Provider } from "../../shared/constants";
+import { env } from "../../shared/env";
 
 const service = new AppService();
 
@@ -101,6 +111,30 @@ describe("AppService", () => {
       await expect(
         service.setChain(appId, crypto.randomUUID(), address(0x5e77)),
       ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it("refuses a Stellar address that can't hold the settlement token", async () => {
+      const stellar = await setupStellarChain();
+      fakeStellarActor.canHold.mockResolvedValue(false);
+
+      await expect(
+        service.setChain(stellar.appId, stellar.chainId, STELLAR_SHOP),
+      ).rejects.toThrow(/has no trustline for USDC/);
+      expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
+        "stellar:testnet",
+        STELLAR_USDC,
+        STELLAR_SHOP,
+        [],
+      );
+
+      fakeStellarActor.canHold.mockResolvedValue(true);
+      const row = await service.setChain(
+        stellar.appId,
+        stellar.chainId,
+        STELLAR_SHOP,
+      );
+      expect(row.address).toBe(STELLAR_SHOP);
+      env.KITE_IS_TESTNET = false;
     });
 
     it("leaves out chains that were removed", async () => {
