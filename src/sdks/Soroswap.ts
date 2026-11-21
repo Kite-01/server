@@ -8,10 +8,6 @@ export type SoroswapQuote = {
   amount: bigint;
 };
 
-/**
- * Spot quotes from Soroswap's router: its pairs keep no cumulative prices, so there's no
- * time-weighted average to read. The deposit contract still enforces `min_amount_out`.
- */
 export class Soroswap {
   router = (caip2Id: Caip2Id) => {
     const chain = getStellarChain(caip2Id);

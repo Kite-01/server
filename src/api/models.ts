@@ -704,7 +704,7 @@ const x402PaymentRequirements = t.Object(
     amount: Digits,
     payTo: ChainAddress,
     maxTimeoutSeconds: Int,
-    // the EIP-3009 domain on EVM; nothing on NEAR; whether fees are paid for on Stellar
+    // the EIP-3009 domain on EVM; nothing on NEAR
     extra: t.Object({
       name: t.Optional(t.String()),
       version: t.Optional(t.String()),

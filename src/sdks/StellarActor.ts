@@ -20,7 +20,6 @@ import { stellarKeypair } from "../shared/stellarAddress";
 const NotOnStellar = (method: string) =>
   new AppError(`${method} isn't available on Stellar`);
 
-/** A failed simulation, with the contract that raised the error and its code. */
 export class StellarSimulationError extends AppError {
   constructor(
     message: string,
@@ -59,10 +58,6 @@ export type StellarCallResult = {
 const TxTimeoutSeconds = 60;
 const PollAttempts = 30;
 
-/**
- * The operator on Stellar: `KITE_OPERATOR_MNEMONIC`'s key on m/44'/148'/0' (SEP-5). It pays every
- * fee itself. The x402 facilitator signs with its own account, m/44'/148'/1'.
- */
 export class StellarActor implements OnchainActor {
   private keypairs = new Map<number, Keypair>();
   private queue = new Map<string, Promise<unknown>>();
@@ -85,7 +80,6 @@ export class StellarActor implements OnchainActor {
     return new rpc.Server(url, { allowHttp: url.startsWith("http://") });
   };
 
-  /** Sends one at a time per chain, so concurrent jobs don't race for the sequence number. */
   serialize = <T>(caip2Id: Caip2Id, run: () => Promise<T>) => {
     const previous = this.queue.get(caip2Id) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(run);
@@ -223,7 +217,6 @@ export class StellarActor implements OnchainActor {
     );
   };
 
-  /** Whether `token` is a Stellar Asset Contract: its `name` is the asset it wraps. */
   isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
     const name = await this.view<string>(caip2Id, token, "name", [], rpcUrls);
     const [code, issuer] = name.split(":");
@@ -253,7 +246,6 @@ export class StellarActor implements OnchainActor {
     return BigInt(ledgers[0].ledgerCloseTime);
   };
 
-  /** A Stellar ledger is final once it closes; a transaction found has one confirmation. */
   getConfirmations = async (
     caip2Id: Caip2Id,
     transactionHash: string,

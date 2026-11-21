@@ -1562,7 +1562,6 @@ export class TransferService {
     }
   };
 
-  // The name of a Kite contract error, or null for anything else, such as a token's own error.
   private stellarErrorName = (
     ctx: Awaited<ReturnType<TransferService["getStellarTransfer"]>>,
     error: unknown,
@@ -1710,7 +1709,6 @@ export class TransferService {
         throw new AppError("Deposit not visible to the contract yet");
       }
 
-      // a payout that can't be delivered, such as one without a trustline, fails it too
       return this.abandonSettlement(row, name ?? e.message, balance);
     }
 

@@ -254,7 +254,6 @@ export class x402Service {
     };
   };
 
-  // One SEP-41 `transfer(from, to, amount)`, authorized by `from`'s signed auth entry.
   private stellarAuthorizationOf = async (
     transaction: string,
     requirements: ReturnType<typeof x402_RequirementSchema.parse>,
@@ -754,8 +753,6 @@ export class x402Service {
     return { kind: "unpaid" };
   };
 
-  // The fee bump's hash is recorded before it's sent, so a reservation without one was never sent.
-  // One that isn't found yet is pending until its authorization expires.
   private resolveStellarReservation = async (
     ctx: ValidatedPayment,
     row: {

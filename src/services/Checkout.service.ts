@@ -440,7 +440,7 @@ export class CheckoutService {
       throw new NotFoundError("transfer", transferId);
     }
 
-    // NEAR and Stellar have no deposit notifier, so a watched transfer is checked on each poll, not each sweep
+    // no deposit notifier, so a watched transfer is checked on each poll
     if (
       transfer.status === TransferStatus.AwaitingDeposit &&
       getChain(transfer.quote.chain.caip2Id).type !== ChainType.Evm

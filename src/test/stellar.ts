@@ -93,7 +93,6 @@ export const setupStellarChain = async () => {
   return { appId, chainId, usdcId: usdc.id, xlmId: xlm.id };
 };
 
-// The transfer back from its ScVal, as the factory stub needs it.
 const fromScVal = (value: xdr.ScVal): StellarKiteTransfer => {
   const t = scValToNative(value) as Record<string, any>;
   const [variant, swap] = t.swap as [

@@ -259,7 +259,6 @@ describe("TransferService on Stellar", () => {
     it("doesn't mistake a token's error for one of Kite's", async () => {
       const created = await create();
       fakeStellarActor.getBalance.mockResolvedValue(10_000_000n);
-      // the SAC's BalanceError, #10, is not Kite's InsufficientPayment
       fakeStellarActor.invoke.mockRejectedValue(kiteError(USDC, 10));
 
       await service.settleTransfer(created.id);

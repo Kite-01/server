@@ -28,7 +28,6 @@ const NearPayloadSchema = z.object({
   signedDelegateAction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });
 
-// a base64 Stellar transaction invoking one SEP-41 transfer, with the payer's auth entry signed
 const StellarPayloadSchema = z.object({
   transaction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });

@@ -15,34 +15,6 @@ import {
   isStellarMuxed,
 } from "./stellarAddress";
 
-/**
- * The `factory` and `kite` contracts on Stellar (Kite-01/stellar-contracts). What the server
- * assumes of them; the contracts' `types` crate pins the same vectors as this file's test:
- *
- * 1. A deposit's address is the contract id the factory deploys with salt
- *    `sha256(ScVal XDR of the Transfer)`: `sha256(HashIdPreimage::ContractId { network id,
- *    FromAddress { factory, salt } })`. It depends on the network passphrase too.
- * 2. `Transfer` is a `#[contracttype]` struct, so its ScVal is a map keyed by field name, in
- *    sorted order: `amount_in` i128, `expires_at` u64, `fees` vec of `{amount i128, recipient}`,
- *    `id` BytesN<32> (the transfer uuid, left-padded), `implementation` BytesN<32> (the kite Wasm
- *    hash), `min_amount_out` i128, `pay_in` address, `refund_address`, `settlement_recipient`
- *    (`MuxedAddress`: G, C or M), `settlement_token` address, `swap`.
- * 3. `swap` is `SwapRoute`, `Option<Swap>` as an enum: `["None"]`, or `["Some", {path, router}]`
- *    with `path` from `pay_in` to `settlement_token`, 2 to 4 tokens. It's set only when
- *    `pay_in != settlement_token`.
- * 4. `factory`: `predict_address(transfer)`, `implementation()`, `is_operator(operator)` are views;
- *    `settle(operator, transfer)`, `refund(transfer, operator: Option)` and
- *    `recover(operator, transfer, token, destination: Option<MuxedAddress>)` deploy the deposit
- *    if needed, and are authorized by the operator's signature.
- * 5. `kite`: `get_status()` returns `["Open"]`, `["Settled"]` or `["Refunded"]`.
- * 6. Events have topics `["kite", name]` and map data, published by the deposit contract:
- *    `settled {transfer_id}`, `fee_paid {transfer_id, index}`, `refunded {transfer_id,
- *    refund_address, amount_refunded}`, `excess_refunded {transfer_id, token, to, amount}`,
- *    `recovered {transfer_id, token, to, amount}`; the factory publishes `deployed`.
- * 7. `fee_paid.index` is the fee's position in `transfer.fees`, which the server orders by fee id.
- * 8. Errors are contract errors with the codes in `StellarKiteErrors`.
- */
-
 export type StellarKiteTransfer = {
   id: string;
   pay_in: string;
@@ -181,14 +153,9 @@ class KiteStellarContract {
     };
   };
 
-  /** `transfer.fees` order, which `fee_paid.index` counts in. */
   sortFees = <T extends { id: string }>(fees: T[]) =>
     [...fees].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-  /**
-   * The same rules as `Transfer::validate` in the contracts, plus the addresses. `M…` recipients
-   * need a Stellar Asset Contract: a custom SEP-41 token may not accept them.
-   */
   validateTransferInput = (
     t: StellarKiteTransfer,
     sac: { payIn: boolean; settlement: boolean } = {

@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { Networks } from "@stellar/stellar-sdk";
 import { kiteStellar, type StellarKiteTransfer } from "../kiteStellarContract";
 
-// Provisional until Kite-01/stellar-contracts is deployed: the same transfers as
-// `vector::fixed_vector` and `vector::fixed_vector_with_swap` in its contracts/types.
 const FACTORY = "CAEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQTD2L";
 const XLM = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 const USDC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";

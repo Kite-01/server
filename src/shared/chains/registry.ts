@@ -90,9 +90,6 @@ export type StellarChain = ChainBase & {
   contracts: {
     nativeToken: string;
     usdc: string;
-    /**
-     * @see https://github.com/soroswap/core/blob/main/public/testnet.contracts.json
-     */
     Soroswap?: {
       router: string;
     };

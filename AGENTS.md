@@ -35,7 +35,7 @@ bun run lint
   - `Alchemy` and `Thirdweb`: gas sponsors;
   - `Uniswap`, `Rhea` and `Soroswap`: swap quotes on EVM, on NEAR and on Stellar.
 - `src/shared/chains/registry.ts`: every supported chain, with each provider's name for it under `descriptors`.
-- `src/shared/kiteContract.ts`, `src/shared/kiteNearContract.ts` and `src/shared/kiteStellarContract.ts`: the Kite contracts on EVM, on NEAR and on Stellar. `predictAddress` on NEAR and on Stellar must stay byte for byte with the `types` crates of [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts) and [Kite-01/stellar-contracts](https://github.com/Kite-01/stellar-contracts); their tests pin the same vectors. `kiteStellarContract.ts` lists what it assumes of the contracts at the top.
+- `src/shared/kiteContract.ts`, `src/shared/kiteNearContract.ts` and `src/shared/kiteStellarContract.ts`: the Kite contracts on EVM, on NEAR and on Stellar. `predictAddress` on NEAR and on Stellar must stay byte for byte with the `types` crates of [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts) and [Kite-01/stellar-contracts](https://github.com/Kite-01/stellar-contracts); their tests pin the same vectors.
 - `src/db/schema/`: drizzle tables. The migrations generated from them are in `drizzle/`.
 - `src/shared/scheduler/`: pg-boss queues and workers.
 - `src/test/`: test setup, factories and API helpers. `setup.mts` stubs NEAR Intents, the scheduler and the operator wallets.

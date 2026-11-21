@@ -113,7 +113,6 @@ export class NearIntents implements BaseSdk {
       return null;
     }
 
-    // 1Click names a Stellar asset by its issuer; Kite by its Stellar Asset Contract
     const contractOf = (item: NearIntentsToken) => {
       if (chain.type !== ChainType.Stellar) return item.contractAddress;
       const asset = item.contractAddress

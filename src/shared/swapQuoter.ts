@@ -8,7 +8,6 @@ export type SwapQuote = {
   amount: bigint;
   /** Uniswap V3 fee tier, or 0 for V2. EVM only. */
   feeTier: number | null;
-  /** Rhea DCL pool id on NEAR; the Soroswap path, comma-separated, on Stellar. */
   pool: string | null;
 };
 

@@ -62,7 +62,6 @@ const service = new x402Service();
 const payer = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 3));
 const HASH = "cd".repeat(32);
 
-// what an x402 client signs: one SAC transfer, with the payer's auth entry
 const payment = (to: string, amount: string, expirationLedger = 1012) => {
   const args = new xdr.InvokeContractArgs({
     contractAddress: Address.fromString(USDC).toScAddress(),

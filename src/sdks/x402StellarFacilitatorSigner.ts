@@ -6,7 +6,6 @@ import { TransactionBuilder } from "@stellar/stellar-sdk";
 import { getX402Observer } from "../shared/context/x402";
 import { type StellarActor } from "./StellarActor";
 
-/** Soroban authorizations expire at a ledger, not a time; this is when it should pass. */
 export const stellarAuthorizationValidBefore = (input: {
   expirationLedger: number;
   latestLedger: number;
@@ -18,8 +17,6 @@ export const stellarAuthorizationValidBefore = (input: {
   return String(Math.ceil(now + ledgersLeft * input.ledgerSeconds));
 };
 
-// Settlements are signed by their own account, m/44'/148'/1', so they never compete with the
-// operator's sequence number; the operator only fee-bumps them, and pays.
 export const x402StellarFacilitatorSigner = (
   caip2Id: Caip2Id,
   actor: StellarActor,
@@ -35,7 +32,6 @@ export const x402StellarFacilitatorSigner = (
     signer,
     feeBumpSigner: {
       ...operator,
-      // the fee bump is the transaction sent: its hash is recorded before `sendTransaction`
       signTransaction: async (xdr, options) => {
         const signed = await operator.signTransaction(xdr, options);
         if (!signed.error) {

@@ -77,7 +77,6 @@ const ConfigurationForm = ({
   const config = chain.config;
   const near = chain.caip2Id.startsWith("near:");
   const stellar = chain.caip2Id.startsWith("stellar:");
-  // only EVM chains have deposit notifiers, gas sponsors and a gas price
   const evm = !near && !stellar;
   const [values, setValues] = useState({
     rpcUrls: (config?.rpcUrls ?? []).join("\n"),

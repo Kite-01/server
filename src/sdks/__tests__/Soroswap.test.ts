@@ -12,7 +12,6 @@ const USDC = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 const EURC = "CAEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQTD2L";
 const ROUTER = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD";
 
-// the router's amounts along each path, input first, as both of its quotes return them
 const router = (paths: Record<string, bigint[]>) => {
   fakeStellarActor.view.mockImplementation(async (...args: unknown[]) => {
     const [, contract, method, params] = args as [

@@ -12,7 +12,6 @@ const Passphrases: Record<string, string> = {
 
 export const stellarPassphraseOf = (caip2Id: string) => Passphrases[caip2Id];
 
-// G… and C… are 56 characters, M… (muxed) 69; the server checks the checksum
 export const isStellarAddress = (value: string) =>
   /^[GC][A-Z2-7]{55}$|^M[A-Z2-7]{68}$/.test(value);
 
@@ -20,8 +19,6 @@ let kit: Promise<
   typeof import("@creit.tech/stellar-wallets-kit/sdk").StellarWalletsKit
 > | null = null;
 
-// Loaded only when a payer picks Stellar, so other checkouts don't download it. The default modules
-// need no keys; WalletConnect, which needs a project id, is left out.
 const loadKit = (networkPassphrase: string) => {
   kit ??= (async () => {
     const [{ StellarWalletsKit }, { defaultModules }] = await Promise.all([
@@ -68,7 +65,6 @@ export const connectStellarWallet = async (
   };
 };
 
-// A SEP-41 `transfer` to the pay-in contract: classic payments can't reach a C… address.
 export const sendStellarPayment = async (
   wallet: StellarWallet,
   rpcUrl: string,
