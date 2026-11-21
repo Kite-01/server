@@ -36,17 +36,22 @@ describe("testnets", () => {
     expect(created.status).toBe(422);
   });
 
-  it("doesn't offer NEAR on mainnet while it's in beta", async () => {
+  it("offers NEAR mainnet, in beta, and refuses NEAR testnet", async () => {
     const supported = await root.get("/api/chains/supported");
-    expect(
-      supported.json.some((chain: { caip2Id: string }) =>
-        chain.caip2Id.startsWith("near:"),
-      ),
-    ).toBe(false);
+    expect(supported.json).toContainEqual(
+      expect.objectContaining({
+        caip2Id: "near:mainnet",
+        chainId: null,
+        beta: true,
+      }),
+    );
 
-    for (const caip2Id of ["near:mainnet", "near:testnet"]) {
-      expect((await root.post("/api/chains", { caip2Id })).status).toBe(422);
-    }
+    expect(
+      (await root.post("/api/chains", { caip2Id: "near:mainnet" })).status,
+    ).toBe(201);
+    expect(
+      (await root.post("/api/chains", { caip2Id: "near:testnet" })).status,
+    ).toBe(422);
   });
 
   it("lists configured chains with their name and icon", async () => {

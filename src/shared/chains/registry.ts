@@ -883,6 +883,36 @@ export const Chains: Record<Caip2Id, Chain> = {
       WETH9: "0x4465f7e83932D2423dC60FdF364d551366c78344",
     },
   },
+  "near:mainnet": {
+    caip2Id: "near:mainnet",
+    type: ChainType.Near,
+    networkId: "mainnet",
+    name: "NEAR",
+    icon: icon("near"),
+    beta: true,
+    publicRpcUrls: ["https://free.rpc.fastnear.com"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "NearBlocks",
+      url: "https://nearblocks.io",
+    },
+    nativeCurrency: {
+      name: "NEAR",
+      symbol: "NEAR",
+      decimals: 24,
+    },
+    descriptors: {
+      NearIntents: "near",
+      TrustWallet: "near",
+    },
+    contracts: {
+      wrapNear: "wrap.near",
+      Rhea: {
+        dcl: "dclv2.ref-labs.near",
+        refV1: "v2.ref-finance.near",
+      },
+    },
+  },
   "near:testnet": {
     caip2Id: "near:testnet",
     type: ChainType.Near,

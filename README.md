@@ -36,7 +36,7 @@ It answers `402` with an x402 `accepts` list: one offer for each network the age
 
 The hosted dashboards are [testnet.usekite.site](https://testnet.usekite.site) and [mainnet.usekite.site](https://mainnet.usekite.site). Sign in with the demo key `KiteIsDope!!@001`, which can view everything but change nothing. To take payments yourself, create a store at [usekite.site](https://usekite.site).
 
-The testnet server takes payments on NEAR and Aurora. NEAR Intents has no testnet, so payouts through it only run on the mainnet server.
+The testnet server takes payments on NEAR and Aurora. NEAR Intents has no testnet, so payouts through it only run on the mainnet server, which takes payments on NEAR too.
 
 ### What NEAR Intents does in Kite
 
@@ -65,7 +65,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 - **On chains without a gas sponsor**, the operator wallet pays the gas.
 - **x402 needs EIP-3009** on EVM chains: where the settlement token doesn't support it, agents can't pay. On NEAR, agents pay any NEP-141 token with a delegated `ft_transfer`, not native NEAR.
 - **NEAR Intents has no testnet**, so payouts only happen on mainnet.
-- **NEAR is in beta, on testnet only**: a mainnet server doesn't offer it yet.
+- **NEAR is in beta**, on mainnet and testnet.
 - **On NEAR**:
   - Deposits are found by the balance check, as on chains without a notifier.
   - Swap quotes come from Rhea's spot price rather than a time-weighted average, though the deposit contract still enforces the minimum it settles for.
@@ -96,7 +96,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - Agents pay with x402: they sign a Soroban authorization for one token transfer, which Kite's facilitator account submits and the operator fee-bumps, so the agent pays no fees.
   - The operator pays every fee itself; there's no gas sponsor.
   - NEAR Intents knows Stellar as `stellar`, with USDC and XLM, so other chains can pay out to Stellar. Stellar payments will pay out through it once Stellar mainnet is added; Intents has no testnet.
-- **NEAR as a chain** (beta, testnet only): on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
+- **NEAR as a chain** (beta): on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
   - The account's id is derived from the transfer, before it exists (a [NEP-616](https://github.com/near/NEPs/pull/616) `0s…` account running the `kite-deposit` global contract).
   - Swaps go through Rhea Finance.
   - Agents pay with x402.
