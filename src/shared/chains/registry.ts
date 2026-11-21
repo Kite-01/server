@@ -466,27 +466,6 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
   },
-  "eip155:44001": {
-    caip2Id: "eip155:44001",
-    type: ChainType.Evm,
-    chainId: 44001,
-    name: "QDay Aevum",
-    icon: "https://qday.io/apple-icon.png",
-    publicRpcUrls: ["https://rpc.qday.io"],
-    confirmations: 2,
-    blockExplorer: {
-      name: "QDay Explorer",
-      url: "https://explorer.qday.io",
-    },
-    nativeCurrency: {
-      name: "QDay",
-      symbol: "QDAY",
-      decimals: 18,
-    },
-    contracts: {
-      WETH9: "0xEF253e9FC2d063869FD5B3C0E1c326aB7E030660",
-    },
-  },
   "eip155:11155111": {
     caip2Id: "eip155:11155111",
     type: ChainType.Evm,
