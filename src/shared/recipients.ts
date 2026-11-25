@@ -25,10 +25,15 @@ export const whyCantReceive = async (input: {
   }
 
   if (chain.type === ChainType.Stellar) {
-    const actor = getStellarActor();
-    if (!(await actor.accountExists(caip2Id, address, rpcUrls)))
+    const state = await getStellarActor().receivable(
+      caip2Id,
+      token.address,
+      address,
+      rpcUrls,
+    );
+    if (state === "unfunded")
       return `${address} isn't activated on ${chain.name}; fund it with XLM first`;
-    if (!(await actor.canHold(caip2Id, token.address, address, rpcUrls)))
+    if (state === "untrusted")
       return `${address} has no trustline for ${token.symbol} on ${chain.name}; add one first`;
   }
 

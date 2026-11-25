@@ -176,7 +176,7 @@ describe("FeeService storage", () => {
   it("refuses a Stellar fee address that can't hold the settlement token", async () => {
     resetMocks();
     const stellar = await setupStellarChain();
-    fakeStellarActor.canHold.mockResolvedValue(false);
+    fakeStellarActor.receivable.mockResolvedValue("untrusted");
     const input = {
       chainId: stellar.chainId,
       appId: stellar.appId,
@@ -191,7 +191,7 @@ describe("FeeService storage", () => {
       `This address can't receive fees: ${STELLAR_SHOP} has no trustline for USDC`,
     );
 
-    fakeStellarActor.canHold.mockResolvedValue(true);
+    fakeStellarActor.receivable.mockResolvedValue("ok");
     await expect(service.createFee(input)).resolves.toMatchObject({
       feeAddress: STELLAR_SHOP,
     });

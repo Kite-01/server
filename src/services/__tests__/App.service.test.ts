@@ -117,21 +117,21 @@ describe("AppService", () => {
 
     it("refuses a Stellar address that can't hold the settlement token", async () => {
       const stellar = await setupStellarChain();
-      fakeStellarActor.canHold.mockResolvedValue(false);
+      fakeStellarActor.receivable.mockResolvedValue("untrusted");
 
       await expect(
         service.setChain(stellar.appId, stellar.chainId, STELLAR_SHOP),
       ).rejects.toThrow(
         `This address can't receive settlements: ${STELLAR_SHOP} has no trustline for USDC`,
       );
-      expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
+      expect(fakeStellarActor.receivable).toHaveBeenCalledWith(
         "stellar:testnet",
         STELLAR_USDC,
         STELLAR_SHOP,
         [],
       );
 
-      fakeStellarActor.canHold.mockResolvedValue(true);
+      fakeStellarActor.receivable.mockResolvedValue("ok");
       const row = await service.setChain(
         stellar.appId,
         stellar.chainId,
@@ -143,7 +143,7 @@ describe("AppService", () => {
 
     it("refuses a Stellar address that was never funded", async () => {
       const stellar = await setupStellarChain();
-      fakeStellarActor.accountExists.mockResolvedValue(false);
+      fakeStellarActor.receivable.mockResolvedValue("unfunded");
 
       await expect(
         service.setChain(stellar.appId, stellar.chainId, STELLAR_SHOP),

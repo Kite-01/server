@@ -149,13 +149,13 @@ describe("TransferService on Stellar", () => {
     });
 
     it("refuses a refund address without a trustline for the token paid in", async () => {
-      fakeStellarActor.canHold.mockResolvedValue(false);
+      fakeStellarActor.receivable.mockResolvedValue("untrusted");
 
       await expect(create({}, PAYER)).rejects.toThrow(
         "Can't refund to this address: " +
           `${PAYER} has no trustline for USDC on Stellar Testnet; add one first`,
       );
-      expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
+      expect(fakeStellarActor.receivable).toHaveBeenCalledWith(
         "stellar:testnet",
         expect.any(String),
         PAYER,
@@ -164,7 +164,7 @@ describe("TransferService on Stellar", () => {
     });
 
     it("refuses a refund account that was never funded", async () => {
-      fakeStellarActor.accountExists.mockResolvedValue(false);
+      fakeStellarActor.receivable.mockResolvedValue("unfunded");
 
       await expect(create({}, PAYER)).rejects.toThrow(
         `${PAYER} isn't activated on Stellar Testnet; fund it with XLM first`,
@@ -172,8 +172,7 @@ describe("TransferService on Stellar", () => {
     });
 
     it("doesn't ask the operator, as the refund address, to be set up", async () => {
-      fakeStellarActor.canHold.mockResolvedValue(false);
-      fakeStellarActor.accountExists.mockResolvedValue(false);
+      fakeStellarActor.receivable.mockResolvedValue("unfunded");
 
       await expect(create({}, stellarOperator)).resolves.toBeTruthy();
     });
@@ -187,8 +186,8 @@ describe("TransferService on Stellar", () => {
         .update(app)
         .set({ payoutAsset: "nep141:stellar-usdc", payoutAddress: PAYER })
         .where(eq(app.id, appId));
-      fakeStellarActor.canHold.mockImplementation(
-        async (...args: unknown[]) => args[2] !== PAYER,
+      fakeStellarActor.receivable.mockImplementation(async (...args) =>
+        args[2] === PAYER ? "untrusted" : "ok",
       );
 
       const created = await create({}, SHOP);
