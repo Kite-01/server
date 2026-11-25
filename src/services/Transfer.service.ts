@@ -101,7 +101,7 @@ type PrepareTransferInput = {
     expiresAt: Date;
     uniswapPoolFeeTier: number | null;
     swapPool: string | null;
-    sourceToken: { id: string; address: string };
+    sourceToken: { id: string; address: string; symbol: string };
     targetToken: { id: string; address: string };
     fees: Array<{ id: string; feeAddress: string; amount: bigint }>;
     chain: { caip2Id: Caip2Id };
@@ -1470,6 +1470,20 @@ export class TransferService {
 
     const error = kiteStellar.validateTransferInput(struct, sac);
     if (error) throw new AppError(error);
+
+    // a refund to an account without a trustline would fail and leave the funds stuck
+    if (
+      !common.isSameAddress(struct.refund_address, actor.getAddress()) &&
+      !(await actor.canHold(
+        caip2Id,
+        struct.pay_in,
+        struct.refund_address,
+        rpcUrls,
+      ))
+    )
+      throw new AppError(
+        `The refund address ${struct.refund_address} has no trustline for ${quote_.sourceToken.symbol}; add one first or use another address`,
+      );
 
     const payinAddress = kiteStellar.predictAddress(
       factory,

@@ -142,6 +142,26 @@ describe("TransferService on Stellar", () => {
       await expect(create({}, PAYER)).resolves.toBeTruthy();
     });
 
+    it("refuses a refund address without a trustline for the token paid in", async () => {
+      fakeStellarActor.canHold.mockResolvedValue(false);
+
+      await expect(create({}, PAYER)).rejects.toThrow(
+        /has no trustline for USDC/,
+      );
+      expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
+        "stellar:testnet",
+        expect.any(String),
+        PAYER,
+        expect.any(Array),
+      );
+    });
+
+    it("doesn't ask the operator, as the refund address, for a trustline", async () => {
+      fakeStellarActor.canHold.mockResolvedValue(false);
+
+      await expect(create({}, stellarOperator)).resolves.toBeTruthy();
+    });
+
     it("refuses an address from another chain", async () => {
       await expect(create({}, "payer.near")).rejects.toThrow(
         /not a valid address/,
