@@ -38,12 +38,12 @@ describe("kiteGno", () => {
       "g1030wu905kce5qzfmvtu2v2w596xdkycng9x6en",
     );
 
-    const kusd = { ...t, token: `gno.land/r/${NS}/kusd.KUSD`, fees: [] };
-    expect(kiteGno.hash(kusd)).toBe(
-      "b153a95f690067bdd107455ba8a79e1adb33a629636928b456c091a426737d57",
+    const tusd = { ...t, token: `gno.land/r/${NS}/tusd.tUSD`, fees: [] };
+    expect(kiteGno.hash(tusd)).toBe(
+      "030d157dfdbfa16a91bad41274720d472767de4e868a4043870af287da2852f4",
     );
-    expect(kiteGno.predictAddress(REALM, kusd)).toBe(
-      "g1u6zctfesyqeu2z5nf3ca6jmp3rquj8nhnjhnnm",
+    expect(kiteGno.predictAddress(REALM, tusd)).toBe(
+      "g1a96uvh923yh3hk5u3pphdzwft9fqn9vnut3gcd",
     );
   });
 

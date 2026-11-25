@@ -4,7 +4,7 @@ import { db } from "../../db";
 import { app, quoteFee, transfer } from "../../db/schema";
 import {
   GNO_CAIP2 as CAIP2,
-  GNO_KUSD as KUSD,
+  GNO_TUSD as TUSD,
   GNO_PAYER as PAYER,
   GNO_REALM as REALM,
   GNO_SHOP as SHOP,
@@ -37,11 +37,11 @@ describe("TransferService on Gno", () => {
   let appId: string;
   let chainId: string;
   let gnotId: string;
-  let kusdId: string;
+  let tusdId: string;
 
   beforeEach(async () => {
     resetMocks();
-    ({ appId, chainId, gnotId, kusdId } = await setupGnoChain());
+    ({ appId, chainId, gnotId, tusdId } = await setupGnoChain());
   });
 
   const create = async (
@@ -91,7 +91,7 @@ describe("TransferService on Gno", () => {
     });
 
     it("only takes the settlement token", async () => {
-      await expect(create({ sourceTokenId: kusdId })).rejects.toThrow(
+      await expect(create({ sourceTokenId: tusdId })).rejects.toThrow(
         /paid in the settlement token/,
       );
     });
@@ -299,14 +299,14 @@ describe("TransferService on Gno", () => {
       fakeGnoActor.getBalance.mockResolvedValue(5n);
       fakeGnoActor.call.mockResolvedValue(gnoResult());
 
-      expect(await service.getRecoveryBalance(created.id, KUSD)).toBe(5n);
-      await service.recover(created.id, KUSD, PAYER);
+      expect(await service.getRecoveryBalance(created.id, TUSD)).toBe(5n);
+      await service.recover(created.id, TUSD, PAYER);
 
       expect(fakeGnoActor.call).toHaveBeenCalledWith(
         CAIP2,
         REALM,
         "Recover",
-        [kiteGno.encode(structOf(created)), KUSD, PAYER],
+        [kiteGno.encode(structOf(created)), TUSD, PAYER],
         expect.any(Array),
       );
     });

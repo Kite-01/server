@@ -28,7 +28,7 @@ export const isGnoToken = (value: string) => {
   return (
     dot > value.lastIndexOf("/") &&
     isGnoRealm(value.slice(0, dot)) &&
-    /^[A-Za-z0-9_]+$/.test(value.slice(dot + 1))
+    /^[A-Za-z0-9_-]+$/.test(value.slice(dot + 1))
   );
 };
 

@@ -8,7 +8,7 @@ import { env } from "../shared/env";
 export const GNO_CAIP2 = "gno:onyx-1" as Caip2Id;
 export const GNO_NS = "g1dd5hgetyv4m97h6lta047h6lta047h6lcxye47";
 export const GNO_REALM = `gno.land/r/${GNO_NS}/kite`;
-export const GNO_KUSD = `gno.land/r/${GNO_NS}/kusd.KUSD`;
+export const GNO_TUSD = `gno.land/r/${GNO_NS}/tusd.tUSD`;
 export const GNO_SHOP = "g1d4jhycmgv9h8gh6lta047h6lta047h6lsu9czk";
 export const GNO_PAYER = "g1vd6hxar0d4jhyh6lta047h6lta047h6lws58ht";
 
@@ -22,12 +22,12 @@ export const setupGnoChain = async () => {
     .returning();
   const chainId = row.id;
 
-  const [gnot, kusd] = await db
+  const [gnot, tusd] = await db
     .insert(token)
     .values(
       [
         { address: "ugnot", symbol: "GNOT", name: "GNOT" },
-        { address: GNO_KUSD, symbol: "KUSD", name: "Kite USD" },
+        { address: GNO_TUSD, symbol: "tUSD", name: "Test USD" },
       ].map((item) => ({ ...item, chainId, decimals: 6, listed: true })),
     )
     .returning();
@@ -36,7 +36,7 @@ export const setupGnoChain = async () => {
     chainId,
     slippageBps: 100,
     kiteFactoryAddress: GNO_REALM,
-    usdPeggedTokenId: kusd.id,
+    usdPeggedTokenId: tusd.id,
     settlementTokenId: gnot.id,
     onchainNotifierProviders: [],
     gasSponsorProviders: [],
@@ -54,7 +54,7 @@ export const setupGnoChain = async () => {
     throw new Error(`unexpected evaluate ${pkg}.${expr}`);
   });
 
-  return { appId, chainId, gnotId: gnot.id, kusdId: kusd.id };
+  return { appId, chainId, gnotId: gnot.id, tusdId: tusd.id };
 };
 
 const decode = (encoded: string) => {
