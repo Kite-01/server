@@ -1020,6 +1020,7 @@ export type Checkout = {
     chainType: 'Evm' | 'Near' | 'Stellar';
     chainId: number | null;
     testnet: boolean;
+    beta: boolean;
     icon: string;
     nativeCurrency: {
       name: string;

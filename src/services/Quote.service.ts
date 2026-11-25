@@ -6,7 +6,7 @@ import {
 import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
 import { ChainType, KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
 
-const NearDisplayDecimals = 6;
+const DisplaySignificantDigits = 6;
 import { AppError, NotFoundError } from "../shared/errors";
 import { formatUnits, parseUnits } from "viem";
 import { quote, quoteFee, fee } from "../db/schema";
@@ -99,9 +99,15 @@ export class QuoteService {
     return fees_;
   };
 
-  private roundUpTo = (amount: bigint, decimals: number, keep: number) => {
-    if (decimals <= keep) return amount;
-    const unit = common.pow10(decimals - keep);
+  // rounds up to `digits` significant digits, but never into the whole part
+  private roundUpToSignificant = (
+    amount: bigint,
+    decimals: number,
+    digits: number,
+  ) => {
+    const dropped = Math.min(amount.toString().length - digits, decimals);
+    if (dropped <= 0) return amount;
+    const unit = common.pow10(dropped);
     return common.ceilDiv(amount, unit) * unit;
   };
 
@@ -337,15 +343,13 @@ export class QuoteService {
       feeTier = best.feeTier;
       swapPool = best.pool;
 
-      // NEAR tokens have up to 24 decimals: round the amount to pay up to 6, so it reads
-      // as 0.007326 wNEAR; the extra goes into the swap
-      if (getChain(chain.caip2Id).type === ChainType.Near) {
-        sourceAmount = this.roundUpTo(
-          sourceAmount,
-          sourceToken.decimals,
-          NearDisplayDecimals,
-        );
-      }
+      // round the amount to pay up, so it reads as 496.488 HSK rather than
+      // 496.487267379259507273; the extra goes into the swap
+      sourceAmount = this.roundUpToSignificant(
+        sourceAmount,
+        sourceToken.decimals,
+        DisplaySignificantDigits,
+      );
     }
 
     const targetUsdAmount = formatUnits(usdTokenAmount, chainUsdToken.decimals);
