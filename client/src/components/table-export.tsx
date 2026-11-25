@@ -174,7 +174,7 @@ export const ExportBar = ({
   </div>
 );
 
-export const selectColumnClass = "w-10 pr-0";
+export const selectColumnClass = "w-10 pr-0 not-last:pr-0";
 
 export const rowClass = (selected: boolean, clickable: boolean) =>
   cn(

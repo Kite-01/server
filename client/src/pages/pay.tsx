@@ -76,6 +76,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
+import { Badge } from "@/components/ui/badge";
 
 const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
 const isStellar = (chain: CheckoutChain) => chain.chainType === "Stellar";
@@ -330,9 +331,9 @@ const Option = ({
       <span className="flex items-center gap-2 text-[15px] font-medium">
         {title}
         {badge && (
-          <span className="rounded-full bg-soft px-2 py-0.5 text-[11px] leading-4 font-medium text-muted">
+          <Badge variant={"pending"} className="px-2 py-0.5 text-[10px]">
             {badge}
-          </span>
+          </Badge>
         )}
       </span>
       {description && (
@@ -432,8 +433,15 @@ const ChainSwitcher = ({
   compact?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const current = chains.find((chain) => chain.id === value);
   if (!current) return null;
+
+  const listed = [...chains]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .filter((chain) =>
+      chain.name.toLowerCase().includes(search.trim().toLowerCase()),
+    );
 
   const face = compact ? (
     <ChainLogo chain={current} className="size-6" />
@@ -444,7 +452,13 @@ const ChainSwitcher = ({
     "inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl bg-soft px-2.5";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -462,23 +476,42 @@ const ChainSwitcher = ({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-70 rounded-2xl p-1.5">
-        {chains.map((chain) => (
-          <button
-            key={chain.id}
-            type="button"
-            onClick={() => {
-              onChange(chain.id);
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left font-sans text-sm transition-colors hover:bg-soft"
-          >
-            <ChainLogo chain={chain} className="size-6" />
-            <span className="min-w-0 flex-1 truncate">{chain.name}</span>
-            <IconCheck
-              className={cn("size-4", chain.id !== value && "invisible")}
-            />
-          </button>
-        ))}
+        <label className="mb-1 flex h-10 items-center gap-2 rounded-xl bg-soft px-2.5">
+          <IconSearch className="size-4 shrink-0 text-muted" />
+          <input
+            autoFocus
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search networks"
+            spellCheck={false}
+            autoComplete="off"
+            className="h-full min-w-0 flex-1 bg-transparent font-sans text-sm outline-none placeholder:text-muted"
+          />
+        </label>
+        <div className="max-h-72 overflow-y-auto">
+          {listed.map((chain) => (
+            <button
+              key={chain.id}
+              type="button"
+              onClick={() => {
+                onChange(chain.id);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left font-sans text-sm transition-colors hover:bg-soft"
+            >
+              <ChainLogo chain={chain} className="size-6" />
+              <span className="min-w-0 flex-1 truncate">{chain.name}</span>
+              <IconCheck
+                className={cn("size-4", chain.id !== value && "invisible")}
+              />
+            </button>
+          ))}
+          {!listed.length && (
+            <p className="px-2.5 py-3 font-sans text-sm text-muted">
+              No networks match
+            </p>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -1496,7 +1529,9 @@ const PayFlow = () => {
       badge: "Beta",
       icon: (
         <IconTile className="bg-ink">
-          {nearChain && <img src={nearChain.icon} alt="" className="size-6" />}
+          {nearChain && (
+            <img src={nearChain.icon} alt="" className="size-10 rounded-full" />
+          )}
         </IconTile>
       ),
       connect: () => chooseNearWallet(),
@@ -1506,9 +1541,13 @@ const PayFlow = () => {
       name: "Stellar",
       badge: "Beta",
       icon: (
-        <IconTile className="bg-ink">
+        <IconTile className="bg-white">
           {stellarChain && (
-            <img src={stellarChain.icon} alt="" className="size-6" />
+            <img
+              src={stellarChain.icon}
+              alt=""
+              className="size-10 rounded-full"
+            />
           )}
         </IconTile>
       ),
