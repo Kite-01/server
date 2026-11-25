@@ -76,6 +76,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { formatUnits, isAddress, type Address } from "viem";
+import { Badge } from "@/components/ui/badge";
 
 const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
 const isStellar = (chain: CheckoutChain) => chain.chainType === "Stellar";
@@ -330,9 +331,9 @@ const Option = ({
       <span className="flex items-center gap-2 text-[15px] font-medium">
         {title}
         {badge && (
-          <span className="rounded-full bg-soft px-2 py-0.5 text-[11px] leading-4 font-medium text-muted">
+          <Badge variant={"pending"} className="px-2 py-0.5 text-[10px]">
             {badge}
-          </span>
+          </Badge>
         )}
       </span>
       {description && (
@@ -1528,7 +1529,9 @@ const PayFlow = () => {
       badge: "Beta",
       icon: (
         <IconTile className="bg-ink">
-          {nearChain && <img src={nearChain.icon} alt="" className="size-6" />}
+          {nearChain && (
+            <img src={nearChain.icon} alt="" className="size-10 rounded-full" />
+          )}
         </IconTile>
       ),
       connect: () => chooseNearWallet(),
@@ -1538,9 +1541,13 @@ const PayFlow = () => {
       name: "Stellar",
       badge: "Beta",
       icon: (
-        <IconTile className="bg-ink">
+        <IconTile className="bg-white">
           {stellarChain && (
-            <img src={stellarChain.icon} alt="" className="size-6" />
+            <img
+              src={stellarChain.icon}
+              alt=""
+              className="size-10 rounded-full"
+            />
           )}
         </IconTile>
       ),

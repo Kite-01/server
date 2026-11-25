@@ -466,6 +466,36 @@ export const Chains: Record<Caip2Id, Chain> = {
       },
     },
   },
+  "near:mainnet": {
+    caip2Id: "near:mainnet",
+    type: ChainType.Near,
+    networkId: "mainnet",
+    name: "NEAR",
+    icon: icon("near"),
+    beta: true,
+    publicRpcUrls: ["https://free.rpc.fastnear.com"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "NearBlocks",
+      url: "https://nearblocks.io",
+    },
+    nativeCurrency: {
+      name: "NEAR",
+      symbol: "NEAR",
+      decimals: 24,
+    },
+    descriptors: {
+      NearIntents: "near",
+      TrustWallet: "near",
+    },
+    contracts: {
+      wrapNear: "wrap.near",
+      Rhea: {
+        dcl: "dclv2.ref-labs.near",
+        refV1: "v2.ref-finance.near",
+      },
+    },
+  },
   "eip155:11155111": {
     caip2Id: "eip155:11155111",
     type: ChainType.Evm,
@@ -840,7 +870,6 @@ export const Chains: Record<Caip2Id, Chain> = {
     name: "QDay Aevum Testnet",
     icon: "https://qday.io/apple-icon.png",
     testnet: true,
-    beta: true,
     publicRpcUrls: ["https://rpc-test.qday.info"],
     confirmations: 5,
     blockExplorer: {
@@ -857,36 +886,6 @@ export const Chains: Record<Caip2Id, Chain> = {
         address: "0xcA11bde05977b3631167028862bE2a173976CA11",
       },
       WETH9: "0x4465f7e83932D2423dC60FdF364d551366c78344",
-    },
-  },
-  "near:mainnet": {
-    caip2Id: "near:mainnet",
-    type: ChainType.Near,
-    networkId: "mainnet",
-    name: "NEAR",
-    icon: icon("near"),
-    beta: true,
-    publicRpcUrls: ["https://free.rpc.fastnear.com"],
-    confirmations: 1,
-    blockExplorer: {
-      name: "NearBlocks",
-      url: "https://nearblocks.io",
-    },
-    nativeCurrency: {
-      name: "NEAR",
-      symbol: "NEAR",
-      decimals: 24,
-    },
-    descriptors: {
-      NearIntents: "near",
-      TrustWallet: "near",
-    },
-    contracts: {
-      wrapNear: "wrap.near",
-      Rhea: {
-        dcl: "dclv2.ref-labs.near",
-        refV1: "v2.ref-finance.near",
-      },
     },
   },
   "near:testnet": {
