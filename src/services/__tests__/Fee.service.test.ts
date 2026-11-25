@@ -7,6 +7,9 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { FeeService } from "../Fee.service";
 import { FeeType } from "../../shared/constants";
+import { env } from "../../shared/env";
+import { fakeStellarActor, resetMocks } from "../../test/mocks";
+import { STELLAR_SHOP, setupStellarChain } from "../../test/stellar";
 
 const service = new FeeService();
 
@@ -168,6 +171,31 @@ describe("FeeService storage", () => {
     appId = (await createApp()).id;
     otherAppId = (await createApp()).id;
     chainId = (await createChain()).id;
+  });
+
+  it("refuses a Stellar fee address that can't hold the settlement token", async () => {
+    resetMocks();
+    const stellar = await setupStellarChain();
+    fakeStellarActor.receivable.mockResolvedValue("untrusted");
+    const input = {
+      chainId: stellar.chainId,
+      appId: stellar.appId,
+      label: "Fee",
+      type: FeeType.Fixed,
+      value: 0n,
+      condition: {},
+      feeAddress: STELLAR_SHOP,
+    };
+
+    await expect(service.createFee(input)).rejects.toThrow(
+      `This address can't receive fees: ${STELLAR_SHOP} has no trustline for USDC`,
+    );
+
+    fakeStellarActor.receivable.mockResolvedValue("ok");
+    await expect(service.createFee(input)).resolves.toMatchObject({
+      feeAddress: STELLAR_SHOP,
+    });
+    env.KITE_IS_TESTNET = false;
   });
 
   it("shows an app its own fees and the system fees", async () => {

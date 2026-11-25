@@ -10,6 +10,7 @@ import { chain, fee } from "../db/schema";
 import { getChain } from "../shared/chains";
 import { AppError, NotFoundError } from "../shared/errors";
 import { db } from "../db";
+import { whyCantReceive } from "../shared/recipients";
 
 type Scalar = string | number | boolean;
 
@@ -42,6 +43,7 @@ export class FeeService {
     const row = await db.query.chain.findFirst({
       where: eq(chain.id, chainId),
       columns: { caip2Id: true },
+      with: { config: { with: { settlementToken: true } } },
     });
     if (!row) throw new NotFoundError("chain", chainId);
 
@@ -50,7 +52,20 @@ export class FeeService {
       throw new AppError(`The fee address is not a valid address on ${name}`);
     }
 
-    return common.normalizeAddressFor(type, feeAddress);
+    const normalized = common.normalizeAddressFor(type, feeAddress);
+    // fees are paid in the settlement token
+    if (row.config) {
+      const reason = await whyCantReceive({
+        caip2Id: row.caip2Id,
+        address: normalized,
+        token: row.config.settlementToken,
+        rpcUrls: row.config.rpcUrls ?? [],
+      });
+      if (reason)
+        throw new AppError(`This address can't receive fees: ${reason}`);
+    }
+
+    return normalized;
   };
 
   createFee = async (input: typeof fee.$inferInsert) => {

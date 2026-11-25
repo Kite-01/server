@@ -56,6 +56,7 @@ import {
   getOnchainActor,
   getStellarActor,
 } from "../shared/onchainActor";
+import { whyCantReceive } from "../shared/recipients";
 import {
   kiteStellar,
   StellarKiteErrors,
@@ -1868,18 +1869,22 @@ export class TransferService {
     const chain = getChain(caip2Id);
     if (!common.isValidAddress(chain.type, refundAddress))
       throw new AppError("The refund address is not a valid address");
+    // a refund the address can't receive would fail and leave the funds stuck; the operator
+    // sets itself up to receive
     if (
-      chain.type === ChainType.Near &&
-      refundAddress.includes(".") &&
-      !(await getNearActor().accountExists(
-        caip2Id,
+      !common.isSameAddress(
         refundAddress,
-        config.rpcUrls ?? [],
-      ))
-    )
-      throw new AppError(
-        `The refund account ${refundAddress} doesn't exist on ${chain.name}`,
-      );
+        getOnchainActor(chain.type).getAddress(),
+      )
+    ) {
+      const reason = await whyCantReceive({
+        caip2Id,
+        address: common.normalizeAddressFor(chain.type, refundAddress),
+        token: quote_.sourceToken,
+        rpcUrls: config.rpcUrls ?? [],
+      });
+      if (reason) throw new AppError(`Can't refund to this address: ${reason}`);
+    }
 
     const settlement = await new PayoutService().planSettlement({
       appId,
@@ -1887,6 +1892,7 @@ export class TransferService {
       caip2Id,
       slippageBps: config.slippageBps,
       settlementToken: quote_.targetToken,
+      rpcUrls: config.rpcUrls ?? [],
       amount:
         quote_.targetAmount -
         quote_.fees.reduce((total, fee) => total + fee.amount, 0n),
