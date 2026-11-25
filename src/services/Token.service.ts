@@ -14,8 +14,10 @@ import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
+  getGnoActor,
 } from "../shared/onchainActor";
 import { isStellarContract } from "../shared/stellarAddress";
+import { GnoNativeToken, isGnoToken } from "../shared/gnoAddress";
 import { ChainService } from "./Chain.service";
 import { NearIntents } from "../sdks/NearIntents";
 import { KvService } from "./Kv.service";
@@ -97,11 +99,14 @@ export class TokenService {
         ? address === NearNativeToken
         : chain_.type === ChainType.Stellar
           ? address === chain_.contracts.nativeToken
-          : common.isZeroAddress(address);
+          : chain_.type === ChainType.Gno
+            ? address === GnoNativeToken
+            : common.isZeroAddress(address);
 
     if (
       !common.isValidAddress(chain_.type, address) ||
-      (chain_.type === ChainType.Stellar && !isStellarContract(address))
+      (chain_.type === ChainType.Stellar && !isStellarContract(address)) ||
+      (chain_.type === ChainType.Gno && !isGnoToken(address))
     ) {
       throw new AppError(`${address} is not a token address on ${chain_.name}`);
     }
@@ -149,6 +154,23 @@ export class TokenService {
           metadata.icon && metadata.icon.length <= 16_384
             ? metadata.icon
             : null,
+      });
+    }
+
+    if (chain_.type === ChainType.Gno) {
+      const metadata = await getGnoActor()
+        .getTokenMetadata(chain.caip2Id, address, chain.config?.rpcUrls ?? [])
+        .catch(() => null);
+
+      if (!metadata || !Number.isInteger(metadata.decimals)) {
+        throw new AppError("Could not get meta information for token");
+      }
+
+      return saveToken({
+        chainId,
+        address,
+        ...metadata,
+        supportsEIP3009: false,
       });
     }
 

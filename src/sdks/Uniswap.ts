@@ -141,13 +141,21 @@ export const quoteAtTick = (
   baseToken: string,
   quoteToken: string,
   roundUp = false,
+) =>
+  quoteAtTickFor(tick, amount, BigInt(baseToken) < BigInt(quoteToken), roundUp);
+
+export const quoteAtTickFor = (
+  tick: number,
+  amount: bigint,
+  baseIsToken0: boolean,
+  roundUp = false,
 ) => {
   const sqrtRatio = sqrtRatioAtTick(tick);
   const ratioX192 = sqrtRatio * sqrtRatio;
   const div = (a: bigint, b: bigint) =>
     roundUp ? common.ceilDiv(a, b) : a / b;
 
-  return BigInt(baseToken) < BigInt(quoteToken)
+  return baseIsToken0
     ? div(ratioX192 * amount, Q192)
     : div(Q192 * amount, ratioX192);
 };

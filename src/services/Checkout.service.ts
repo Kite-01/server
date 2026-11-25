@@ -21,6 +21,7 @@ import { x402Service } from "./x402.service";
 import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
 import { NearNativeToken } from "../shared/nearAccount";
+import { GnoNativeToken } from "../shared/gnoAddress";
 import { common } from "../shared/common";
 import { Scheduler } from "../shared/scheduler";
 import { db } from "../db";
@@ -43,6 +44,11 @@ export class CheckoutService {
 
     if (getChain(caip2Id).type === ChainType.Stellar) {
       return true;
+    }
+
+    // gnolang/x402 pays in GNOT only
+    if (getChain(caip2Id).type === ChainType.Gno) {
+      return config.settlementToken.address === GnoNativeToken;
     }
 
     return (
@@ -103,9 +109,12 @@ export class CheckoutService {
 
         const x402 = this.takesX402(chain.caip2Id, chain.config);
         const settlementToken = chain.config.settlementToken;
-        // without a swap router, Stellar only takes the settlement token
+        // without a swap router, Stellar only takes the settlement token; Gno never swaps
         const swaps =
-          meta.type !== ChainType.Stellar || !!meta.contracts.Soroswap?.router;
+          meta.type === ChainType.Gno
+            ? false
+            : meta.type !== ChainType.Stellar ||
+              !!meta.contracts.Soroswap?.router;
         const tokens = (await tokenService.getTokensByChainId(chain.id)).filter(
           (token) => swaps || token.id === settlementToken.id,
         );

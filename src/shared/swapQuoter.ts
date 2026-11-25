@@ -1,6 +1,7 @@
 import { Uniswap } from "../sdks/Uniswap";
 import { Rhea } from "../sdks/Rhea";
 import { Soroswap } from "../sdks/Soroswap";
+import { GnoSwap } from "../sdks/GnoSwap";
 import { getChain } from "./chains";
 import { ChainType } from "./constants";
 
@@ -32,6 +33,11 @@ export const swapQuoter = {
       return q && { amount: q.amount, feeTier: null, pool: q.path.join(",") };
     }
 
+    if (getChain(input.caip2Id).type === ChainType.Gno) {
+      const q = await new GnoSwap().quoteExactInput(input);
+      return q && { amount: q.amount, feeTier: null, pool: q.pool };
+    }
+
     if (getChain(input.caip2Id).type === ChainType.Near) {
       const q = await new Rhea().quoteExactInput(input);
       return q && { amount: q.amount, feeTier: null, pool: q.pool };
@@ -45,6 +51,11 @@ export const swapQuoter = {
     if (getChain(input.caip2Id).type === ChainType.Stellar) {
       const q = await new Soroswap().quoteExactOutput(input);
       return q && { amount: q.amount, feeTier: null, pool: q.path.join(",") };
+    }
+
+    if (getChain(input.caip2Id).type === ChainType.Gno) {
+      const q = await new GnoSwap().quoteExactOutput(input);
+      return q && { amount: q.amount, feeTier: null, pool: q.pool };
     }
 
     if (getChain(input.caip2Id).type === ChainType.Near) {

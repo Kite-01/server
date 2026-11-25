@@ -13,8 +13,10 @@ import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
+  getGnoActor,
 } from "../shared/onchainActor";
 import { isStellarContract } from "../shared/stellarAddress";
+import { isGnoRealm } from "../shared/gnoAddress";
 import { Address as StellarAddress } from "@stellar/stellar-sdk";
 import { isNearAccountId } from "../shared/kiteNearContract";
 import { ChainType, ProviderAction } from "../shared/constants";
@@ -184,6 +186,43 @@ export class ChainService {
     }
   };
 
+  private assertGnoRealm = async (
+    caip2Id: Caip2Id,
+    input: Omit<typeof chainConfig.$inferInsert, "chainId">,
+  ) => {
+    if (!isGnoRealm(input.kiteFactoryAddress)) {
+      throw new AppError("The Kite realm is not a Gno realm path");
+    }
+
+    if (input.onchainNotifierProviders?.length) {
+      throw new AppError(
+        "Gno has no onchain notifier; deposits are found by the balance check",
+      );
+    }
+
+    if (input.gasSponsorProviders?.length) {
+      throw new AppError("Gno has no gas sponsor; the operator pays fees");
+    }
+
+    const actor = getGnoActor();
+    const isOperator = await actor
+      .evaluate(
+        caip2Id,
+        input.kiteFactoryAddress,
+        `IsOperator(${JSON.stringify(actor.getAddress())})`,
+        input.rpcUrls ?? [],
+      )
+      .catch(() => {
+        throw new AppError("Is this a valid Kite realm?");
+      });
+
+    if (isOperator !== "true") {
+      throw new AppError(
+        `The server's Gno address ${actor.getAddress()} is not an operator on the provided Kite realm`,
+      );
+    }
+  };
+
   private assertStellarFactory = async (
     caip2Id: Caip2Id,
     input: Omit<typeof chainConfig.$inferInsert, "chainId">,
@@ -251,6 +290,8 @@ export class ChainService {
           input.rpcUrls ?? [],
         );
       }
+    } else if (internalChain.type === ChainType.Gno) {
+      await this.assertGnoRealm(chain.caip2Id, input);
     } else {
       await this.assertEvmFactory(chain.caip2Id, input);
     }

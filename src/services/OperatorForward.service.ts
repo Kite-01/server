@@ -17,9 +17,11 @@ import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
+  getGnoActor,
 } from "../shared/onchainActor";
 import { Address as StellarAddress, nativeToScVal } from "@stellar/stellar-sdk";
 import { StellarSimulationError } from "../sdks/StellarActor";
+import { GnoCallError } from "../sdks/GnoActor";
 import { NearNativeToken } from "../shared/nearAccount";
 import { type NearFunctionCall } from "../sdks/NearActor";
 
@@ -363,6 +365,27 @@ export class OperatorForwardService {
         await this.markFailed(
           row.id,
           `The forward failed on-chain: ${result.failure ?? "unknown error"}`,
+        );
+      }
+
+      return;
+    }
+
+    if (chain.type === ChainType.Gno) {
+      try {
+        const transactionHash = await getGnoActor().send(
+          caip2Id,
+          tokenAddress,
+          row.recipient,
+          row.amount,
+          row.transfer.quote.chain.config?.rpcUrls ?? [],
+        );
+        await this.markSent(row.id, transactionHash);
+      } catch (e) {
+        if (!(e instanceof GnoCallError)) throw e;
+        await this.markFailed(
+          row.id,
+          `The forward failed on-chain: ${e.message}`,
         );
       }
 
