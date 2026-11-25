@@ -97,7 +97,19 @@ export type StellarChain = ChainBase & {
   };
 };
 
-export type Chain = EvmChain | NearChain | StellarChain;
+export type GnoChain = ChainBase & {
+  type: ChainType.Gno;
+  networkId: string;
+  contracts: {
+    wugnot: string;
+    GnoSwap?: {
+      router: string;
+      pool: string;
+    };
+  };
+};
+
+export type Chain = EvmChain | NearChain | StellarChain | GnoChain;
 
 const icon = (folder: string) => {
   return `https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/${folder}/info/logo.png`;
@@ -970,6 +982,33 @@ export const Chains: Record<Caip2Id, Chain> = {
       usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
       Soroswap: {
         router: "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD",
+      },
+    },
+  },
+  "gno:onyx-1": {
+    caip2Id: "gno:onyx-1",
+    type: ChainType.Gno,
+    networkId: "onyx-1",
+    name: "Gno.land Onyx Testnet",
+    icon: "https://gno.land/public/imgs/gnoland.svg",
+    testnet: true,
+    beta: true,
+    publicRpcUrls: ["https://rpc.onyx.testnets.gno.land:443"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "Gnoscan",
+      url: "https://gnoscan.io",
+    },
+    nativeCurrency: {
+      name: "GNOT",
+      symbol: "GNOT",
+      decimals: 6,
+    },
+    contracts: {
+      wugnot: "gno.land/r/gnoland/wugnot.wugnot",
+      GnoSwap: {
+        router: "gno.land/r/gnoswap/router",
+        pool: "gno.land/r/gnoswap/pool",
       },
     },
   },

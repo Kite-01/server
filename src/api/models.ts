@@ -411,6 +411,24 @@ const StellarKiteTransferInput = t.Object(
   named("StellarKiteTransferInput"),
 );
 
+const GnoKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    token: ChainAddress,
+    amount: Digits,
+    recipient: ChainAddress,
+    fees: t.Array(
+      t.Object({
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refund: ChainAddress,
+    expires_at: Digits,
+  },
+  named("GnoKiteTransferInput"),
+);
+
 const Transfer = t.Object(
   {
     id: Uuid,
@@ -424,6 +442,7 @@ const Transfer = t.Object(
       EvmKiteTransferInput,
       NearKiteTransferInput,
       StellarKiteTransferInput,
+      GnoKiteTransferInput,
     ]),
     status: t.Enum(TransferStatus),
     settlementBlockchainHash: Nullable(t.String()),
@@ -770,6 +789,7 @@ const Checkout = t.Object(
           t.Literal("Evm"),
           t.Literal("Near"),
           t.Literal("Stellar"),
+          t.Literal("Gno"),
         ]),
         chainId: Nullable(Int),
         testnet: t.Boolean(),

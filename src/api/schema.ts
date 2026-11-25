@@ -42,10 +42,10 @@ export const EvmAddress = t.String({
 
 export const ChainAddress = t.String({
   minLength: 2,
-  maxLength: 69,
+  maxLength: 256,
   pattern:
-    // a NEAR id starting with 0x is ETH-implicit, so it's an EVM address too
-    "^(0x[0-9a-fA-F]{40}|(?!0x)(([a-z\\d]+[-_])*[a-z\\d]+\\.)*([a-z\\d]+[-_])*[a-z\\d]+|[GC][A-Z2-7]{55}|M[A-Z2-7]{68})$",
+    // a NEAR id starting with 0x is ETH-implicit, so it's an EVM address too; Gno realm paths and GRC20 keys start with gno.land/r/
+    "^(0x[0-9a-fA-F]{40}|(?!0x)(([a-z\\d]+[-_])*[a-z\\d]+\\.)*([a-z\\d]+[-_])*[a-z\\d]+|[GC][A-Z2-7]{55}|M[A-Z2-7]{68}|gno\\.land/r/([a-z\\d_-]+/)*[a-z\\d_-]+(\\.[A-Za-z\\d_]+)?)$",
 });
 
 export const Origin = t.String({

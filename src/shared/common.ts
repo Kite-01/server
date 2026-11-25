@@ -16,6 +16,7 @@ import { type ChainType, type KeyVars, type KvKey } from "./constants";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { isStellarAddress } from "./stellarAddress";
+import { GnoNativeToken, isGnoValue } from "./gnoAddress";
 import { AppError, SdkConfigError } from "./errors";
 import { timingSafeEqual } from "node:crypto";
 import { X509Certificate } from "node:crypto";
@@ -28,9 +29,13 @@ class Common {
   isZeroAddress = (address: string) => address.toLowerCase() === zeroAddress;
 
   isNativeToken = (address: string) =>
-    this.isZeroAddress(address) || address === NearNativeToken;
+    this.isZeroAddress(address) ||
+    address === NearNativeToken ||
+    address === GnoNativeToken;
 
   normalizeAddress = (address: string) => {
+    if (isGnoValue(address)) return address;
+
     if (isStellarAddress(address.toUpperCase())) {
       return address.toUpperCase();
     }
@@ -47,6 +52,7 @@ class Common {
   normalizeAddressFor = (chainType: ChainType, address: string) => {
     if ((chainType as string) === "Near") return address;
     if ((chainType as string) === "Stellar") return address.toUpperCase();
+    if ((chainType as string) === "Gno") return address;
     return this.normalizeEvmAddress(address);
   };
 
@@ -54,6 +60,7 @@ class Common {
     // compared as a string: constants.ts imports this file, so ChainType can't be imported here
     if ((chainType as string) === "Near") return isNearAccountId(address);
     if ((chainType as string) === "Stellar") return isStellarAddress(address);
+    if ((chainType as string) === "Gno") return isGnoValue(address);
     return isAddress(address, { strict: false });
   };
 
@@ -64,7 +71,9 @@ class Common {
       return isAddressEqual(a as Address, b as Address);
     }
 
-    return (isNearAccountId(a) || isStellarAddress(a)) && a === b;
+    return (
+      (isNearAccountId(a) || isStellarAddress(a) || isGnoValue(a)) && a === b
+    );
   };
 
   toMs = (s: number) => s * 1000;
