@@ -18,6 +18,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        (github.event.workflow_run.head_branch == 'main' ||
+        github.event.workflow_run.head_branch == 'testnet' ||
         startsWith(github.event.workflow_run.head_branch, 'v')))
     runs-on: ubuntu-latest
     steps:
@@ -39,6 +40,8 @@ jobs:
             tags+=",$image:${REF#v}"
           elif [[ "$REF" == "main" ]]; then
             tags+=",$image:latest,$image:main"
+          elif [[ "$REF" == "testnet" ]]; then
+            tags+=",$image:testnet"
           fi
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
