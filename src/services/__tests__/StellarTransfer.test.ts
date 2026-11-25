@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { Address, nativeToScVal, Networks, xdr } from "@stellar/stellar-sdk";
 import { db } from "../../db";
-import { quoteFee, transfer, transferTimeline } from "../../db/schema";
+import {
+  app,
+  quoteFee,
+  token,
+  transfer,
+  transferTimeline,
+} from "../../db/schema";
 import {
   STELLAR_CAIP2 as CAIP2,
   STELLAR_FACTORY as FACTORY,
@@ -146,7 +152,8 @@ describe("TransferService on Stellar", () => {
       fakeStellarActor.canHold.mockResolvedValue(false);
 
       await expect(create({}, PAYER)).rejects.toThrow(
-        /has no trustline for USDC/,
+        "Can't refund to this address: " +
+          `${PAYER} has no trustline for USDC on Stellar Testnet; add one first`,
       );
       expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
         "stellar:testnet",
@@ -156,10 +163,37 @@ describe("TransferService on Stellar", () => {
       );
     });
 
-    it("doesn't ask the operator, as the refund address, for a trustline", async () => {
+    it("refuses a refund account that was never funded", async () => {
+      fakeStellarActor.accountExists.mockResolvedValue(false);
+
+      await expect(create({}, PAYER)).rejects.toThrow(
+        `${PAYER} isn't activated on Stellar Testnet; fund it with XLM first`,
+      );
+    });
+
+    it("doesn't ask the operator, as the refund address, to be set up", async () => {
       fakeStellarActor.canHold.mockResolvedValue(false);
+      fakeStellarActor.accountExists.mockResolvedValue(false);
 
       await expect(create({}, stellarOperator)).resolves.toBeTruthy();
+    });
+
+    it("settles to the app's address when its payout address can't hold the token", async () => {
+      await db
+        .update(token)
+        .set({ nearIntentsAssetId: "nep141:stellar-usdc" })
+        .where(eq(token.id, usdcId));
+      await db
+        .update(app)
+        .set({ payoutAsset: "nep141:stellar-usdc", payoutAddress: PAYER })
+        .where(eq(app.id, appId));
+      fakeStellarActor.canHold.mockImplementation(
+        async (...args: unknown[]) => args[2] !== PAYER,
+      );
+
+      const created = await create({}, SHOP);
+
+      expect(created.settlementRecipient).toBe(SHOP);
     });
 
     it("refuses an address from another chain", async () => {

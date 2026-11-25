@@ -23,6 +23,7 @@ import { KvService } from "./Kv.service";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { db } from "../db";
+import { whyCantReceive } from "../shared/recipients";
 
 const FinalPayoutStatuses = [
   PayoutStatus.Delivered,
@@ -50,8 +51,11 @@ export class PayoutService {
     caip2Id: Caip2Id;
     slippageBps: number;
     settlementToken: {
+      address: string;
+      symbol: string;
       nearIntentsAssetId: string | null;
     };
+    rpcUrls?: string[];
     amount: bigint;
   }): Promise<{
     recipient: string;
@@ -96,6 +100,19 @@ export class PayoutService {
       originAsset === payoutAsset &&
       common.isValidAddress(chainType, payoutAddress)
     ) {
+      const reason = await whyCantReceive({
+        caip2Id: input.caip2Id,
+        address: common.normalizeAddressFor(chainType, payoutAddress),
+        token: input.settlementToken,
+        rpcUrls: input.rpcUrls,
+      });
+      if (reason) {
+        return {
+          recipient: address,
+          description: `${reason}, so it settles to ${address}`,
+        };
+      }
+
       return {
         recipient: payoutAddress,
         description: `Settles straight to ${payoutAddress}`,

@@ -6,6 +6,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { NotFoundError, SdkRequestError } from "../../shared/errors";
 import {
+  fakeNearActor,
   fakeStellarActor,
   nearIntentsMock,
   resetMocks,
@@ -15,6 +16,7 @@ import {
   STELLAR_USDC,
   setupStellarChain,
 } from "../../test/stellar";
+import { setupNearChain } from "../../test/near";
 import { ChainService } from "../Chain.service";
 import { AppService } from "../App.service";
 import { Provider } from "../../shared/constants";
@@ -119,7 +121,9 @@ describe("AppService", () => {
 
       await expect(
         service.setChain(stellar.appId, stellar.chainId, STELLAR_SHOP),
-      ).rejects.toThrow(/has no trustline for USDC/);
+      ).rejects.toThrow(
+        `This address can't receive settlements: ${STELLAR_SHOP} has no trustline for USDC`,
+      );
       expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
         "stellar:testnet",
         STELLAR_USDC,
@@ -134,6 +138,32 @@ describe("AppService", () => {
         STELLAR_SHOP,
       );
       expect(row.address).toBe(STELLAR_SHOP);
+      env.KITE_IS_TESTNET = false;
+    });
+
+    it("refuses a Stellar address that was never funded", async () => {
+      const stellar = await setupStellarChain();
+      fakeStellarActor.accountExists.mockResolvedValue(false);
+
+      await expect(
+        service.setChain(stellar.appId, stellar.chainId, STELLAR_SHOP),
+      ).rejects.toThrow(/isn't activated on Stellar Testnet/);
+      env.KITE_IS_TESTNET = false;
+    });
+
+    it("refuses a NEAR account that doesn't exist, but takes an implicit one", async () => {
+      const near = await setupNearChain();
+      fakeNearActor.accountExists.mockResolvedValue(false);
+
+      await expect(
+        service.setChain(near.appId, near.chainId, "nobody.near"),
+      ).rejects.toThrow(
+        "This address can't receive settlements: nobody.near doesn't exist on NEAR Testnet",
+      );
+
+      const implicit = "ab".repeat(32);
+      const row = await service.setChain(near.appId, near.chainId, implicit);
+      expect(row.address).toBe(implicit);
       env.KITE_IS_TESTNET = false;
     });
 

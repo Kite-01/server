@@ -243,6 +243,32 @@ export class StellarActor implements OnchainActor {
   isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) =>
     !!(await this.assetOf(caip2Id, token, rpcUrls));
 
+  // a G… or M… account exists once it's been funded with XLM; contracts always can receive
+  accountExists = async (
+    caip2Id: Caip2Id,
+    address: string,
+    rpcUrls?: string[],
+  ) => {
+    if (StrKey.isValidContract(address)) return true;
+
+    const key = xdr.LedgerKey.account(
+      new xdr.LedgerKeyAccount({
+        accountId: Keypair.fromPublicKey(
+          this.accountOf(address),
+        ).xdrAccountId(),
+      }),
+    );
+    const { entries } = await this.rpc(caip2Id, rpcUrls).getLedgerEntries(key);
+    return entries.length > 0;
+  };
+
+  private accountOf = (address: string) =>
+    StrKey.isValidMed25519PublicKey(address)
+      ? StrKey.encodeEd25519PublicKey(
+          StrKey.decodeMed25519PublicKey(address).subarray(0, 32),
+        )
+      : address;
+
   // the operator can only hold an issued asset through a trustline
   // a G… account needs a trustline to hold an issued asset
   canHold = async (
@@ -253,11 +279,7 @@ export class StellarActor implements OnchainActor {
   ) => {
     if (StrKey.isValidContract(address)) return true;
 
-    const account = StrKey.isValidMed25519PublicKey(address)
-      ? StrKey.encodeEd25519PublicKey(
-          StrKey.decodeMed25519PublicKey(address).subarray(0, 32),
-        )
-      : address;
+    const account = this.accountOf(address);
     const asset = await this.assetOf(caip2Id, token, rpcUrls);
     if (!asset || asset.isNative() || asset.getIssuer() === account) {
       return true;

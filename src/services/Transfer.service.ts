@@ -56,6 +56,7 @@ import {
   getOnchainActor,
   getStellarActor,
 } from "../shared/onchainActor";
+import { whyCantReceive } from "../shared/recipients";
 import {
   kiteStellar,
   StellarKiteErrors,
@@ -101,7 +102,7 @@ type PrepareTransferInput = {
     expiresAt: Date;
     uniswapPoolFeeTier: number | null;
     swapPool: string | null;
-    sourceToken: { id: string; address: string; symbol: string };
+    sourceToken: { id: string; address: string };
     targetToken: { id: string; address: string };
     fees: Array<{ id: string; feeAddress: string; amount: bigint }>;
     chain: { caip2Id: Caip2Id };
@@ -1471,20 +1472,6 @@ export class TransferService {
     const error = kiteStellar.validateTransferInput(struct, sac);
     if (error) throw new AppError(error);
 
-    // a refund to an account without a trustline would fail and leave the funds stuck
-    if (
-      !common.isSameAddress(struct.refund_address, actor.getAddress()) &&
-      !(await actor.canHold(
-        caip2Id,
-        struct.pay_in,
-        struct.refund_address,
-        rpcUrls,
-      ))
-    )
-      throw new AppError(
-        `The refund address ${struct.refund_address} has no trustline for ${quote_.sourceToken.symbol}; add one first or use another address`,
-      );
-
     const payinAddress = kiteStellar.predictAddress(
       factory,
       struct,
@@ -1882,18 +1869,22 @@ export class TransferService {
     const chain = getChain(caip2Id);
     if (!common.isValidAddress(chain.type, refundAddress))
       throw new AppError("The refund address is not a valid address");
+    // a refund the address can't receive would fail and leave the funds stuck; the operator
+    // sets itself up to receive
     if (
-      chain.type === ChainType.Near &&
-      refundAddress.includes(".") &&
-      !(await getNearActor().accountExists(
-        caip2Id,
+      !common.isSameAddress(
         refundAddress,
-        config.rpcUrls ?? [],
-      ))
-    )
-      throw new AppError(
-        `The refund account ${refundAddress} doesn't exist on ${chain.name}`,
-      );
+        getOnchainActor(chain.type).getAddress(),
+      )
+    ) {
+      const reason = await whyCantReceive({
+        caip2Id,
+        address: common.normalizeAddressFor(chain.type, refundAddress),
+        token: quote_.sourceToken,
+        rpcUrls: config.rpcUrls ?? [],
+      });
+      if (reason) throw new AppError(`Can't refund to this address: ${reason}`);
+    }
 
     const settlement = await new PayoutService().planSettlement({
       appId,
@@ -1901,6 +1892,7 @@ export class TransferService {
       caip2Id,
       slippageBps: config.slippageBps,
       settlementToken: quote_.targetToken,
+      rpcUrls: config.rpcUrls ?? [],
       amount:
         quote_.targetAmount -
         quote_.fees.reduce((total, fee) => total + fee.amount, 0n),
