@@ -8,6 +8,7 @@ import {
   nearOperator,
   operatorAddress,
   stellarOperator,
+  gnoOperator,
 } from "../../../test/mocks";
 import { describe, expect, it } from "vitest";
 import { eventFor } from "../../../test/events";
@@ -28,6 +29,7 @@ describe("overview", () => {
       { chainType: "Evm", address: operatorAddress },
       { chainType: "Near", address: nearOperator },
       { chainType: "Stellar", address: stellarOperator },
+      { chainType: "Gno", address: gnoOperator },
     ]);
   });
 
