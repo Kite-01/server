@@ -995,10 +995,6 @@ export const Chains: Record<Caip2Id, Chain> = {
     beta: true,
     publicRpcUrls: ["https://rpc.onyx.testnets.gno.land:443"],
     confirmations: 1,
-    blockExplorer: {
-      name: "Gnoscan",
-      url: "https://gnoscan.io",
-    },
     nativeCurrency: {
       name: "GNOT",
       symbol: "GNOT",

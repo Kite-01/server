@@ -18,6 +18,7 @@ const chainTypeLabels = {
   Evm: "EVM",
   Near: "NEAR",
   Stellar: "Stellar",
+  Gno: "Gno.land",
 };
 
 export const ProfileMenu = () => {

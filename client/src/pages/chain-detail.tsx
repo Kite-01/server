@@ -77,7 +77,8 @@ const ConfigurationForm = ({
   const config = chain.config;
   const near = chain.caip2Id.startsWith("near:");
   const stellar = chain.caip2Id.startsWith("stellar:");
-  const evm = !near && !stellar;
+  const gno = chain.caip2Id.startsWith("gno:");
+  const evm = !near && !stellar && !gno;
   const [values, setValues] = useState({
     rpcUrls: (config?.rpcUrls ?? []).join("\n"),
     slippageBps: String(config?.slippageBps ?? 100),
@@ -146,13 +147,21 @@ const ConfigurationForm = ({
     <Card className="max-w-2xl p-6">
       <form className="space-y-5" onSubmit={submit}>
         <Field
-          label={near ? "Kite factory account" : "KiteFactory address"}
+          label={
+            near
+              ? "Kite factory account"
+              : gno
+                ? "Kite realm"
+                : "KiteFactory address"
+          }
           hint={
             near
               ? "The account the Kite factory contract is deployed to, e.g. kite-factory.near."
               : stellar
                 ? "The factory's contract address (C…)."
-                : undefined
+                : gno
+                  ? "The realm's path, e.g. gno.land/r/g1…/kite. Gno transfers settle in the token paid, so only the settlement token is offered."
+                  : undefined
           }
         >
           <Input
@@ -308,6 +317,7 @@ const IconForm = ({
 
 const supportsX402 = (token: TokenWithChain) =>
   token.chain.caip2Id.startsWith("stellar:") ||
+  (token.chain.caip2Id.startsWith("gno:") && token.address === "ugnot") ||
   (token.chain.caip2Id.startsWith("near:")
     ? token.address !== NearNativeToken
     : token.supportsEIP3009 && !!token.version);

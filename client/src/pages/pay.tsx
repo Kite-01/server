@@ -42,6 +42,12 @@ import {
   sendStellarPayment,
   type StellarWallet,
 } from "@/lib/stellar-wallet";
+import {
+  connectGnoWallet,
+  isGnoAddress,
+  sendGnoPayment,
+  type GnoWallet,
+} from "@/lib/gno-wallet";
 import { cn } from "@/lib/utils";
 import {
   connectWallet,
@@ -80,15 +86,24 @@ import { Badge } from "@/components/ui/badge";
 
 const isNear = (chain: CheckoutChain) => chain.chainType === "Near";
 const isStellar = (chain: CheckoutChain) => chain.chainType === "Stellar";
+const isGno = (chain: CheckoutChain) => chain.chainType === "Gno";
 const EthereumLogo =
   "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/info/logo.png";
-type AnyWallet = Wallet | NearWallet | StellarWallet;
+type AnyWallet = Wallet | NearWallet | StellarWallet | GnoWallet;
 const isNearWallet = (wallet: AnyWallet): wallet is NearWallet =>
   "kind" in wallet && wallet.kind === "near";
 const isStellarWallet = (wallet: AnyWallet): wallet is StellarWallet =>
   "kind" in wallet && wallet.kind === "stellar";
+const isGnoWallet = (wallet: AnyWallet): wallet is GnoWallet =>
+  "kind" in wallet && wallet.kind === "gno";
 const chainTypeOf = (wallet: AnyWallet) =>
-  isNearWallet(wallet) ? "Near" : isStellarWallet(wallet) ? "Stellar" : "Evm";
+  isNearWallet(wallet)
+    ? "Near"
+    : isStellarWallet(wallet)
+      ? "Stellar"
+      : isGnoWallet(wallet)
+        ? "Gno"
+        : "Evm";
 
 type Token = CheckoutChain["tokens"][number];
 
@@ -1079,6 +1094,18 @@ const InstructionsStep = ({
         </p>
       )}
 
+      {isGno(chain) && (
+        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] text-amber-800 border border-amber-200">
+          <IconInfoCircle className="size-4 shrink-0" />
+          <span>
+            {token.address === "ugnot"
+              ? "Send GNOT with a plain transfer."
+              : `Send with ${token.symbol}'s Transfer function, not a bank transfer.`}{" "}
+            You pay the network fee in GNOT.
+          </span>
+        </p>
+      )}
+
       <p className="mt-3 flex items-center gap-2 rounded-xl bg-blue-50 px-3.5 py-3 text-[13px] text-blue-700 border border-blue-200">
         <IconInfoCircle className="size-4 shrink-0" />
         <span>
@@ -1380,6 +1407,7 @@ const PayFlow = () => {
   );
   const nearChain = allChains.find(isNear);
   const stellarChain = allChains.find(isStellar);
+  const gnoChain = allChains.find(isGno);
   const chain = chains.find((item) => item.id === chainId) ?? chains[0];
 
   const payToken =
@@ -1520,6 +1548,20 @@ const PayFlow = () => {
       setStep({ kind: "token" });
     });
 
+  const chooseGnoWallet = () =>
+    run("gno-wallet", async (progress) => {
+      if (!gnoChain) return;
+      progress("Waiting for Adena…");
+      const gno = await connectGnoWallet(gnoChain);
+      if (!gno) return;
+
+      setWallet(gno);
+      setAccount(gno.address);
+      setChainId(gnoChain.id);
+      setToken(null);
+      setStep({ kind: "token" });
+    });
+
   const families = [
     {
       type: "Evm",
@@ -1562,6 +1604,19 @@ const PayFlow = () => {
         </IconTile>
       ),
       connect: () => chooseStellarWallet(),
+    },
+    {
+      type: "Gno",
+      name: "Gno.land",
+      badge: "Beta",
+      icon: (
+        <IconTile className="bg-white">
+          {gnoChain && (
+            <img src={gnoChain.icon} alt="" className="size-10 rounded-full" />
+          )}
+        </IconTile>
+      ),
+      connect: () => chooseGnoWallet(),
     },
   ].filter((family) =>
     allChains.some((item) => item.chainType === family.type),
@@ -1643,6 +1698,23 @@ const PayFlow = () => {
         const txHash = await sendStellarPayment(
           wallet,
           chain.rpcUrls[0],
+          tokenAddress,
+          address,
+          amount,
+        );
+
+        setStep({ kind: "status", transferId: transfer.id, txHash });
+        return;
+      }
+
+      if (isGnoWallet(wallet)) {
+        progress("Preparing payment…");
+        const transfer = await openTransfer(q, wallet.address);
+        const { address, tokenAddress, amount } = transfer.paymentInstructions;
+
+        progress("Confirm in Adena…");
+        const txHash = await sendGnoPayment(
+          wallet,
           tokenAddress,
           address,
           amount,
@@ -1762,9 +1834,12 @@ const PayFlow = () => {
                 disabled={!!busy || !families.length}
                 busy={
                   families.length === 1 &&
-                  ["wallet", "near-wallet", "stellar-wallet"].includes(
-                    busy?.on ?? "",
-                  )
+                  [
+                    "wallet",
+                    "near-wallet",
+                    "stellar-wallet",
+                    "gno-wallet",
+                  ].includes(busy?.on ?? "")
                 }
               />
               <Option
@@ -1820,9 +1895,11 @@ const PayFlow = () => {
                 disabled={!!busy}
                 busy={
                   busy?.on ===
-                  ({ Near: "near-wallet", Stellar: "stellar-wallet" }[
-                    family.type
-                  ] ?? "wallet")
+                  ({
+                    Near: "near-wallet",
+                    Stellar: "stellar-wallet",
+                    Gno: "gno-wallet",
+                  }[family.type] ?? "wallet")
                 }
               />
             ))}
@@ -1912,7 +1989,9 @@ const PayFlow = () => {
       ? isNearAccountId(refund)
       : isStellar(chain)
         ? isStellarAddress(refund)
-        : isAddress(refund);
+        : isGno(chain)
+          ? isGnoAddress(refund)
+          : isAddress(refund);
 
     body = (
       <>
