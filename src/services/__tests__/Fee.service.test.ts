@@ -7,13 +7,6 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { FeeService } from "../Fee.service";
 import { FeeType } from "../../shared/constants";
-import { env } from "../../shared/env";
-import { fakeStellarActor, resetMocks } from "../../test/mocks";
-import {
-  STELLAR_SHOP,
-  STELLAR_USDC,
-  setupStellarChain,
-} from "../../test/stellar";
 
 const service = new FeeService();
 
@@ -266,68 +259,5 @@ describe("FeeService storage", () => {
     await expect(
       createFee(chainId, { minAmountToCharge: 10n, maxAmountToCharge: 1n }),
     ).rejects.toThrow();
-  });
-});
-
-describe("FeeService on Stellar", () => {
-  beforeEach(() => resetMocks());
-
-  it("refuses a fee address that can't hold the settlement token", async () => {
-    const { appId, chainId } = await setupStellarChain();
-    const fee = {
-      chainId,
-      appId,
-      label: "Partner",
-      type: FeeType.Fixed,
-      value: 1n,
-      condition: {},
-      feeAddress: STELLAR_SHOP,
-    };
-
-    try {
-      fakeStellarActor.canHold.mockResolvedValue(false);
-      await expect(service.createFee(fee)).rejects.toThrow(
-        /has no trustline for USDC/,
-      );
-      expect(fakeStellarActor.canHold).toHaveBeenCalledWith(
-        "stellar:testnet",
-        STELLAR_USDC,
-        STELLAR_SHOP,
-        [],
-      );
-
-      fakeStellarActor.canHold.mockResolvedValue(true);
-      const created = await service.createFee(fee);
-      expect(created.feeAddress).toBe(STELLAR_SHOP);
-
-      fakeStellarActor.canHold.mockResolvedValue(false);
-      await expect(
-        service.updateFee(appId, created.id, { feeAddress: STELLAR_SHOP }),
-      ).rejects.toThrow(/has no trustline for USDC/);
-    } finally {
-      env.KITE_IS_TESTNET = false;
-    }
-  });
-
-  it("skips the check on a chain that isn't configured yet", async () => {
-    env.KITE_IS_TESTNET = true;
-    try {
-      const chainId = (await createChain("stellar:testnet")).id;
-      fakeStellarActor.canHold.mockResolvedValue(false);
-
-      const created = await service.createFee({
-        chainId,
-        label: "Partner",
-        type: FeeType.Fixed,
-        value: 1n,
-        condition: {},
-        feeAddress: STELLAR_SHOP,
-      });
-
-      expect(created.feeAddress).toBe(STELLAR_SHOP);
-      expect(fakeStellarActor.canHold).not.toHaveBeenCalled();
-    } finally {
-      env.KITE_IS_TESTNET = false;
-    }
   });
 });

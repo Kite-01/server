@@ -4,8 +4,7 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { and, eq, isNull, or, desc, count, ilike } from "drizzle-orm";
-import { ChainType, FeeType } from "../shared/constants";
-import { getStellarActor } from "../shared/onchainActor";
+import { FeeType } from "../shared/constants";
 import { common } from "../shared/common";
 import { chain, fee } from "../db/schema";
 import { getChain } from "../shared/chains";
@@ -43,29 +42,12 @@ export class FeeService {
     const row = await db.query.chain.findFirst({
       where: eq(chain.id, chainId),
       columns: { caip2Id: true },
-      with: { config: { with: { settlementToken: true } } },
     });
     if (!row) throw new NotFoundError("chain", chainId);
 
     const { type, name } = getChain(row.caip2Id);
     if (!common.isValidAddress(type, feeAddress)) {
       throw new AppError(`The fee address is not a valid address on ${name}`);
-    }
-
-    const settlementToken = row.config?.settlementToken;
-    if (
-      type === ChainType.Stellar &&
-      settlementToken &&
-      !(await getStellarActor().canHold(
-        row.caip2Id,
-        settlementToken.address,
-        feeAddress,
-        row.config?.rpcUrls ?? [],
-      ))
-    ) {
-      throw new AppError(
-        `${feeAddress} has no trustline for ${settlementToken.symbol}, the settlement token on ${name}; add one first`,
-      );
     }
 
     return common.normalizeAddressFor(type, feeAddress);
