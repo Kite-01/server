@@ -46,7 +46,8 @@ export const ProfileMenu = () => {
       <DropdownMenuContent
         align="start"
         side="top"
-        className="w-(--radix-dropdown-menu-trigger-width) p-0"
+        collisionPadding={16}
+        className="z-60 w-72 max-w-[calc(100vw-2rem)] p-0"
       >
         <div className="flex items-center justify-between p-4 text-sm">
           <span className="font-medium">Operator wallets</span>

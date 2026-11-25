@@ -175,7 +175,7 @@ export class TokenService {
       return saveToken({
         chainId,
         address,
-        name: metadata[0],
+        name: metadata[0].split(":")[0],
         symbol: metadata[1],
         decimals: metadata[2],
         supportsEIP3009: false,

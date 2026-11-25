@@ -432,8 +432,15 @@ const ChainSwitcher = ({
   compact?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const current = chains.find((chain) => chain.id === value);
   if (!current) return null;
+
+  const listed = [...chains]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .filter((chain) =>
+      chain.name.toLowerCase().includes(search.trim().toLowerCase()),
+    );
 
   const face = compact ? (
     <ChainLogo chain={current} className="size-6" />
@@ -444,7 +451,13 @@ const ChainSwitcher = ({
     "inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl bg-soft px-2.5";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -462,23 +475,42 @@ const ChainSwitcher = ({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-70 rounded-2xl p-1.5">
-        {chains.map((chain) => (
-          <button
-            key={chain.id}
-            type="button"
-            onClick={() => {
-              onChange(chain.id);
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left font-sans text-sm transition-colors hover:bg-soft"
-          >
-            <ChainLogo chain={chain} className="size-6" />
-            <span className="min-w-0 flex-1 truncate">{chain.name}</span>
-            <IconCheck
-              className={cn("size-4", chain.id !== value && "invisible")}
-            />
-          </button>
-        ))}
+        <label className="mb-1 flex h-10 items-center gap-2 rounded-xl bg-soft px-2.5">
+          <IconSearch className="size-4 shrink-0 text-muted" />
+          <input
+            autoFocus
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search networks"
+            spellCheck={false}
+            autoComplete="off"
+            className="h-full min-w-0 flex-1 bg-transparent font-sans text-sm outline-none placeholder:text-muted"
+          />
+        </label>
+        <div className="max-h-72 overflow-y-auto">
+          {listed.map((chain) => (
+            <button
+              key={chain.id}
+              type="button"
+              onClick={() => {
+                onChange(chain.id);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left font-sans text-sm transition-colors hover:bg-soft"
+            >
+              <ChainLogo chain={chain} className="size-6" />
+              <span className="min-w-0 flex-1 truncate">{chain.name}</span>
+              <IconCheck
+                className={cn("size-4", chain.id !== value && "invisible")}
+              />
+            </button>
+          ))}
+          {!listed.length && (
+            <p className="px-2.5 py-3 font-sans text-sm text-muted">
+              No networks match
+            </p>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

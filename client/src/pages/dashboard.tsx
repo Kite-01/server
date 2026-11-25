@@ -976,14 +976,12 @@ export const Dashboard = () => {
                   </Td>
                   {!appId ? (
                     <Td>
-                      <span className="flex items-center gap-2">
+                      <span className="flex w-max items-center gap-2">
                         <SmartImage
                           url={transfer.app.icon}
                           className="size-6"
                         />
-                        <span className="whitespace-nowrap">
-                          {transfer.app.name}
-                        </span>
+                        {transfer.app.name}
                       </span>
                     </Td>
                   ) : null}
@@ -991,7 +989,7 @@ export const Dashboard = () => {
                     <StatusBadge status={transfer.status} />
                   </Td>
                   <Td>
-                    <div className="pr-4">
+                    <div className="w-max">
                       <ChainName
                         caip2Id={transfer.quote.chain.caip2Id}
                         supported={supportedChains.data}
