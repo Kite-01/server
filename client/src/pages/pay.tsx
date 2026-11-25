@@ -501,6 +501,11 @@ const ChainSwitcher = ({
             >
               <ChainLogo chain={chain} className="size-6" />
               <span className="min-w-0 flex-1 truncate">{chain.name}</span>
+              {chain.beta && (
+                <Badge variant={"pending"} className="px-2 py-0.5 text-[10px]">
+                  Beta
+                </Badge>
+              )}
               <IconCheck
                 className={cn("size-4", chain.id !== value && "invisible")}
               />

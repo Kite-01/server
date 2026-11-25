@@ -514,12 +514,12 @@ describe("QuoteService", () => {
       });
 
       const atTwap = quoteAtTick(WethUsdcTick, 10_000_000n, USDC, WETH, true);
-      const sourceAmount = (atTwap * 1_000_000n + 996_999n) / 997_000n;
+      const exact = (atTwap * 1_000_000n + 996_999n) / 997_000n;
 
-      expect(Number(sourceAmount) / 1e18).toBeCloseTo(10 / 3100 / 0.997, 6);
+      expect(Number(exact) / 1e18).toBeCloseTo(10 / 3100 / 0.997, 6);
       expect(quote).toMatchObject({
         sourceTokenId: weth.id,
-        sourceAmount,
+        sourceAmount: upToSixDigits(exact),
         targetAmount: 10_000_000n,
         uniswapPoolFeeTier: 3000,
       });
@@ -670,7 +670,9 @@ describe("QuoteService", () => {
 
       expect(quote).toMatchObject({
         targetAmount: 2_000_000_000n,
-        sourceAmount: v2AmountIn(2_000_000_000n, WethReserve, UsdcReserve)!,
+        sourceAmount: upToSixDigits(
+          v2AmountIn(2_000_000_000n, WethReserve, UsdcReserve)!,
+        ),
         uniswapPoolFeeTier: 0,
       });
     });
@@ -735,3 +737,8 @@ describe("QuoteService", () => {
     });
   });
 });
+
+const upToSixDigits = (amount: bigint) => {
+  const unit = 10n ** BigInt(amount.toString().length - 6);
+  return ((amount + unit - 1n) / unit) * unit;
+};

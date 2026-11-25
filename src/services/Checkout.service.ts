@@ -118,6 +118,7 @@ export class CheckoutService {
           chainType: meta.type,
           chainId: "chainId" in meta ? meta.chainId : null,
           testnet: !!meta.testnet,
+          beta: !!meta.beta,
           nativeCurrency: meta.nativeCurrency,
           blockExplorer: meta.blockExplorer,
           rpcUrls: [...meta.publicRpcUrls],

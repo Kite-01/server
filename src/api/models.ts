@@ -773,6 +773,7 @@ const Checkout = t.Object(
         ]),
         chainId: Nullable(Int),
         testnet: t.Boolean(),
+        beta: t.Boolean(),
         icon: t.String(),
         nativeCurrency: SupportedChain.properties.nativeCurrency,
         blockExplorer: SupportedChain.properties.blockExplorer,
