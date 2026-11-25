@@ -195,12 +195,10 @@ export const Quotes = () => {
           {
             header: "Chain",
             cell: (row) => (
-              <div className="pr-4">
-                <ChainName
-                  caip2Id={row.chain.caip2Id}
-                  supported={supportedChains.data}
-                />
-              </div>
+              <ChainName
+                caip2Id={row.chain.caip2Id}
+                supported={supportedChains.data}
+              />
             ),
           },
           {

@@ -47,7 +47,7 @@ export const ProfileMenu = () => {
         align="start"
         side="top"
         collisionPadding={16}
-        className="z-60 w-72 max-w-[calc(100vw-2rem)] p-0"
+        className="z-60 w-80 max-w-[calc(100vw-2rem)] p-0"
       >
         <div className="flex items-center justify-between p-4 text-sm">
           <span className="font-medium">Operator wallets</span>

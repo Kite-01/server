@@ -53,7 +53,7 @@ export const ChainName = ({
   caip2Id: string;
   supported?: CustomSupportedChains;
 }) => (
-  <span className="flex items-center gap-1.75">
+  <span className="flex w-max items-center gap-1.75">
     <SmartImage src={chainIcon(caip2Id, supported)} className="size-7" />
     <span className="inline-flex items-center gap-1.5">
       {chainName(caip2Id, supported)}

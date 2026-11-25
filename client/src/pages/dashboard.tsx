@@ -989,12 +989,10 @@ export const Dashboard = () => {
                     <StatusBadge status={transfer.status} />
                   </Td>
                   <Td>
-                    <div className="w-max">
-                      <ChainName
-                        caip2Id={transfer.quote.chain.caip2Id}
-                        supported={supportedChains.data}
-                      />
-                    </div>
+                    <ChainName
+                      caip2Id={transfer.quote.chain.caip2Id}
+                      supported={supportedChains.data}
+                    />
                   </Td>
                   <Td className="font-mediu">
                     {formatTokenAmount(
