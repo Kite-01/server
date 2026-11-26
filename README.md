@@ -78,7 +78,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - A payout to a `G…` account that has no trustline for the settlement token fails the settlement, and the payment is refunded.
 - **Gno.land is in beta, on testnet (Onyx) only**: a mainnet server doesn't offer it yet, as Gno.land mainnet has no USD-pegged token with a GnoSwap pool to price payments. On Gno.land:
   - Deposits are found by the balance check, as on chains without a notifier.
-  - Customers pay in the settlement token: nothing is swapped on-chain. GnoSwap only prices the link.
+  - Only GRC20s are swapped. A realm can't wrap or unwrap GNOT (`wugnot` only does so in a user's own transaction), so a link that settles in GNOT is paid in GNOT, and GNOT can't pay a link that settles in a GRC20.
   - The customer pays the gas of the payment, in GNOT. The operator pays for settling and refunding.
   - NEAR Intents has no Gno.land, so payments settle to the app's Gno.land address even when the app has a payout set, and Gno.land can't be a payout destination.
   - x402 takes GNOT only, as [gnolang/x402](https://github.com/gnolang/x402) does, and the agent pays its own gas. An agent can pay with a session key its account registered, within the session's spend limit, expiry and allowed messages.
@@ -106,6 +106,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - NEAR Intents knows Stellar as `stellar`, with USDC and XLM, so other chains can pay out to Stellar. Stellar payments will pay out through it once Stellar mainnet is added; Intents has no testnet.
 - **Gno.land as a chain** (beta, testnet only): each payment gets its own address, a sub-realm of the [Kite realm](https://github.com/Kite-01/gno-contracts), derived from the transfer before anything happens on-chain.
   - The address is `chain.DerivePkgSubAddr(realm, "t/" + sha256(transfer))`. The customer sends GNOT, or a GRC20, to it with Adena or any wallet; the operator calls the realm's `Settle`, which mints that sub-realm identity, pays the fees and the merchant, and returns any excess. After expiry anyone can call `Refund`.
+  - A customer can pay in another GRC20 than the settlement token: `Settle` swaps it on GnoSwap as the deposit address, with a minimum output, before paying anyone.
   - Quotes come from GnoSwap's `DrySwapRoute`, held to the pool's time-weighted price from `Observe`, as on Uniswap. Onyx prices GNOT through a GNOT/tUSD pool, tUSD being a test dollar with a faucet.
   - Agents pay with x402, in GNOT.
 - **NEAR as a chain** (beta): on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
@@ -315,9 +316,9 @@ Kite takes part in Gnome Tavern, Gno.land's hackathon. What's judged is the Gno.
 
 - the Kite realm and its transfer package ([Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts)): each payment is paid into a sub-realm address derived from the transfer, settled by the operator with fees, or refunded, by anyone once it has expired, with its status in gnoweb;
 - tUSD, a test dollar, and a GNOT/tUSD GnoSwap pool, so links priced in any currency are quoted in GNOT;
-- GnoSwap quotes held to the pool's time-weighted price;
+- swaps through GnoSwap, made by the deposit itself when a customer pays another GRC20, and quotes held to the pool's time-weighted price;
 - Adena at checkout, or paying the `g1…` address shown as a QR code;
-- x402 on Gno.land with [`@gnolang/x402`](https://github.com/gnolang/x402), verified and broadcast by Kite itself.
+- x402 on Gno.land with [`@gnolang/x402`](https://github.com/gnolang/x402), verified and broadcast by Kite itself, including payments signed with a session key.
 
 ## Related repositories
 

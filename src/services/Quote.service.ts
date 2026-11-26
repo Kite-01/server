@@ -5,6 +5,7 @@ import {
 } from "../shared/pagination";
 import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
 import { ChainType, KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
+import { kiteGno } from "../shared/kiteGnoContract";
 
 const DisplaySignificantDigits = 6;
 import { AppError, NotFoundError } from "../shared/errors";
@@ -329,6 +330,15 @@ export class QuoteService {
     if (sourceToken.id === settlementToken.id) {
       sourceAmount = targetAmount;
     } else {
+      if (
+        getChain(chain.caip2Id).type === ChainType.Gno &&
+        !kiteGno.canSwap(sourceToken.address, settlementToken.address)
+      ) {
+        throw new AppError(
+          "GNOT can't be swapped on Gno.land: pay in GNOT only when the link settles in GNOT",
+        );
+      }
+
       const best = await swapQuoter.quoteExactOutput({
         caip2Id: chain.caip2Id,
         tokenIn: sourceToken.address,

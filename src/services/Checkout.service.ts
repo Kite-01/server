@@ -22,6 +22,7 @@ import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
 import { NearNativeToken } from "../shared/nearAccount";
 import { GnoNativeToken } from "../shared/gnoAddress";
+import { kiteGno } from "../shared/kiteGnoContract";
 import { common } from "../shared/common";
 import { Scheduler } from "../shared/scheduler";
 import { db } from "../db";
@@ -109,14 +110,15 @@ export class CheckoutService {
 
         const x402 = this.takesX402(chain.caip2Id, chain.config);
         const settlementToken = chain.config.settlementToken;
-        // without a swap router, Stellar only takes the settlement token; Gno never swaps
+        // without a swap router, Stellar only takes the settlement token; Gno swaps GRC20s only
         const swaps =
-          meta.type === ChainType.Gno
-            ? false
-            : meta.type !== ChainType.Stellar ||
-              !!meta.contracts.Soroswap?.router;
+          meta.type !== ChainType.Stellar || !!meta.contracts.Soroswap?.router;
         const tokens = (await tokenService.getTokensByChainId(chain.id)).filter(
-          (token) => swaps || token.id === settlementToken.id,
+          (token) =>
+            token.id === settlementToken.id ||
+            (swaps &&
+              (meta.type !== ChainType.Gno ||
+                kiteGno.canSwap(token.address, settlementToken.address))),
         );
 
         return {

@@ -79,6 +79,10 @@ export class GnoSwap {
     );
   };
 
+  // pool paths order their tokens; a route runs in the swap's direction
+  route = (tokenIn: string, tokenOut: string, pool: string) =>
+    `${tokenIn}:${tokenOut}:${pool.split(":")[2]}`;
+
   private dryRun = async (
     caip2Id: Caip2Id,
     tokenIn: string,
@@ -87,9 +91,7 @@ export class GnoSwap {
     type: "EXACT_IN" | "EXACT_OUT",
     path: string,
   ) => {
-    const route = path.startsWith(`${tokenIn}:`)
-      ? path
-      : `${tokenIn}:${tokenOut}:${path.split(":")[2]}`;
+    const route = this.route(tokenIn, tokenOut, path);
     const output = await this.eval(
       caip2Id,
       this.contracts(caip2Id).router,
@@ -133,7 +135,9 @@ export class GnoSwap {
     );
     const amount = atAverage < dry.amountOut ? atAverage : dry.amountOut;
 
-    return amount > 0n ? { pool: twap.path, amount } : null;
+    return amount > 0n
+      ? { pool: this.route(tokenIn, tokenOut, twap.path), amount }
+      : null;
   };
 
   quoteExactOutput = async (input: {
@@ -168,6 +172,8 @@ export class GnoSwap {
       (FeeDenominator - BigInt(twap.fee));
     const amount = atAverage > dry.amountIn ? atAverage : dry.amountIn;
 
-    return amount > 0n ? { pool: twap.path, amount } : null;
+    return amount > 0n
+      ? { pool: this.route(tokenIn, tokenOut, twap.path), amount }
+      : null;
   };
 }

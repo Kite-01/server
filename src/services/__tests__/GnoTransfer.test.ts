@@ -5,6 +5,7 @@ import { app, quoteFee, transfer } from "../../db/schema";
 import {
   GNO_CAIP2 as CAIP2,
   GNO_TUSD as TUSD,
+  GNO_COIN as COIN,
   GNO_PAYER as PAYER,
   GNO_REALM as REALM,
   GNO_SHOP as SHOP,
@@ -38,10 +39,11 @@ describe("TransferService on Gno", () => {
   let chainId: string;
   let gnotId: string;
   let tusdId: string;
+  let coinId: string;
 
   beforeEach(async () => {
     resetMocks();
-    ({ appId, chainId, gnotId, tusdId } = await setupGnoChain());
+    ({ appId, chainId, gnotId, tusdId, coinId } = await setupGnoChain());
   });
 
   const create = async (
@@ -90,10 +92,37 @@ describe("TransferService on Gno", () => {
       await expect(create()).rejects.toThrow(/The Kite realm derives/);
     });
 
-    it("only takes the settlement token", async () => {
-      await expect(create({ sourceTokenId: tusdId })).rejects.toThrow(
-        /paid in the settlement token/,
+    it("swaps a GRC20 into the settlement token along the quoted route", async () => {
+      const route = `${COIN}:${TUSD}:3000`;
+      const created = await create({
+        sourceTokenId: coinId,
+        targetTokenId: tusdId,
+        sourceAmount: 5_000_000n,
+        targetAmount: 10_000_000n,
+        swapPool: route,
+      });
+
+      expect(structOf(created)).toMatchObject({
+        token: COIN,
+        amount: "5000000",
+        settle: TUSD,
+        // the 1% slippage floor under the quoted output
+        min_out: "9900000",
+        route,
+      });
+      expect(created.payinAddress).toBe(
+        kiteGno.predictAddress(REALM, structOf(created)),
       );
+    });
+
+    it("refuses to swap GNOT, which a realm can't wrap", async () => {
+      await expect(
+        create({
+          sourceTokenId: gnotId,
+          targetTokenId: tusdId,
+          swapPool: `ugnot:${TUSD}:3000`,
+        }),
+      ).rejects.toThrow(/GNOT can't be swapped/);
     });
 
     it("refuses an address from another chain", async () => {

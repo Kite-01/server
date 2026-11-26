@@ -432,6 +432,9 @@ export type Transfer = {
     id: string;
     token: string;
     amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
     recipient: string;
     fees: Array<{
       recipient: string;
@@ -569,6 +572,9 @@ export type TransferDetails = {
     id: string;
     token: string;
     amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
     recipient: string;
     fees: Array<{
       recipient: string;
@@ -670,6 +676,9 @@ export type TransferListItem = {
     id: string;
     token: string;
     amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
     recipient: string;
     fees: Array<{
       recipient: string;
@@ -783,6 +792,9 @@ export type CreatedTransfer = {
     id: string;
     token: string;
     amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
     recipient: string;
     fees: Array<{
       recipient: string;

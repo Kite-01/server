@@ -416,6 +416,9 @@ const GnoKiteTransferInput = t.Object(
     id: t.String(),
     token: ChainAddress,
     amount: Digits,
+    settle: ChainAddress,
+    min_out: Digits,
+    route: t.String(),
     recipient: ChainAddress,
     fees: t.Array(
       t.Object({

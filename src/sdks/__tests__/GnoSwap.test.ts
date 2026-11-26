@@ -88,7 +88,11 @@ describe("GnoSwap", () => {
         tokenOut: "ugnot",
         amountIn: 4_556_245n,
       }),
-    ).toEqual({ amount: 990_794n, feeTier: null, pool: POOL });
+    ).toEqual({
+      amount: 990_794n,
+      feeTier: null,
+      pool: `${GNS}:${WUGNOT}:3000`,
+    });
   });
 
   it("quotes an exact output at the higher input", async () => {

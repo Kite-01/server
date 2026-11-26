@@ -1840,14 +1840,18 @@ export class TransferService {
     getGnoChain(caip2Id);
     const realm = config.kiteFactoryAddress;
 
-    if (quote_.sourceToken.id !== quote_.targetToken.id) {
-      throw new AppError("On Gno, a transfer is paid in the settlement token");
+    const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
+    if (!isSameToken && !quote_.swapPool) {
+      throw new AppError("This chain has no swap route for this token");
     }
 
     const struct = kiteGno.buildTransferInput({
       transferId: input.transferId,
       token: quote_.sourceToken.address,
       amount: quote_.sourceAmount,
+      settle: quote_.targetToken.address,
+      minAmountOut: input.minAmountOut,
+      route: quote_.swapPool,
       recipient: input.settlementRecipient,
       fees: quote_.fees.map((fee) => ({
         id: fee.id,

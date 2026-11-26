@@ -9,6 +9,7 @@ export const GNO_CAIP2 = "gno:onyx-1" as Caip2Id;
 export const GNO_NS = "g1dd5hgetyv4m97h6lta047h6lta047h6lcxye47";
 export const GNO_REALM = `gno.land/r/${GNO_NS}/kite`;
 export const GNO_TUSD = `gno.land/r/${GNO_NS}/tusd.tUSD`;
+export const GNO_COIN = "gno.land/r/kitetest/coin.COIN";
 export const GNO_SHOP = "g1d4jhycmgv9h8gh6lta047h6lta047h6lsu9czk";
 export const GNO_PAYER = "g1vd6hxar0d4jhyh6lta047h6lta047h6lws58ht";
 
@@ -22,12 +23,13 @@ export const setupGnoChain = async () => {
     .returning();
   const chainId = row.id;
 
-  const [gnot, tusd] = await db
+  const [gnot, tusd, coin] = await db
     .insert(token)
     .values(
       [
         { address: "ugnot", symbol: "GNOT", name: "GNOT" },
         { address: GNO_TUSD, symbol: "tUSD", name: "Test USD" },
+        { address: GNO_COIN, symbol: "COIN", name: "Coin" },
       ].map((item) => ({ ...item, chainId, decimals: 6, listed: true })),
     )
     .returning();
@@ -54,7 +56,7 @@ export const setupGnoChain = async () => {
     throw new Error(`unexpected evaluate ${pkg}.${expr}`);
   });
 
-  return { appId, chainId, gnotId: gnot.id, tusdId: tusd.id };
+  return { appId, chainId, gnotId: gnot.id, tusdId: tusd.id, coinId: coin.id };
 };
 
 const decode = (encoded: string) => {
@@ -71,6 +73,9 @@ const decode = (encoded: string) => {
     id: fields.id,
     token: fields.token,
     amount: fields.amount,
+    settle: fields.settle,
+    min_out: fields.min_out,
+    route: fields.route,
     recipient: fields.recipient,
     fees: fields.fees
       ? fields.fees.split(",").map((fee: string) => {
@@ -89,6 +94,8 @@ export const createGnoQuoteRow = async (input: {
   sourceTokenId: string;
   targetTokenId: string;
   sourceAmount?: bigint;
+  targetAmount?: bigint;
+  swapPool?: string;
 }) => {
   const [row] = await db
     .insert(quote)
@@ -98,7 +105,8 @@ export const createGnoQuoteRow = async (input: {
       sourceTokenId: input.sourceTokenId,
       targetTokenId: input.targetTokenId,
       sourceAmount: input.sourceAmount ?? 10_000_000n,
-      targetAmount: input.sourceAmount ?? 10_000_000n,
+      targetAmount: input.targetAmount ?? input.sourceAmount ?? 10_000_000n,
+      swapPool: input.swapPool,
       sourceUsdAmount: "1",
       targetUsdAmount: "1",
       rate: "1",
