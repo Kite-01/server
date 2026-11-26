@@ -199,7 +199,9 @@ describe("TransferService on NEAR", () => {
 
       await expect(
         service.createTransfer(appId, quote.id, "payre.near"),
-      ).rejects.toThrow("The refund account payre.near doesn't exist");
+      ).rejects.toThrow(
+        "Can't refund to this address: payre.near doesn't exist",
+      );
     });
 
     it("takes an implicit refund account that has no state yet", async () => {

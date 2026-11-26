@@ -10,8 +10,7 @@ import { PayoutService } from "./Payout.service";
 import { ChainService } from "./Chain.service";
 import { common } from "../shared/common";
 import { getChain } from "../shared/chains";
-import { getStellarActor } from "../shared/onchainActor";
-import { ChainType } from "../shared/constants";
+import { whyCantReceive } from "../shared/recipients";
 import { db } from "../db";
 
 type PayoutFields = Partial<
@@ -176,20 +175,14 @@ export class AppService {
 
     if (!chain.config) throw new AppError("This chain is not configured yet");
 
-    const settlementToken = chain.config.settlementToken;
-    if (
-      chainType === ChainType.Stellar &&
-      !(await getStellarActor().canHold(
-        chain.caip2Id,
-        settlementToken.address,
-        address,
-        chain.config.rpcUrls ?? [],
-      ))
-    ) {
-      throw new AppError(
-        `${address} has no trustline for ${settlementToken.symbol}, the settlement token on ${name}; add one first`,
-      );
-    }
+    const reason = await whyCantReceive({
+      caip2Id: chain.caip2Id,
+      address: common.normalizeAddressFor(chainType, address),
+      token: chain.config.settlementToken,
+      rpcUrls: chain.config.rpcUrls ?? [],
+    });
+    if (reason)
+      throw new AppError(`This address can't receive settlements: ${reason}`);
 
     const normalized = common.normalizeAddressFor(chainType, address);
     const [row] = await db

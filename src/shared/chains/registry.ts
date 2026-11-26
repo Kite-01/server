@@ -26,6 +26,7 @@ import {
   arcTestnet,
   avalanche,
   avalancheFuji,
+  hashkeyTestnet,
 } from "viem/chains";
 import { Address, zeroAddress } from "viem";
 import { ChainType } from "../constants";
@@ -886,6 +887,30 @@ export const Chains: Record<Caip2Id, Chain> = {
         address: "0xcA11bde05977b3631167028862bE2a173976CA11",
       },
       WETH9: "0x4465f7e83932D2423dC60FdF364d551366c78344",
+    },
+  },
+  "eip155:133": {
+    caip2Id: "eip155:133",
+    type: ChainType.Evm,
+    chainId: hashkeyTestnet.id,
+    name: hashkeyTestnet.name,
+    icon: "https://icons.llamao.fi/icons/chains/rsz_hashkey%20chain.jpg",
+    testnet: hashkeyTestnet.testnet,
+    publicRpcUrls: hashkeyTestnet.rpcUrls.default.http,
+    confirmations: 6,
+    blockExplorer: {
+      name: "HashKey Chain Testnet Explorer",
+      url: "https://testnet-explorer.hskchain.net",
+    },
+    nativeCurrency: hashkeyTestnet.nativeCurrency,
+    contracts: {
+      multicall3: {
+        address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+      },
+      WETH9: "0xCA8aAceEC5Db1e91B9Ed3a344bA026c4a2B3ebF6",
+      Uniswap: {
+        SwapRouter02: "0xa6914E66690c6794244B5f66a09eAEbf66254237",
+      },
     },
   },
   "near:testnet": {

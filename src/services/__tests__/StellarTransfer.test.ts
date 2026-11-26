@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { Address, nativeToScVal, Networks, xdr } from "@stellar/stellar-sdk";
 import { db } from "../../db";
-import { quoteFee, transfer, transferTimeline } from "../../db/schema";
+import {
+  app,
+  quoteFee,
+  token,
+  transfer,
+  transferTimeline,
+} from "../../db/schema";
 import {
   STELLAR_CAIP2 as CAIP2,
   STELLAR_FACTORY as FACTORY,
@@ -140,6 +146,53 @@ describe("TransferService on Stellar", () => {
 
       await expect(create({}, EXCHANGE)).rejects.toThrow(/muxed address/);
       await expect(create({}, PAYER)).resolves.toBeTruthy();
+    });
+
+    it("refuses a refund address without a trustline for the token paid in", async () => {
+      fakeStellarActor.receivable.mockResolvedValue("untrusted");
+
+      await expect(create({}, PAYER)).rejects.toThrow(
+        "Can't refund to this address: " +
+          `${PAYER} has no trustline for USDC on Stellar Testnet; add one first`,
+      );
+      expect(fakeStellarActor.receivable).toHaveBeenCalledWith(
+        "stellar:testnet",
+        expect.any(String),
+        PAYER,
+        expect.any(Array),
+      );
+    });
+
+    it("refuses a refund account that was never funded", async () => {
+      fakeStellarActor.receivable.mockResolvedValue("unfunded");
+
+      await expect(create({}, PAYER)).rejects.toThrow(
+        `${PAYER} isn't activated on Stellar Testnet; fund it with XLM first`,
+      );
+    });
+
+    it("doesn't ask the operator, as the refund address, to be set up", async () => {
+      fakeStellarActor.receivable.mockResolvedValue("unfunded");
+
+      await expect(create({}, stellarOperator)).resolves.toBeTruthy();
+    });
+
+    it("settles to the app's address when its payout address can't hold the token", async () => {
+      await db
+        .update(token)
+        .set({ nearIntentsAssetId: "nep141:stellar-usdc" })
+        .where(eq(token.id, usdcId));
+      await db
+        .update(app)
+        .set({ payoutAsset: "nep141:stellar-usdc", payoutAddress: PAYER })
+        .where(eq(app.id, appId));
+      fakeStellarActor.receivable.mockImplementation(async (...args) =>
+        args[2] === PAYER ? "untrusted" : "ok",
+      );
+
+      const created = await create({}, SHOP);
+
+      expect(created.settlementRecipient).toBe(SHOP);
     });
 
     it("refuses an address from another chain", async () => {

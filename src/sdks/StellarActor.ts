@@ -70,6 +70,7 @@ const PollAttempts = 30;
 
 export class StellarActor implements OnchainActor {
   private keypairs = new Map<number, Keypair>();
+  private assets = new Map<string, Asset | null>();
   private queue = new Map<string, Promise<unknown>>();
 
   keypair = (index = 0) => {
@@ -227,21 +228,79 @@ export class StellarActor implements OnchainActor {
     );
   };
 
-  // the asset a Stellar Asset Contract wraps, or null for any other token
+  // the asset a Stellar Asset Contract wraps, or null for any other token; a contract's
+  // name never changes, so the answer is kept
   assetOf = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
+    const key = `${caip2Id}:${token}`;
+    if (this.assets.has(key)) return this.assets.get(key)!;
+
     const name = await this.view<string>(caip2Id, token, "name", [], rpcUrls);
     const [code, issuer] = name.split(":");
-    const asset =
+    const candidate =
       name === "native"
         ? Asset.native()
         : issuer
           ? new Asset(code, issuer)
           : null;
-    return asset?.contractId(this.passphrase(caip2Id)) === token ? asset : null;
+    const asset =
+      candidate?.contractId(this.passphrase(caip2Id)) === token
+        ? candidate
+        : null;
+    this.assets.set(key, asset);
+    return asset;
   };
 
   isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) =>
     !!(await this.assetOf(caip2Id, token, rpcUrls));
+
+  // Whether `address` can be paid `token`, in one ledger read. A Stellar Asset Contract
+  // pays a G… or M… account only once it's funded with XLM and, for an issued asset,
+  // trusts it; other tokens and C… addresses keep balances in contract storage.
+  receivable = async (
+    caip2Id: Caip2Id,
+    token: string,
+    address: string,
+    rpcUrls?: string[],
+  ): Promise<"ok" | "unfunded" | "untrusted"> => {
+    if (StrKey.isValidContract(address)) return "ok";
+
+    const asset = await this.assetOf(caip2Id, token, rpcUrls);
+    if (!asset) return "ok";
+
+    const account = this.accountOf(address);
+    const accountId = Keypair.fromPublicKey(account).xdrAccountId();
+    const needsTrust = !asset.isNative() && asset.getIssuer() !== account;
+    const keys = [
+      xdr.LedgerKey.account(new xdr.LedgerKeyAccount({ accountId })),
+      ...(needsTrust
+        ? [
+            xdr.LedgerKey.trustline(
+              new xdr.LedgerKeyTrustLine({
+                accountId,
+                asset: asset.toTrustLineXDRObject(),
+              }),
+            ),
+          ]
+        : []),
+    ];
+    const { entries } = await this.rpc(caip2Id, rpcUrls).getLedgerEntries(
+      ...keys,
+    );
+    const found = (type: xdr.LedgerEntryType) =>
+      entries.some((entry) => entry.key.switch() === type);
+
+    if (!found(xdr.LedgerEntryType.account())) return "unfunded";
+    if (needsTrust && !found(xdr.LedgerEntryType.trustline()))
+      return "untrusted";
+    return "ok";
+  };
+
+  private accountOf = (address: string) =>
+    StrKey.isValidMed25519PublicKey(address)
+      ? StrKey.encodeEd25519PublicKey(
+          StrKey.decodeMed25519PublicKey(address).subarray(0, 32),
+        )
+      : address;
 
   // the operator can only hold an issued asset through a trustline
   // a G… account needs a trustline to hold an issued asset
@@ -253,11 +312,7 @@ export class StellarActor implements OnchainActor {
   ) => {
     if (StrKey.isValidContract(address)) return true;
 
-    const account = StrKey.isValidMed25519PublicKey(address)
-      ? StrKey.encodeEd25519PublicKey(
-          StrKey.decodeMed25519PublicKey(address).subarray(0, 32),
-        )
-      : address;
+    const account = this.accountOf(address);
     const asset = await this.assetOf(caip2Id, token, rpcUrls);
     if (!asset || asset.isNative() || asset.getIssuer() === account) {
       return true;

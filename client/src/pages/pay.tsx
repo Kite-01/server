@@ -500,7 +500,17 @@ const ChainSwitcher = ({
               className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left font-sans text-sm transition-colors hover:bg-soft"
             >
               <ChainLogo chain={chain} className="size-6" />
-              <span className="min-w-0 flex-1 truncate">{chain.name}</span>
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="truncate">{chain.name}</span>
+                {chain.beta && (
+                  <Badge
+                    variant={"pending"}
+                    className="shrink-0 px-2 py-0.5 text-[10px]"
+                  >
+                    Beta
+                  </Badge>
+                )}
+              </span>
               <IconCheck
                 className={cn("size-4", chain.id !== value && "invisible")}
               />
@@ -1057,17 +1067,6 @@ const InstructionsStep = ({
           )}
         </Row>
       </Rows>
-
-      {isStellar(chain) && (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] text-amber-800 border border-amber-200">
-          <IconInfoCircle className="size-4 shrink-0" />
-          <span>
-            This is a contract address (C…). Send with the token's transfer,
-            from a wallet that supports contract addresses: most exchanges and
-            classic payments can't.
-          </span>
-        </p>
-      )}
 
       <p className="mt-3 flex items-center gap-2 rounded-xl bg-blue-50 px-3.5 py-3 text-[13px] text-blue-700 border border-blue-200">
         <IconInfoCircle className="size-4 shrink-0" />
@@ -1939,11 +1938,7 @@ const PayFlow = () => {
 
           <Field
             label="Refund address"
-            hint={
-              isStellar(chain)
-                ? "If the payment can't be completed, your funds are sent here. A memo can't be attached, so for an exchange use its M… (muxed) address."
-                : "If the payment can't be completed, your funds are sent here. Use a wallet you control, not an exchange deposit address."
-            }
+            hint="If the payment can't be completed, your funds are sent here. Use a wallet you control, not an exchange deposit address."
           >
             <Input
               value={refundAddress}
