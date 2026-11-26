@@ -1,9 +1,20 @@
 import {
   GnoJSONRPCProvider,
   GnoWallet,
+  MsgCall,
+  MsgEndpoint,
+  MsgSend,
+  decodeTxMessages,
   type GnoProvider,
 } from "@gnolang/gno-js-client";
-import { TransactionEndpoint } from "@gnolang/tm2-js-client";
+import {
+  ResponseDeliverTx,
+  TransactionEndpoint,
+  Tx,
+  parseProto,
+  type Any,
+  type GasPrice,
+} from "@gnolang/tm2-js-client";
 import { getGnoChain } from "../shared/chains";
 import { AppError } from "../shared/errors";
 import { env } from "../shared/env";
@@ -15,8 +26,21 @@ const NotOnGno = (method: string) =>
 
 const Grc20Registry = "gno.land/r/nt/grc20reg/v0";
 
-// gno.land charges 1 ugnot per 1,000 gas
-const TxFee = { gas_wanted: 50_000_000n, gas_fee: "50000ugnot" };
+// what a draft may use while it's simulated; a GnoSwap swap alone uses about 125M
+const DraftGas = 1_000_000_000n;
+
+// The gas a simulation used, plus a fifth, at the chain's price, rounded up;
+// gno.land's 1 ugnot per 1,000 gas when it reports none
+export const gnoTxFee = (gasUsed: bigint, price: GasPrice | null) => {
+  const gasWanted = (gasUsed * 6n) / 5n + 10_000n;
+  const [amount, gas] = price
+    ? [BigInt(price.amount), BigInt(price.gas)]
+    : [1n, 1000n];
+  return {
+    gas_wanted: gasWanted,
+    gas_fee: `${(gasWanted * amount + gas - 1n) / gas}${price?.denom ?? GnoNativeToken}`,
+  };
+};
 
 export class GnoCallError extends AppError {}
 
@@ -93,35 +117,83 @@ export class GnoActor implements OnchainActor {
     return wallet;
   };
 
-  call = (
+  // tm2-js-client's estimateGas sends the transaction's base64 as its bytes, which
+  // nodes can't decode, so it's queried here with the bytes themselves
+  private simulate = async (provider: GnoProvider, tx: Tx) => {
+    const { response } = await provider.abciQuery({
+      path: ".app/simulate",
+      data: Tx.encode(tx).finish(),
+      height: 0,
+      prove: false,
+    });
+    const result = parseProto(response.Value!, ResponseDeliverTx.decode);
+    if (result.response_base?.error) {
+      throw new GnoCallError(
+        result.response_base.log || "The transaction failed in simulation",
+      );
+    }
+    return result.gas_used;
+  };
+
+  // Signs a draft and simulates it, so a call the chain would refuse fails
+  // here for free, then sends it with the gas the simulation used
+  private broadcast = (caip2Id: Caip2Id, message: Any, rpcUrls?: string[]) => {
+    return this.serialize(caip2Id, async () => {
+      const wallet = await this.wallet(caip2Id, rpcUrls);
+      const provider = await this.provider(caip2Id, rpcUrls);
+      const tx = (fee: Tx["fee"]): Tx => ({
+        messages: [message],
+        fee,
+        memo: "",
+        signatures: [],
+      });
+
+      try {
+        const draft = await wallet.signTransaction(
+          tx(gnoTxFee(DraftGas, null)),
+          decodeTxMessages,
+        );
+        const used = await this.simulate(provider, draft);
+        const fee = gnoTxFee(used, await provider.getGasPrice());
+        const signed = await wallet.signTransaction(tx(fee), decodeTxMessages);
+        return await wallet.sendTransaction(
+          signed,
+          TransactionEndpoint.BROADCAST_TX_COMMIT,
+        );
+      } catch (e) {
+        throw new GnoCallError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  };
+
+  call = async (
     caip2Id: Caip2Id,
     pkgPath: string,
     method: string,
     args: string[],
     rpcUrls?: string[],
   ): Promise<GnoCallResult> => {
-    return this.serialize(caip2Id, async () => {
-      const wallet = await this.wallet(caip2Id, rpcUrls);
-      const result = await wallet
-        .callMethod(
-          pkgPath,
-          method,
+    const result = await this.broadcast(
+      caip2Id,
+      {
+        type_url: MsgEndpoint.MSG_CALL,
+        value: MsgCall.encode({
+          caller: this.getAddress(),
+          send: "",
+          max_deposit: "",
+          pkg_path: pkgPath,
+          func: method,
           args,
-          TransactionEndpoint.BROADCAST_TX_COMMIT,
-          undefined,
-          undefined,
-          TxFee,
-        )
-        .catch((e: unknown) => {
-          throw new GnoCallError(e instanceof Error ? e.message : String(e));
-        });
+        }).finish(),
+      },
+      rpcUrls,
+    );
 
-      const events = result.deliver_tx.ResponseBase.Events;
-      return {
-        transactionHash: result.hash,
-        events: events ? (JSON.parse(events) as GnoEvent[]) : [],
-      };
-    });
+    const events = result.deliver_tx.ResponseBase.Events;
+    return {
+      transactionHash: result.hash,
+      events: events ? (JSON.parse(events) as GnoEvent[]) : [],
+    };
   };
 
   // a GRC20 is moved through its realm's Transfer, as grc20 tokens expose it
@@ -143,20 +215,19 @@ export class GnoActor implements OnchainActor {
       return result.transactionHash;
     }
 
-    return this.serialize(caip2Id, async () => {
-      const wallet = await this.wallet(caip2Id, rpcUrls);
-      const result = await wallet
-        .transferFunds(
-          to,
-          new Map([[GnoNativeToken, Number(amount)]]),
-          TransactionEndpoint.BROADCAST_TX_COMMIT,
-          TxFee,
-        )
-        .catch((e: unknown) => {
-          throw new GnoCallError(e instanceof Error ? e.message : String(e));
-        });
-      return result.hash;
-    });
+    const result = await this.broadcast(
+      caip2Id,
+      {
+        type_url: MsgEndpoint.MSG_SEND,
+        value: MsgSend.encode({
+          from_address: this.getAddress(),
+          to_address: to,
+          amount: `${amount}${GnoNativeToken}`,
+        }).finish(),
+      },
+      rpcUrls,
+    );
+    return result.hash;
   };
 
   getBalance = async (
