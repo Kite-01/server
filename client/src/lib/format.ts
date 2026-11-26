@@ -87,8 +87,14 @@ export const parseUnits = (value: string, decimals: number) => {
 };
 
 // NearBlocks shows transactions under /txns; the EVM explorers under /tx.
-export const txUrl = (explorer: string, hash: string) =>
-  `${explorer}/${/nearblocks\.io/.test(explorer) ? "txns" : "tx"}/${hash}`;
+// Gnoscan's explorer URL carries the network as a query, which stays on the link.
+export const txUrl = (explorer: string, hash: string) => {
+  const [base, query] = explorer.split("?");
+  if (/gnoscan\.io/.test(base)) {
+    return `${base}/transactions/details?txhash=${hash}${query ? `&${query}` : ""}`;
+  }
+  return `${explorer}/${/nearblocks\.io/.test(explorer) ? "txns" : "tx"}/${hash}`;
+};
 
 export const NearNativeToken = "near";
 

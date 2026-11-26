@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { client, rootCredentials } from "../../../test/api";
-import { fakeGnoActor, resetMocks } from "../../../test/mocks";
+import { fakeGnoActor, gnoOperator, resetMocks } from "../../../test/mocks";
 import { GNO_NS, setupGnoChain } from "../../../test/gno";
 
 const root = client(rootCredentials());
@@ -36,5 +36,17 @@ describe("Gno.land chains", () => {
       `/api/tokens/${chainId}/g1d4jhycmgv9h8gh6lta047h6lta047h6lsu9czk`,
     );
     expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it("links the operator to its Gnoscan account on Onyx", async () => {
+    await setupGnoChain();
+    const res = await root.get("/api/overview/info");
+
+    expect(res.json.chains).toContainEqual(
+      expect.objectContaining({
+        caip2Id: "gno:onyx-1",
+        explorerUrl: `https://gnoscan.io/account/${gnoOperator}?chainId=onyx-1`,
+      }),
+    );
   });
 });
