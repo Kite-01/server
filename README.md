@@ -13,7 +13,7 @@ Kite is an open-source crypto payment processor that a business runs itself. The
 
 A business taking crypto on several chains ends up with balances spread across all of them. With [NEAR Intents](https://docs.near-intents.org/), it can receive every payment as one token at one address, for example USDC on NEAR at `shop.near`, whichever chain and token the customer paid with. NEAR and Aurora are payment chains too.
 
-This repository is the server: the API, the dashboard the business runs it from, and the checkout page customers pay on. The contracts ([EVM](https://github.com/Kite-01/contracts), [NEAR](https://github.com/Kite-01/near-contracts), [Stellar](https://github.com/Kite-01/stellar-contracts)) and the [SDK](https://github.com/Kite-01/monorepo) live in their own repositories.
+This repository is the server: the API, the dashboard the business runs it from, and the checkout page customers pay on. The contracts ([EVM](https://github.com/Kite-01/contracts), [NEAR](https://github.com/Kite-01/near-contracts), [Stellar](https://github.com/Kite-01/stellar-contracts), [Gno.land](https://github.com/Kite-01/gno-contracts)) and the [SDK](https://github.com/Kite-01/monorepo) live in their own repositories.
 
 ## Try it
 
@@ -76,6 +76,13 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - A refund can't carry a memo, so a refund to an exchange needs the exchange's `M…` (muxed) address. `M…` addresses are only accepted for Stellar Asset Contract tokens, as a custom SEP-41 token may not support them.
   - Swap quotes come from Soroswap's spot price, as its pairs keep no time-weighted average; the deposit contract still enforces the minimum it settles for. Without a Soroswap router configured for the network, customers can only pay in the settlement token.
   - A payout to a `G…` account that has no trustline for the settlement token fails the settlement, and the payment is refunded.
+- **Gno.land is in beta, on testnet (Onyx) only**: a mainnet server doesn't offer it yet, as Gno.land mainnet has no USD-pegged token with a GnoSwap pool to price payments. On Gno.land:
+  - Deposits are found by the balance check, as on chains without a notifier.
+  - Customers pay in the settlement token: nothing is swapped on-chain. GnoSwap only prices the link.
+  - The customer pays the gas of the payment, in GNOT. The operator pays for settling and refunding.
+  - NEAR Intents has no Gno.land, so payments settle to the app's Gno.land address even when the app has a payout set, and Gno.land can't be a payout destination.
+  - x402 takes GNOT only, as [gnolang/x402](https://github.com/gnolang/x402) does, and the agent pays its own gas. Payments signed with a session key aren't accepted.
+  - As gnolang/x402 documents, a signed payment doesn't expire: until the payer spends its sequence on another transaction, whoever holds it can broadcast it. And a payer can spend that sequence between verification and settlement, so the settlement fails.
 
 ## What Kite does
 
@@ -86,6 +93,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - on EVM chains it signs an EIP-3009 authorization, which the operator wallet submits, through the gas sponsor where one is set;
   - on NEAR it signs a delegated `ft_transfer`, which the operator relays as a meta transaction;
   - on Stellar it signs a Soroban authorization for one token `transfer`, which Kite's facilitator account submits and the operator fee-bumps.
+  - on Gno.land it signs a bank send of GNOT with [`@gnolang/x402`](https://github.com/gnolang/x402), which Kite verifies and broadcasts. This is the one chain where the agent pays its own gas: Gno.land has no fee sponsorship.
   - Your backend can use it too, with an API key scoped to `x402`: `/api/x402/supported`, `/api/x402/pay`, `/api/x402/transfer/<id>/requirements`, `/api/x402/verify` and `/api/x402/settle`.
 - **Any token in, your token out**: payments in another token are swapped through Uniswap V3, or V2 where a chain has no V3. They're priced from time-weighted averages, so a pool someone just moved can't skew a quote.
 - **Settlement on-chain**: each payment runs through its own [Kite contract](https://github.com/Kite-01/contracts), which settles, pays fees or refunds.
@@ -96,6 +104,10 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - Agents pay with x402: they sign a Soroban authorization for one token transfer, which Kite's facilitator account submits and the operator fee-bumps, so the agent pays no fees.
   - The operator pays every fee itself; there's no gas sponsor.
   - NEAR Intents knows Stellar as `stellar`, with USDC and XLM, so other chains can pay out to Stellar. Stellar payments will pay out through it once Stellar mainnet is added; Intents has no testnet.
+- **Gno.land as a chain** (beta, testnet only): each payment gets its own address, a sub-realm of the [Kite realm](https://github.com/Kite-01/gno-contracts), derived from the transfer before anything happens on-chain.
+  - The address is `chain.DerivePkgSubAddr(realm, "t/" + sha256(transfer))`. The customer sends GNOT, or a GRC20, to it with Adena or any wallet; the operator calls the realm's `Settle`, which mints that sub-realm identity, pays the fees and the merchant, and returns any excess. After expiry anyone can call `Refund`.
+  - Quotes come from GnoSwap's `DrySwapRoute`, held to the pool's time-weighted price from `Observe`, as on Uniswap. Onyx prices GNOT through a GNOT/tUSD pool, tUSD being a test dollar with a faucet.
+  - Agents pay with x402, in GNOT.
 - **NEAR as a chain** (beta): on NEAR, each payment gets its own deposit account in the same way, which the customer pays with any NEAR wallet or exchange.
   - The account's id is derived from the transfer, before it exists (a [NEP-616](https://github.com/near/NEPs/pull/616) `0s…` account running the `kite-deposit` global contract).
   - Swaps go through Rhea Finance.
@@ -135,7 +147,7 @@ You need [Bun](https://bun.sh) 1.4+ and PostgreSQL.
 
    The API and dashboard run together on `KITE_PORT` with hot reload.
 
-5. **Deploy your own Kite factory** on each chain you'll take payments on, as described in [Deploying](https://github.com/Kite-01/contracts#deploying) in the contracts repository ([NEAR](https://github.com/Kite-01/near-contracts#deploying-from-scratch), [Stellar](https://github.com/Kite-01/stellar-contracts#deploying-on-testnet)). Make your server's operator wallet its operator. Kite only settles through a factory where its operator wallet holds the operator role, so it refuses anyone else's, ours included.
+5. **Deploy your own Kite factory** on each chain you'll take payments on, as described in [Deploying](https://github.com/Kite-01/contracts#deploying) in the contracts repository ([NEAR](https://github.com/Kite-01/near-contracts#deploying-from-scratch), [Stellar](https://github.com/Kite-01/stellar-contracts#deploying-on-testnet), [Gno.land](https://github.com/Kite-01/gno-contracts#deploying-on-testnet)). Make your server's operator wallet its operator. Kite only settles through a factory where its operator wallet holds the operator role, so it refuses anyone else's, ours included.
 
    The operator wallet is the first account of `KITE_OPERATOR_MNEMONIC`. Run this from the repository root, where Bun loads your `.env`, to print its address:
 
@@ -226,6 +238,8 @@ Each running instance can hold `KITE_PG_POOL_MAX + KITE_PG_BOSS_POOL_MAX + 1` co
 
 On Stellar the operator is the `m/44'/148'/0'` key of `KITE_OPERATOR_MNEMONIC` (SEP-5), and x402 settlements are signed by its `m/44'/148'/1'` key, which needs an account on chain: fund both, on testnet with Friendbot.
 
+On Gno.land the operator is the `m/44'/118'/0'/0/0` key of `KITE_OPERATOR_MNEMONIC`, as gnokey derives it: fund it on testnet from [faucet.gno.land](https://faucet.gno.land).
+
 Provider keys (QuickNode, Alchemy, thirdweb, NEAR Intents, etc) aren't environment variables: set them from the dashboard's **Providers** page, where they're stored encrypted.
 
 ### Testnets
@@ -295,11 +309,22 @@ Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World
 
 Tag `pre-hackathon` (commit `84d0343`, the import of the existing code) marks Kite before the hackathon, and `hackathon-submission` the submitted state: [see the diff](https://github.com/Kite-01/server/compare/pre-hackathon...hackathon-submission). Thirdweb gas sponsorship, the Uniswap V2 fallback and the upgradeable factory are in that diff too, but they aren't NEAR work.
 
+## Gnome Tavern
+
+Kite takes part in Gnome Tavern, Gno.land's hackathon. What's judged is the Gno.land work, in beta on the Onyx testnet:
+
+- the Kite realm and its transfer package ([Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts)): each payment is paid into a sub-realm address derived from the transfer, settled by the operator with fees, or refunded, by anyone once it has expired, with its status in gnoweb;
+- tUSD, a test dollar, and a GNOT/tUSD GnoSwap pool, so links priced in any currency are quoted in GNOT;
+- GnoSwap quotes held to the pool's time-weighted price;
+- Adena at checkout, or paying the `g1…` address shown as a QR code;
+- x402 on Gno.land with [`@gnolang/x402`](https://github.com/gnolang/x402), verified and broadcast by Kite itself.
+
 ## Related repositories
 
 - [Kite-01/contracts](https://github.com/Kite-01/contracts): the `KiteFactory` and `Kite` contracts, published as `@kite-01/contracts` (MIT).
 - [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts): `factory` and `kite`, the same on NEAR (MIT).
 - [Kite-01/stellar-contracts](https://github.com/Kite-01/stellar-contracts): `factory` and `kite`, the same on Stellar, as Soroban contracts (MIT).
+- [Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts): the Kite realm and its transfer package on Gno.land, and tUSD, the test dollar (MIT).
 - [Kite-01/monorepo](https://github.com/Kite-01/monorepo): `@kite-01/sdk`, for calling the API and verifying webhooks (MIT).
 
 ## Contributing
