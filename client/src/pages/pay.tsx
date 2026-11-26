@@ -1083,17 +1083,6 @@ const InstructionsStep = ({
         </Row>
       </Rows>
 
-      {isStellar(chain) && (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] text-amber-800 border border-amber-200">
-          <IconInfoCircle className="size-4 shrink-0" />
-          <span>
-            This is a contract address (C…). Send with the token's transfer,
-            from a wallet that supports contract addresses: most exchanges and
-            classic payments can't.
-          </span>
-        </p>
-      )}
-
       {isGno(chain) && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] text-amber-800 border border-amber-200">
           <IconInfoCircle className="size-4 shrink-0" />
@@ -2028,11 +2017,7 @@ const PayFlow = () => {
 
           <Field
             label="Refund address"
-            hint={
-              isStellar(chain)
-                ? "If the payment can't be completed, your funds are sent here. A memo can't be attached, so for an exchange use its M… (muxed) address."
-                : "If the payment can't be completed, your funds are sent here. Use a wallet you control, not an exchange deposit address."
-            }
+            hint="If the payment can't be completed, your funds are sent here. Use a wallet you control, not an exchange deposit address."
           >
             <Input
               value={refundAddress}
