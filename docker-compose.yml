@@ -2,12 +2,12 @@
 # and set your own keys first; the database URL below replaces the one there.
 services:
   db:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: kite
     volumes:
-      - kite-db:/var/lib/postgresql/data
+      - kite-db:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d kite"]
       interval: 2s
