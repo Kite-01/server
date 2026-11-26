@@ -146,6 +146,9 @@ export const fakeGnoActor = {
   qeval: vi.fn(async (..._args: unknown[]): Promise<string> => {
     throw new Error("qeval not stubbed");
   }),
+  provider: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("provider not stubbed");
+  }),
   call: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
     throw new Error("call not stubbed");
   }),
@@ -233,6 +236,7 @@ export const resetMocks = () => {
   fakeGnoActor.getTransactionStatus.mockResolvedValue({ status: "pending" });
   fakeGnoActor.evaluate.mockRejectedValue(new Error("evaluate not stubbed"));
   fakeGnoActor.qeval.mockRejectedValue(new Error("qeval not stubbed"));
+  fakeGnoActor.provider.mockRejectedValue(new Error("provider not stubbed"));
   fakeGnoActor.call.mockRejectedValue(new Error("call not stubbed"));
   fakeGnoActor.send.mockRejectedValue(new Error("send not stubbed"));
   fakeGnoActor.getTokenMetadata.mockRejectedValue(

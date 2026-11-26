@@ -32,7 +32,13 @@ import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
+  getGnoActor,
 } from "../shared/onchainActor";
+import {
+  ExactGnoFacilitator,
+  decodeGnoPayment,
+} from "../sdks/x402GnoFacilitator";
+import { GnoNativeToken } from "../shared/gnoAddress";
 import { TransferService } from "./Transfer.service";
 import { ExactEvmScheme } from "@x402/evm/exact/facilitator";
 import { ExactNearScheme } from "@x402/near/exact/facilitator";
@@ -96,6 +102,15 @@ export class x402Service {
           areFeesSponsored: true,
           feeBumpSigner,
         }),
+      );
+
+      this.facilitators.set(caip2Id, facilitator);
+    }
+
+    if (!facilitator && getChain(caip2Id).type === ChainType.Gno) {
+      facilitator = new x402Facilitator().register(
+        caip2Id,
+        new ExactGnoFacilitator(getGnoActor(), chain.config.rpcUrls ?? []),
       );
 
       this.facilitators.set(caip2Id, facilitator);
@@ -204,6 +219,13 @@ export class x402Service {
       };
     }
 
+    if (
+      "transaction" in payload &&
+      getChain(requirements.network as Caip2Id).type === ChainType.Gno
+    ) {
+      return this.gnoAuthorizationOf(payload.transaction, requirements);
+    }
+
     if ("transaction" in payload) {
       return this.stellarAuthorizationOf(payload.transaction, requirements);
     }
@@ -251,6 +273,35 @@ export class x402Service {
       ),
       nonce: `${delegate.publicKey}:${delegate.nonce}`,
       hash: keccak256(toHex(fromBase64(payload.signedDelegateAction))),
+    };
+  };
+
+  // A gno payment carries no expiry; it's offered for maxTimeoutSeconds, and its hash is its nonce.
+  private gnoAuthorizationOf = (
+    transaction: string,
+    requirements: ReturnType<typeof x402_RequirementSchema.parse>,
+  ) => {
+    const payment = decodeGnoPayment(transaction);
+    if (!payment) {
+      throw new PreconditionError(
+        "The payment must be a signed transaction with one bank send",
+      );
+    }
+
+    const suffix = `${GnoNativeToken}`;
+    if (!payment.amount.endsWith(suffix) || requirements.asset !== suffix) {
+      throw new PreconditionError("x402 on Gno pays in GNOT only");
+    }
+
+    return {
+      from: payment.from,
+      to: payment.to,
+      value: payment.amount.slice(0, -suffix.length),
+      validBefore: String(
+        Math.floor(Date.now() / 1000) + requirements.maxTimeoutSeconds,
+      ),
+      nonce: `${payment.from}:${payment.hash}`,
+      hash: keccak256(toHex(payment.bytes)),
     };
   };
 
@@ -597,6 +648,10 @@ export class x402Service {
       return this.resolveStellarReservation(ctx, row, holdsLease);
     }
 
+    if (getChain(caip2Id).type === ChainType.Gno) {
+      return this.resolveGnoReservation(ctx, row, holdsLease);
+    }
+
     if (row.x402BlockchainHash) {
       const paid = await this.paysAuthorization(
         caip2Id,
@@ -799,6 +854,55 @@ export class x402Service {
     return { kind: "unpaid" };
   };
 
+  // A gno payment found nowhere is pending while it can still land: its signature still
+  // matches the payer's next sequence.
+  private resolveGnoReservation = async (
+    ctx: ValidatedPayment,
+    row: {
+      id: string;
+      x402BlockchainHash: string | null;
+      x402LeaseExpiresAt: Date | null;
+    },
+    holdsLease: boolean,
+  ): Promise<
+    | { kind: "settled"; transactionHash: string }
+    | { kind: "pending"; transactionHash?: string }
+    | { kind: "unpaid" }
+  > => {
+    const caip2Id = ctx.payment.transfer.quote.chain.caip2Id;
+    const transactionHash = row.x402BlockchainHash;
+
+    if (transactionHash) {
+      const status = await getGnoActor().getTransactionStatus(
+        caip2Id,
+        transactionHash,
+      );
+      if (status.status === "success") {
+        return { kind: "settled", transactionHash };
+      }
+
+      if (status.status === "pending") {
+        const facilitator = await this.facilitatorFor(caip2Id);
+        const landable = await facilitator
+          .verify(ctx.paymentPayload, ctx.paymentRequirements)
+          .then((result) => result.isValid)
+          .catch(() => true);
+        if (landable) return { kind: "pending", transactionHash };
+      }
+    }
+
+    if (
+      !holdsLease &&
+      row.x402LeaseExpiresAt &&
+      row.x402LeaseExpiresAt > new Date()
+    ) {
+      return { kind: "pending" };
+    }
+
+    await this.clearReservation(row.id, ctx.payment.nonce);
+    return { kind: "unpaid" };
+  };
+
   private acceptSettlement = async (
     ctx: ValidatedPayment,
     transactionHash: string,
@@ -889,8 +993,22 @@ export class x402Service {
       const tokens = await new TokenService().getTokensByChainId(chain.id);
       const near = getChain(chain.caip2Id).type === ChainType.Near;
       const stellar = getChain(chain.caip2Id).type === ChainType.Stellar;
+      const gno = getChain(chain.caip2Id).type === ChainType.Gno;
 
       for (const token of tokens) {
+        if (gno) {
+          if (token.address === GnoNativeToken) {
+            kinds.push({
+              x402Version: 2,
+              scheme: "exact",
+              network: chain.caip2Id,
+              extra: { asset: token.address, areFeesSponsored: false },
+            });
+          }
+
+          continue;
+        }
+
         if (stellar) {
           kinds.push({
             x402Version: 2,
@@ -1006,6 +1124,22 @@ export class x402Service {
         payTo: transfer_.payinAddress,
         maxTimeoutSeconds,
         extra: { areFeesSponsored: true },
+      };
+    }
+
+    if (getChain(caip2Id).type === ChainType.Gno) {
+      if (transfer_.quote.sourceToken.address !== GnoNativeToken) {
+        throw new PreconditionError("x402 on Gno pays in GNOT only");
+      }
+
+      return {
+        scheme: "exact" as const,
+        network: caip2Id,
+        asset: GnoNativeToken,
+        amount: transfer_.quote.sourceAmount.toString(),
+        payTo: transfer_.payinAddress,
+        maxTimeoutSeconds,
+        extra: { areFeesSponsored: false },
       };
     }
 

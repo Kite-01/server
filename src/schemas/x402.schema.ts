@@ -2,12 +2,16 @@ import { isAddress } from "viem";
 import { z } from "zod";
 import { isNearAccountId } from "../shared/nearAccount";
 import { isStellarAddress } from "../shared/stellarAddress";
+import { isGnoValue } from "../shared/gnoAddress";
 
 const AddressSchema = z
   .string()
   .refine(
     (value) =>
-      isAddress(value) || isNearAccountId(value) || isStellarAddress(value),
+      isAddress(value) ||
+      isNearAccountId(value) ||
+      isStellarAddress(value) ||
+      isGnoValue(value),
   );
 
 // EIP-3009 transferWithAuthorization, on EVM
@@ -28,6 +32,7 @@ const NearPayloadSchema = z.object({
   signedDelegateAction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });
 
+// a base64 signed std.Tx with one bank.MsgSend, on Gno, has the same shape
 const StellarPayloadSchema = z.object({
   transaction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });
@@ -36,7 +41,9 @@ export const x402_RequirementSchema = z.object({
   scheme: z.string(),
   network: z
     .string()
-    .regex(/^(eip155:[0-9]+|near:(mainnet|testnet)|stellar:(pubnet|testnet))$/),
+    .regex(
+      /^(eip155:[0-9]+|near:(mainnet|testnet)|stellar:(pubnet|testnet)|gno:[a-z0-9-]+)$/,
+    ),
   asset: AddressSchema,
   amount: z.string().regex(/^[0-9]+$/),
   payTo: AddressSchema,

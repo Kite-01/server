@@ -42,13 +42,16 @@ const toAddress = (bytes: Uint8Array) =>
 export const gnoSubRealmAddress = (realm: string, subpath: string) =>
   toAddress(sha256(new TextEncoder().encode(`pkgPath:${realm}#${subpath}`)));
 
+export const gnoPubKeyAddress = (publicKey: Uint8Array) =>
+  toAddress(ripemd160(sha256(publicKey)));
+
 // tm2 keys: secp256k1 on m/44'/118'/0'/0/<index>
 export const gnoKey = (mnemonic: string, index = 0) => {
   const key = HDKey.fromMasterSeed(mnemonicToSeedSync(mnemonic)).derive(
     `m/44'/118'/0'/0/${index}`,
   );
   return {
-    address: toAddress(ripemd160(sha256(key.publicKey!))),
+    address: gnoPubKeyAddress(key.publicKey!),
     privateKey: key.privateKey!,
   };
 };
