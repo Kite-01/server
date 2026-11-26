@@ -16,7 +16,7 @@ import { type ChainType, type KeyVars, type KvKey } from "./constants";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { isStellarAddress } from "./stellarAddress";
-import { GnoNativeToken, isGnoValue } from "./gnoAddress";
+import { GnoNativeToken, isGnoAddress, isGnoValue } from "./gnoAddress";
 import { AppError, SdkConfigError } from "./errors";
 import { timingSafeEqual } from "node:crypto";
 import { X509Certificate } from "node:crypto";
@@ -60,7 +60,7 @@ class Common {
     // compared as a string: constants.ts imports this file, so ChainType can't be imported here
     if ((chainType as string) === "Near") return isNearAccountId(address);
     if ((chainType as string) === "Stellar") return isStellarAddress(address);
-    if ((chainType as string) === "Gno") return isGnoValue(address);
+    if ((chainType as string) === "Gno") return isGnoAddress(address);
     return isAddress(address, { strict: false });
   };
 

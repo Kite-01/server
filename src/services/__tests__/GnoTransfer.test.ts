@@ -100,6 +100,7 @@ describe("TransferService on Gno", () => {
       await expect(create({}, "payer.near")).rejects.toThrow(
         /not a valid address/,
       );
+      await expect(create({}, REALM)).rejects.toThrow(/not a valid address/);
     });
 
     it("settles to the app's Gno address when a NEAR Intents payout is set", async () => {

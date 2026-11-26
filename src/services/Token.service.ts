@@ -30,7 +30,8 @@ export class TokenService {
     if (
       !isAddress(tokenAddress, { strict: false }) &&
       !isNearAccountId(tokenAddress) &&
-      !isStellarContract(tokenAddress.toUpperCase())
+      !isStellarContract(tokenAddress.toUpperCase()) &&
+      !isGnoToken(tokenAddress)
     ) {
       return undefined;
     }
@@ -103,11 +104,12 @@ export class TokenService {
             ? address === GnoNativeToken
             : common.isZeroAddress(address);
 
-    if (
-      !common.isValidAddress(chain_.type, address) ||
-      (chain_.type === ChainType.Stellar && !isStellarContract(address)) ||
-      (chain_.type === ChainType.Gno && !isGnoToken(address))
-    ) {
+    const isToken =
+      chain_.type === ChainType.Gno
+        ? isGnoToken(address)
+        : common.isValidAddress(chain_.type, address) &&
+          (chain_.type !== ChainType.Stellar || isStellarContract(address));
+    if (!isToken) {
       throw new AppError(`${address} is not a token address on ${chain_.name}`);
     }
 
