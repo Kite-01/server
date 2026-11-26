@@ -117,6 +117,23 @@ describe("testnets", () => {
       expect(mainnet.status).toBe(422);
     });
 
+    it("adds Gno.land's Onyx testnet, in beta", async () => {
+      const created = await root.post("/api/chains", {
+        caip2Id: "gno:onyx-1",
+      });
+      expect(created.status).toBe(201);
+
+      const supported = await root.get("/api/chains/supported");
+      expect(supported.json).toContainEqual(
+        expect.objectContaining({
+          caip2Id: "gno:onyx-1",
+          chainId: null,
+          beta: true,
+          nativeCurrency: { name: "GNOT", symbol: "GNOT", decimals: 6 },
+        }),
+      );
+    });
+
     it("adds Stellar testnet, with no EVM chain id", async () => {
       const created = await root.post("/api/chains", {
         caip2Id: "stellar:testnet",
