@@ -70,13 +70,13 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - Deposits are found by the balance check, as on chains without a notifier.
   - Swap quotes come from Rhea's spot price rather than a time-weighted average, though the deposit contract still enforces the minimum it settles for.
   - A token transfer costs one registration on the pay-in token (about 0.00125 NEAR) when it opens; a native NEAR one costs nothing. The deposit account is only created once there's a payment to settle or refund, and its reserve and registration deposits come back when it's finished.
-- **Stellar is in beta, on testnet only**: a mainnet server doesn't offer it yet. On Stellar:
+- **On Stellar:**
   - Deposits are found by the balance check, as on chains without a notifier.
   - The pay-in address is a contract (`C…`). Customers pay with the token's own `transfer`, from a wallet that can send to a contract address, or from the checkout's wallet button (Stellar Wallets Kit: Freighter, xBull, Lobstr, Albedo, Rabet, Hana and others). Classic payments, and most exchanges, can't send to it.
   - A refund can't carry a memo, so a refund to an exchange needs the exchange's `M…` (muxed) address. `M…` addresses are only accepted for Stellar Asset Contract tokens, as a custom SEP-41 token may not support them.
   - Swap quotes come from Soroswap's spot price, as its pairs keep no time-weighted average; the deposit contract still enforces the minimum it settles for. Without a Soroswap router configured for the network, customers can only pay in the settlement token.
   - A payout to a `G…` account that has no trustline for the settlement token fails the settlement, and the payment is refunded.
-- **Gno.land is in beta, on testnet (Onyx) only**: a mainnet server doesn't offer it yet, as Gno.land mainnet has no USD-pegged token with a GnoSwap pool to price payments. On Gno.land:
+- **On Gno.land:**
   - Deposits are found by the balance check, as on chains without a notifier.
   - Only GRC20s are swapped. A realm can't wrap or unwrap GNOT (`wugnot` only does so in a user's own transaction), so a link that settles in GNOT is paid in GNOT, and GNOT can't pay a link that settles in a GRC20.
   - The customer pays the gas of the payment, in GNOT. The operator pays for settling and refunding.
@@ -97,14 +97,14 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - Your backend can use it too, with an API key scoped to `x402`: `/api/x402/supported`, `/api/x402/pay`, `/api/x402/transfer/<id>/requirements`, `/api/x402/verify` and `/api/x402/settle`.
 - **Any token in, your token out**: payments in another token are swapped through Uniswap V3, or V2 where a chain has no V3. They're priced from time-weighted averages, so a pool someone just moved can't skew a quote.
 - **Settlement on-chain**: each payment runs through its own [Kite contract](https://github.com/Kite-01/contracts), which settles, pays fees or refunds.
-- **Stellar as a chain** (beta, testnet only): each payment gets its own Soroban contract, at a `C…` address derived from the transfer before anything is deployed, as on the other chains.
+- **Stellar as a chain**: each payment gets its own Soroban contract, at a `C…` address derived from the transfer before anything is deployed, as on the other chains.
   - The address comes from the [factory](https://github.com/Kite-01/stellar-contracts) and a salt, the `sha256` of the transfer's XDR. The customer pays USDC or XLM to it with the token's `transfer`; the factory deploys the contract only once it's paid, and settles in the same transaction.
   - Refunds, fees and payouts can go to `G…`, `C…` or `M…` addresses.
   - Swaps go through Soroswap where a router is configured. Testnet has one, with an XLM/USDC pair.
   - Agents pay with x402: they sign a Soroban authorization for one token transfer, which Kite's facilitator account submits and the operator fee-bumps, so the agent pays no fees.
   - The operator pays every fee itself; there's no gas sponsor.
   - NEAR Intents knows Stellar as `stellar`, with USDC and XLM, so other chains can pay out to Stellar. Stellar payments will pay out through it once Stellar mainnet is added; Intents has no testnet.
-- **Gno.land as a chain** (beta, testnet only): each payment gets its own address, a sub-realm of the [Kite realm](https://github.com/Kite-01/gno-contracts), derived from the transfer before anything happens on-chain.
+- **Gno.land as a chain**: each payment gets its own address, a sub-realm of the [Kite realm](https://github.com/Kite-01/gno-contracts), derived from the transfer before anything happens on-chain.
   - The address is `chain.DerivePkgSubAddr(realm, "t/" + sha256(transfer))`. The customer sends GNOT, or a GRC20, to it with Adena or any wallet; the operator calls the realm's `Settle`, which mints that sub-realm identity, pays the fees and the merchant, and returns any excess. After expiry anyone can call `Refund`.
   - A customer can pay in another GRC20 than the settlement token: `Settle` swaps it on GnoSwap as the deposit address, with a minimum output, before paying anyone.
   - Quotes come from GnoSwap's `DrySwapRoute`, held to the pool's time-weighted price from `Observe`, as on Uniswap. Onyx prices GNOT through a GNOT/tUSD pool, tUSD being a test dollar with a faucet.
@@ -310,22 +310,12 @@ Kite took part in [NEAR HACKATHON](https://nearhackathon.com), in the Real-World
 
 Tag `pre-hackathon` (commit `84d0343`, the import of the existing code) marks Kite before the hackathon, and `hackathon-submission` the submitted state: [see the diff](https://github.com/Kite-01/server/compare/pre-hackathon...hackathon-submission). Thirdweb gas sponsorship, the Uniswap V2 fallback and the upgradeable factory are in that diff too, but they aren't NEAR work.
 
-## Gnome Tavern
-
-Kite takes part in Gnome Tavern, Gno.land's hackathon. What's judged is the Gno.land work, in beta on the Onyx testnet:
-
-- the Kite realm and its transfer package ([Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts)): each payment is paid into a sub-realm address derived from the transfer, settled by the operator with fees, or refunded, by anyone once it has expired, with its status in gnoweb;
-- tUSD, a test dollar, and a GNOT/tUSD GnoSwap pool, so links priced in any currency are quoted in GNOT;
-- swaps through GnoSwap, made by the deposit itself when a customer pays another GRC20, and quotes held to the pool's time-weighted price;
-- Adena at checkout, or paying the `g1…` address shown as a QR code;
-- x402 on Gno.land with [`@gnolang/x402`](https://github.com/gnolang/x402), verified and broadcast by Kite itself, including payments signed with a session key.
-
 ## Related repositories
 
 - [Kite-01/contracts](https://github.com/Kite-01/contracts): the `KiteFactory` and `Kite` contracts, published as `@kite-01/contracts` (MIT).
 - [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts): `factory` and `kite`, the same on NEAR (MIT).
 - [Kite-01/stellar-contracts](https://github.com/Kite-01/stellar-contracts): `factory` and `kite`, the same on Stellar, as Soroban contracts (MIT).
-- [Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts): the Kite realm and its transfer package on Gno.land, and tUSD, the test dollar (MIT).
+- [Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts): the Kite realm and its transfer package on Gno.land (MIT).
 - [Kite-01/monorepo](https://github.com/Kite-01/monorepo): `@kite-01/sdk`, for calling the API and verifying webhooks (MIT).
 
 ## Contributing
