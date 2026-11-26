@@ -1,0 +1,30 @@
+# Kite and its Postgres, from the published image. Copy .env.example to .env
+# and set your own keys first; the database URL below replaces the one there.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kite
+    volumes:
+      - kite-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kite"]
+      interval: 2s
+      retries: 30
+
+  kite:
+    # latest follows main; testnet follows the testnet branch
+    image: ghcr.io/kite-01/server:${KITE_IMAGE:-latest}
+    env_file: .env
+    environment:
+      KITE_PG_DB_URL: postgres://postgres:postgres@db:5432/kite
+    ports:
+      - "${KITE_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kite-db:

@@ -121,6 +121,34 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
 
 ## Getting started
 
+### With Docker
+
+The quickest way: run the published image, [`ghcr.io/kite-01/server`](https://github.com/Kite-01/server/pkgs/container/server), with its Postgres. You only need Docker.
+
+```sh
+mkdir kite && cd kite
+curl -fsSLO https://raw.githubusercontent.com/Kite-01/server/main/docker-compose.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/Kite-01/server/main/.env.example
+```
+
+Set your own `KITE_ENCRYPTION_KEY` (`openssl rand -base64 32`), `KITE_OPERATOR_MNEMONIC` and `KITE_ROOT_KEY` in `.env`, then:
+
+```sh
+docker compose up -d
+```
+
+The image runs its migrations and serves the API and dashboard at `http://localhost:3000`. Then continue from step 5 below.
+
+| Image tag   | Follows    | Use it for                                          |
+| ----------- | ---------- | --------------------------------------------------- |
+| `latest`    | `main`     | mainnets                                            |
+| `testnet`   | `testnet`  | testnets: also set `KITE_IS_TESTNET=true` in `.env` |
+| `sha-<sha>` | one commit | pinning an exact build                              |
+
+Pick the tag with `KITE_IMAGE`, for example `KITE_IMAGE=testnet docker compose up -d`, and update with `docker compose pull && docker compose up -d`.
+
+### From source
+
 You need [Bun](https://bun.sh) 1.4+ and PostgreSQL.
 
 1. **Install**
@@ -150,11 +178,7 @@ You need [Bun](https://bun.sh) 1.4+ and PostgreSQL.
 
 5. **Deploy your own Kite factory** on each chain you'll take payments on, as described in [Deploying](https://github.com/Kite-01/contracts#deploying) in the contracts repository ([NEAR](https://github.com/Kite-01/near-contracts#deploying-from-scratch), [Stellar](https://github.com/Kite-01/stellar-contracts#deploying-on-testnet), [Gno.land](https://github.com/Kite-01/gno-contracts#deploying-on-testnet)). Make your server's operator wallet its operator. Kite only settles through a factory where its operator wallet holds the operator role, so it refuses anyone else's, ours included.
 
-   The operator wallet is the first account of `KITE_OPERATOR_MNEMONIC`. Run this from the repository root, where Bun loads your `.env`, to print its address:
-
-   ```sh
-   bun -e 'import { mnemonicToAccount } from "viem/accounts"; console.log(mnemonicToAccount(process.env.KITE_OPERATOR_MNEMONIC).address)'
-   ```
+   The operator wallet comes from `KITE_OPERATOR_MNEMONIC`, with an address on each kind of chain. The dashboard lists them under the settings menu, at the bottom of the sidebar.
 
 6. **Set it up in the dashboard**: open `http://localhost:3000`, sign in with your root key, then:
    1. under **Providers**, add the keys for a deposit notifier (QuickNode or Alchemy) and, optionally, a gas sponsor (Alchemy or thirdweb). Without a sponsor, the operator wallet pays gas;
@@ -249,12 +273,13 @@ Run a separate server with `KITE_IS_TESTNET=true` and its own database. A server
 
 ## Running in production
 
+Run the published image, [`ghcr.io/kite-01/server`](https://github.com/Kite-01/server/pkgs/container/server), against your own Postgres:
+
 ```sh
-docker build -t kite-server .
-docker run -p 3000:3000 --env-file .env kite-server
+docker run -p 3000:3000 --env-file .env ghcr.io/kite-01/server:latest
 ```
 
-The image builds the dashboard and runs migrations before starting.
+It's built for `linux/amd64` and `linux/arm64`, serves the dashboard, and runs migrations before starting. `docker-compose.yml` runs it with a Postgres of its own. To build it yourself instead: `docker build -t kite-server .`.
 
 ## Development
 
