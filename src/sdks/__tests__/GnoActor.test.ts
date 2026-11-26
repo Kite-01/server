@@ -3,7 +3,6 @@ import { gnoTxFee, parseQeval } from "../GnoActor";
 
 describe("GnoActor", () => {
   it("asks for the gas a simulation used and a fifth more, at the chain's price", () => {
-    // a GnoSwap swap, as Onyx simulated it
     expect(
       gnoTxFee(124_434_514n, { amount: 1, denom: "ugnot", gas: 1000 }),
     ).toEqual({ gas_wanted: 149_331_416n, gas_fee: "149332ugnot" });

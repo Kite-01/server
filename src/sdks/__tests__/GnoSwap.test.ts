@@ -8,7 +8,6 @@ const WUGNOT = "gno.land/r/gnoland/wugnot.wugnot";
 const GNS = "gno.land/r/gnoswap/gns.GNS";
 const POOL = `${WUGNOT}:${GNS}:3000`;
 
-// answers as Onyx gave them on 2026-11-25
 const chain = (dry: Record<string, string>, tick = 15211) => {
   fakeGnoActor.qeval.mockImplementation(async (...args: unknown[]) => {
     const [, pkg, expr] = args as [Caip2Id, string, string];
@@ -18,13 +17,16 @@ const chain = (dry: Record<string, string>, tick = 15211) => {
         const start = 36_919_164_264n;
         return `(slice[(${start} int64),(${start + BigInt(tick * 600)} int64)] []int64)\n(slice[("1" string),("2" string)] []string)\n(undefined)`;
       }
+
       throw new Error("pool not found");
     }
+
     if (pkg === "gno.land/r/gnoswap/router") {
       const key = Object.keys(dry).find((k) => expr.includes(k));
       if (!key) throw new Error(`unexpected ${expr}`);
       return dry[key];
     }
+
     throw new Error(`unexpected ${pkg}`);
   });
 };

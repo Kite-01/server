@@ -1,13 +1,13 @@
-import { createHash } from "node:crypto";
-import { KiteMaxFees } from "./constants";
-import { AppError } from "./errors";
-import { common } from "./common";
 import {
   GnoNativeToken,
   gnoSubRealmAddress,
   isGnoAddress,
   isGnoToken,
 } from "./gnoAddress";
+import { KiteMaxFees } from "./constants";
+import { createHash } from "node:crypto";
+import { AppError } from "./errors";
+import { common } from "./common";
 
 export type GnoKiteTransfer = {
   id: string;
@@ -17,7 +17,10 @@ export type GnoKiteTransfer = {
   min_out: string;
   route: string;
   recipient: string;
-  fees: Array<{ recipient: string; amount: string }>;
+  fees: Array<{
+    recipient: string;
+    amount: string;
+  }>;
   refund: string;
   expires_at: string;
 };
@@ -60,10 +63,11 @@ class KiteGnoContract {
       `expires=${t.expires_at}`,
     ].join(";");
 
-  hash = (t: GnoKiteTransfer) =>
-    createHash("sha256").update(this.encode(t)).digest("hex");
-
   subpath = (t: GnoKiteTransfer) => `t/${this.hash(t)}`;
+
+  hash = (t: GnoKiteTransfer) => {
+    return createHash("sha256").update(this.encode(t)).digest("hex");
+  };
 
   predictAddress = (realm: string, t: GnoKiteTransfer) => {
     const error = this.validateTransferInput(t);
@@ -71,9 +75,12 @@ class KiteGnoContract {
     return gnoSubRealmAddress(realm, this.subpath(t));
   };
 
-  // A realm can't wrap or unwrap GNOT, so only GRC20s swap
-  canSwap = (token: string, settle: string) =>
-    token === settle || (token !== GnoNativeToken && settle !== GnoNativeToken);
+  canSwap = (token: string, settle: string) => {
+    return (
+      token === settle ||
+      (token !== GnoNativeToken && settle !== GnoNativeToken)
+    );
+  };
 
   buildTransferInput = (input: {
     transferId: string;
@@ -83,7 +90,11 @@ class KiteGnoContract {
     minAmountOut: bigint;
     route: string | null;
     recipient: string;
-    fees: Array<{ id: string; recipient: string; amount: bigint }>;
+    fees: Array<{
+      id: string;
+      recipient: string;
+      amount: bigint;
+    }>;
     refundAddress: string;
     expiresAt: Date;
   }): GnoKiteTransfer => ({
@@ -105,8 +116,9 @@ class KiteGnoContract {
     expires_at: Math.floor(input.expiresAt.getTime() / 1000).toString(),
   });
 
-  sortFees = <T extends { id: string }>(fees: T[]) =>
-    [...fees].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  sortFees = <T extends { id: string }>(fees: T[]) => {
+    return [...fees].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  };
 
   validateTransferInput = (t: GnoKiteTransfer) => {
     if (!/^[0-9a-f]{32}$/.test(t.id) || /^0+$/.test(t.id)) {
@@ -114,7 +126,9 @@ class KiteGnoContract {
     }
 
     for (const token of [t.token, t.settle]) {
-      if (!isGnoToken(token)) return `${token} is not a Gno token`;
+      if (!isGnoToken(token)) {
+        return `${token} is not a Gno token`;
+      }
     }
 
     for (const address of [
@@ -122,8 +136,9 @@ class KiteGnoContract {
       t.refund,
       ...t.fees.map((f) => f.recipient),
     ]) {
-      if (!isGnoAddress(address))
+      if (!isGnoAddress(address)) {
         return `${address} is not a valid Gno address`;
+      }
     }
 
     const amounts = [
@@ -132,6 +147,7 @@ class KiteGnoContract {
       t.expires_at,
       ...t.fees.map((f) => f.amount),
     ];
+
     if (
       !amounts.every((value) => Int.test(value) && BigInt(value) < 2n ** 63n)
     ) {
@@ -177,17 +193,26 @@ class KiteGnoContract {
     events: Array<{
       type: string;
       pkg_path: string;
-      attrs: Array<{ key: string; value: string }> | null;
+      attrs: Array<{
+        key: string;
+        value: string;
+      }> | null;
     }>;
   }) => {
     const items: OnchainNotifierCallbackResult = [];
 
     input.events.forEach((event, index) => {
-      if (event.pkg_path !== input.realm) return;
+      if (event.pkg_path !== input.realm) {
+        return;
+      }
+
       const data = Object.fromEntries(
         (event.attrs ?? []).map((attr) => [attr.key, attr.value]),
       );
-      if (!/^[0-9a-f]{32}$/.test(data.transfer_id ?? "")) return;
+
+      if (!/^[0-9a-f]{32}$/.test(data.transfer_id ?? "")) {
+        return;
+      }
 
       const base = {
         caip2Id: input.caip2Id,
@@ -239,7 +264,6 @@ class KiteGnoContract {
     return items;
   };
 
-  // GnoSwap's "in:out:fee" hops joined by "*POOL*", from token to settle
   isRoute = (route: string, from: string, to: string) => {
     const hops = route.split("*POOL*");
     let next = from;
@@ -254,8 +278,10 @@ class KiteGnoContract {
       ) {
         return false;
       }
+
       next = tokenOut;
     }
+
     return hops.length <= GnoMaxHops && next === to;
   };
 

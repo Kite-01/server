@@ -265,7 +265,6 @@ export class x402Service {
       from: delegate.senderId,
       to: args.receiver_id,
       value: args.amount,
-      // NEAR has no expiry time, only a block height; this is when it should pass
       validBefore: String(
         Math.ceil(
           Date.now() / 1000 + Number(blocksLeft) * ESTIMATED_BLOCK_SECONDS,
@@ -276,7 +275,6 @@ export class x402Service {
     };
   };
 
-  // A gno payment carries no expiry; it's offered for maxTimeoutSeconds, and its hash is its nonce.
   private gnoAuthorizationOf = (
     transaction: string,
     requirements: ReturnType<typeof x402_RequirementSchema.parse>,
@@ -752,8 +750,6 @@ export class x402Service {
     };
   };
 
-  // A NEAR reservation without an outcome never landed or landed unseen; a used nonce means
-  // it landed.
   private resolveNearReservation = async (
     ctx: ValidatedPayment,
     row: {
@@ -776,11 +772,17 @@ export class x402Service {
         .catch(() => null);
 
       if (outcome?.status === "success" && !outcome.failure) {
-        return { kind: "settled", transactionHash: row.x402BlockchainHash };
+        return {
+          kind: "settled",
+          transactionHash: row.x402BlockchainHash,
+        };
       }
 
       if (!outcome) {
-        return { kind: "pending", transactionHash: row.x402BlockchainHash };
+        return {
+          kind: "pending",
+          transactionHash: row.x402BlockchainHash,
+        };
       }
     }
 
@@ -801,11 +803,15 @@ export class x402Service {
       row.x402LeaseExpiresAt &&
       row.x402LeaseExpiresAt > new Date()
     ) {
-      return { kind: "pending" };
+      return {
+        kind: "pending",
+      };
     }
 
     await this.clearReservation(row.id, ctx.payment.nonce);
-    return { kind: "unpaid" };
+    return {
+      kind: "unpaid",
+    };
   };
 
   private resolveStellarReservation = async (
@@ -828,7 +834,10 @@ export class x402Service {
     if (transactionHash) {
       const status = await actor.getTransactionStatus(caip2Id, transactionHash);
       if (status.status === "success") {
-        return { kind: "settled", transactionHash };
+        return {
+          kind: "settled",
+          transactionHash,
+        };
       }
 
       if (status.status === "pending") {
@@ -837,7 +846,10 @@ export class x402Service {
           ctx.payment.authorization as { expirationLedger?: number }
         ).expirationLedger;
         if (latest === null || !expiration || latest <= BigInt(expiration)) {
-          return { kind: "pending", transactionHash };
+          return {
+            kind: "pending",
+            transactionHash,
+          };
         }
       }
     }
@@ -847,15 +859,17 @@ export class x402Service {
       row.x402LeaseExpiresAt &&
       row.x402LeaseExpiresAt > new Date()
     ) {
-      return { kind: "pending" };
+      return {
+        kind: "pending",
+      };
     }
 
     await this.clearReservation(row.id, ctx.payment.nonce);
-    return { kind: "unpaid" };
+    return {
+      kind: "unpaid",
+    };
   };
 
-  // A gno payment found nowhere is pending while it can still land: its signature still
-  // matches the payer's next sequence.
   private resolveGnoReservation = async (
     ctx: ValidatedPayment,
     row: {
@@ -878,7 +892,10 @@ export class x402Service {
         transactionHash,
       );
       if (status.status === "success") {
-        return { kind: "settled", transactionHash };
+        return {
+          kind: "settled",
+          transactionHash,
+        };
       }
 
       if (status.status === "pending") {
@@ -887,7 +904,13 @@ export class x402Service {
           .verify(ctx.paymentPayload, ctx.paymentRequirements)
           .then((result) => result.isValid)
           .catch(() => true);
-        if (landable) return { kind: "pending", transactionHash };
+
+        if (landable) {
+          return {
+            kind: "pending",
+            transactionHash,
+          };
+        }
       }
     }
 
@@ -896,11 +919,15 @@ export class x402Service {
       row.x402LeaseExpiresAt &&
       row.x402LeaseExpiresAt > new Date()
     ) {
-      return { kind: "pending" };
+      return {
+        kind: "pending",
+      };
     }
 
     await this.clearReservation(row.id, ctx.payment.nonce);
-    return { kind: "unpaid" };
+    return {
+      kind: "unpaid",
+    };
   };
 
   private acceptSettlement = async (

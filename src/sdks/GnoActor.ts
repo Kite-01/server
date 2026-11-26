@@ -15,27 +15,24 @@ import {
   type Any,
   type GasPrice,
 } from "@gnolang/tm2-js-client";
+import { GnoNativeToken, gnoKey } from "../shared/gnoAddress";
+import { type OnchainActor } from "./interfaces/OnchainActor";
 import { getGnoChain } from "../shared/chains";
 import { AppError } from "../shared/errors";
 import { env } from "../shared/env";
-import { GnoNativeToken, gnoKey } from "../shared/gnoAddress";
-import { type OnchainActor } from "./interfaces/OnchainActor";
-
-const NotOnGno = (method: string) =>
-  new AppError(`${method} isn't available on Gno`);
 
 const Grc20Registry = "gno.land/r/nt/grc20reg/v0";
 
-// what a draft may use while it's simulated; a GnoSwap swap alone uses about 125M
-const DraftGas = 1_000_000_000n;
+const NotOnGno = (method: string) => {
+  return new AppError(`${method} isn't available on Gno`);
+};
 
-// The gas a simulation used, plus a fifth, at the chain's price, rounded up;
-// gno.land's 1 ugnot per 1,000 gas when it reports none
 export const gnoTxFee = (gasUsed: bigint, price: GasPrice | null) => {
   const gasWanted = (gasUsed * 6n) / 5n + 10_000n;
   const [amount, gas] = price
     ? [BigInt(price.amount), BigInt(price.gas)]
     : [1n, 1000n];
+
   return {
     gas_wanted: gasWanted,
     gas_fee: `${(gasWanted * amount + gas - 1n) / gas}${price?.denom ?? GnoNativeToken}`,
@@ -52,13 +49,18 @@ export type GnoCallResult = {
 export type GnoEvent = {
   type: string;
   pkg_path: string;
-  attrs: Array<{ key: string; value: string }>;
+  attrs: Array<{
+    key: string;
+    value: string;
+  }>;
 };
 
-// one value of `vm/qeval`'s output, like ("4556245" string) or (true bool)
 export const parseQeval = (output: string) => {
   const match = /^\((.*) ([^ ()]+)\)$/m.exec(output.trim());
-  if (!match) throw new AppError(`Unexpected Gno result: ${output}`);
+  if (!match) {
+    throw new AppError(`Unexpected Gno result: ${output}`);
+  }
+
   const [, value] = match;
   return value.startsWith('"') ? (JSON.parse(value) as string) : value;
 };
@@ -81,6 +83,7 @@ export class GnoActor implements OnchainActor {
       provider.catch(() => this.providers.delete(url));
       this.providers.set(url, provider);
     }
+
     return provider;
   };
 
@@ -109,16 +112,17 @@ export class GnoActor implements OnchainActor {
   };
 
   private wallet = async (caip2Id: Caip2Id, rpcUrls?: string[]) => {
+    const provider = await this.provider(caip2Id, rpcUrls);
     const wallet = await GnoWallet.fromMnemonic(env.KITE_OPERATOR_MNEMONIC, {
       addressPrefix: "g",
       accountIndex: 0,
     });
-    wallet.connect(await this.provider(caip2Id, rpcUrls));
+
+    wallet.connect(provider);
+
     return wallet;
   };
 
-  // tm2-js-client's estimateGas sends the transaction's base64 as its bytes, which
-  // nodes can't decode, so it's queried here with the bytes themselves
   private simulate = async (provider: GnoProvider, tx: Tx) => {
     const { response } = await provider.abciQuery({
       path: ".app/simulate",
@@ -126,17 +130,17 @@ export class GnoActor implements OnchainActor {
       height: 0,
       prove: false,
     });
+
     const result = parseProto(response.Value!, ResponseDeliverTx.decode);
     if (result.response_base?.error) {
       throw new GnoCallError(
         result.response_base.log || "The transaction failed in simulation",
       );
     }
+
     return result.gas_used;
   };
 
-  // Signs a draft and simulates it, so a call the chain would refuse fails
-  // here for free, then sends it with the gas the simulation used
   private broadcast = (caip2Id: Caip2Id, message: Any, rpcUrls?: string[]) => {
     return this.serialize(caip2Id, async () => {
       const wallet = await this.wallet(caip2Id, rpcUrls);
@@ -150,9 +154,10 @@ export class GnoActor implements OnchainActor {
 
       try {
         const draft = await wallet.signTransaction(
-          tx(gnoTxFee(DraftGas, null)),
+          tx(gnoTxFee(1_000_000_000n, null)),
           decodeTxMessages,
         );
+
         const used = await this.simulate(provider, draft);
         const fee = gnoTxFee(used, await provider.getGasPrice());
         const signed = await wallet.signTransaction(tx(fee), decodeTxMessages);
@@ -196,7 +201,6 @@ export class GnoActor implements OnchainActor {
     };
   };
 
-  // a GRC20 is moved through its realm's Transfer, as grc20 tokens expose it
   send = async (
     caip2Id: Caip2Id,
     token: string,
@@ -212,6 +216,7 @@ export class GnoActor implements OnchainActor {
         [to, amount.toString()],
         rpcUrls,
       );
+
       return result.transactionHash;
     }
 
@@ -227,6 +232,7 @@ export class GnoActor implements OnchainActor {
       },
       rpcUrls,
     );
+
     return result.hash;
   };
 
@@ -256,18 +262,21 @@ export class GnoActor implements OnchainActor {
     tokenAddress: string,
     rpcUrls?: string[],
   ) => {
-    const read = (method: string) =>
-      this.evaluate(
+    const read = (method: string) => {
+      return this.evaluate(
         caip2Id,
         Grc20Registry,
         `MustGet(${JSON.stringify(tokenAddress)}).${method}()`,
         rpcUrls,
       );
+    };
+
     const [name, symbol, decimals] = await Promise.all([
       read("GetName"),
       read("GetSymbol"),
       read("GetDecimals"),
     ]);
+
     return { name, symbol, decimals: Number(decimals) };
   };
 
@@ -300,6 +309,7 @@ export class GnoActor implements OnchainActor {
     try {
       const provider = await this.provider(caip2Id);
       const tx = await provider.getTransaction(callId);
+
       return {
         status: tx.tx_result.ResponseBase.Error ? "failure" : "success",
         transactionHash: callId,

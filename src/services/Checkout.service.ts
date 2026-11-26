@@ -37,7 +37,9 @@ type SettlementToken = {
 export class CheckoutService {
   private takesX402 = (
     caip2Id: Caip2Id,
-    config: { settlementToken: SettlementToken },
+    config: {
+      settlementToken: SettlementToken;
+    },
   ) => {
     if (getChain(caip2Id).type === ChainType.Near) {
       return config.settlementToken.address !== NearNativeToken;
@@ -47,7 +49,6 @@ export class CheckoutService {
       return true;
     }
 
-    // gnolang/x402 pays in GNOT only
     if (getChain(caip2Id).type === ChainType.Gno) {
       return config.settlementToken.address === GnoNativeToken;
     }
@@ -110,7 +111,6 @@ export class CheckoutService {
 
         const x402 = this.takesX402(chain.caip2Id, chain.config);
         const settlementToken = chain.config.settlementToken;
-        // without a swap router, Stellar only takes the settlement token; Gno swaps GRC20s only
         const swaps =
           meta.type !== ChainType.Stellar || !!meta.contracts.Soroswap?.router;
         const tokens = (await tokenService.getTokensByChainId(chain.id)).filter(

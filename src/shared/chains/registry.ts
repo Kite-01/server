@@ -995,7 +995,6 @@ export const Chains: Record<Caip2Id, Chain> = {
     beta: true,
     publicRpcUrls: ["https://rpc.onyx.testnets.gno.land:443"],
     confirmations: 1,
-    // Gnoscan picks the network from its chainId query
     blockExplorer: {
       name: "Gnoscan",
       url: "https://gnoscan.io?chainId=onyx-1",

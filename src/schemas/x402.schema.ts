@@ -14,7 +14,6 @@ const AddressSchema = z
       isGnoValue(value),
   );
 
-// EIP-3009 transferWithAuthorization, on EVM
 const EvmPayloadSchema = z.object({
   signature: z.string().regex(/^0x(?:[0-9a-fA-F]{2})+$/),
   authorization: z.object({
@@ -27,12 +26,10 @@ const EvmPayloadSchema = z.object({
   }),
 });
 
-// a base64 Borsh NEP-366 SignedDelegate for one ft_transfer, on NEAR
 const NearPayloadSchema = z.object({
   signedDelegateAction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });
 
-// a base64 signed std.Tx with one bank.MsgSend, on Gno, has the same shape
 const StellarPayloadSchema = z.object({
   transaction: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/),
 });

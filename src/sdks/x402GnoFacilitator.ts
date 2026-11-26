@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { secp256k1 } from "@noble/curves/secp256k1";
 import {
   MsgEndpoint,
   MsgSend,
@@ -23,11 +21,16 @@ import type {
   SettleResponse,
   VerifyResponse,
 } from "@x402/core/types";
-import { getX402Observer } from "../shared/context/x402";
 import { GnoNativeToken, gnoPubKeyAddress } from "../shared/gnoAddress";
+import { getX402Observer } from "../shared/context/x402";
 import { type GnoActor } from "./GnoActor";
+import { createHash } from "node:crypto";
+import { secp256k1 } from "@noble/curves/secp256k1";
 
-export const SettlePolling = { attempts: 10, ms: 1000 };
+export const SettlePolling = {
+  attempts: 10,
+  ms: 1000,
+};
 
 export type GnoPayment = {
   bytes: Buffer;
@@ -38,7 +41,6 @@ export type GnoPayment = {
   hash: string;
 };
 
-// a payment from @gnolang/x402: a signed, unbroadcast std.Tx with one bank.MsgSend
 export const decodeGnoPayment = (transaction: string): GnoPayment | null => {
   try {
     const bytes = Buffer.from(transaction, "base64");
@@ -47,7 +49,9 @@ export const decodeGnoPayment = (transaction: string): GnoPayment | null => {
     if (tx.messages.length !== 1 || message.type_url !== MsgEndpoint.MSG_SEND) {
       return null;
     }
+
     const send = MsgSend.decode(message.value);
+
     return {
       bytes,
       tx,
@@ -61,7 +65,6 @@ export const decodeGnoPayment = (transaction: string): GnoPayment | null => {
   }
 };
 
-// what tm2's ante and gno.land's session restrictions would refuse a bank send for
 export const sessionRefusal = (
   session: SessionAccountInfo,
   spend: bigint,
@@ -81,9 +84,11 @@ export const sessionRefusal = (
       .split(",")
       .map((coin) => /^(\d+)ugnot$/.exec(coin.trim())?.[1])
       .reduce((total, amount) => total + BigInt(amount ?? 0), 0n);
+
   const reset =
     !!session.spend_period &&
     now >= (session.spend_reset ?? 0) + session.spend_period;
+
   const used = reset ? 0n : ugnot(session.spend_used);
   if (!session.spend_limit || used + spend > ugnot(session.spend_limit)) {
     return "The payment and its fee exceed the session's spend limit";
@@ -92,10 +97,10 @@ export const sessionRefusal = (
   return null;
 };
 
-const invalid = (invalidReason: string, invalidMessage: string) =>
-  ({ isValid: false, invalidReason, invalidMessage }) as const;
+const invalid = (invalidReason: string, invalidMessage: string) => {
+  return { isValid: false, invalidReason, invalidMessage } as const;
+};
 
-// verifies and broadcasts what the payer signed, as gnolang/x402's facilitator does; it holds no key
 export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
   readonly scheme = "exact";
   readonly caipFamily = "gno:*";
@@ -105,7 +110,9 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
     private readonly rpcUrls: string[] = [],
   ) {}
 
-  getExtra = () => ({ areFeesSponsored: false });
+  getExtra = () => ({
+    areFeesSponsored: false,
+  });
 
   getSigners = () => [];
 
@@ -125,12 +132,14 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
     if (requirements.asset !== GnoNativeToken) {
       return invalid("invalid_payload", "x402 on Gno pays in ugnot only");
     }
+
     if (payment.to !== requirements.payTo) {
       return {
         ...invalid("invalid_payload", "The payment isn't to payTo"),
         payer,
       };
     }
+
     if (payment.amount !== `${requirements.amount}${GnoNativeToken}`) {
       return {
         ...invalid("invalid_payload", "The payment amount doesn't match"),
@@ -139,6 +148,7 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
     }
 
     const [signature] = payment.tx.signatures;
+
     if (
       payment.tx.signatures.length !== 1 ||
       signature.pub_key?.type_url !== Secp256k1PubKeyType
@@ -152,7 +162,6 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
       };
     }
 
-    // a session key signs for its master, the payer, over its own account
     const session = signature.session_addr;
     const publicKey = PubKeySecp256k1.decode(signature.pub_key.value).key;
     if (gnoPubKeyAddress(publicKey) !== (session || payer)) {
@@ -177,15 +186,21 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
       requirements.network as Caip2Id,
       this.rpcUrls,
     );
+
     let signer: { account_number?: string; sequence?: string } | null;
     if (session) {
       const info = await provider.getSession(payer, session).catch(() => null);
       const refusal = info
         ? sessionRefusal(info, needed)
         : "The payer has no such session";
+
       if (refusal) {
-        return { ...invalid("invalid_exact_gno_session", refusal), payer };
+        return {
+          ...invalid("invalid_exact_gno_session", refusal),
+          payer,
+        };
       }
+
       signer = info;
     } else {
       signer = await provider
@@ -193,6 +208,7 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
         .then((account) => account.BaseAccount)
         .catch(() => null);
     }
+
     if (!signer?.account_number || !signer.sequence) {
       return {
         ...invalid("insufficient_funds", "The payer's account doesn't exist"),
@@ -215,6 +231,7 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
         }),
       ),
     );
+
     const digest = createHash("sha256").update(signBytes).digest();
     if (!secp256k1.verify(signature.signature, digest, publicKey)) {
       return {
@@ -232,6 +249,7 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
       payer,
       this.rpcUrls,
     );
+
     if (balance < needed) {
       return {
         ...invalid(
@@ -242,7 +260,10 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
       };
     }
 
-    return { isValid: true, payer };
+    return {
+      isValid: true,
+      payer,
+    };
   };
 
   settle = async (
@@ -267,6 +288,7 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
       network as Caip2Id,
       this.rpcUrls,
     );
+
     await getX402Observer()?.onBroadcast(payment.hash);
 
     try {
@@ -291,7 +313,10 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
         network as Caip2Id,
         payment.hash,
       );
-      if (status.status === "pending") continue;
+
+      if (status.status === "pending") {
+        continue;
+      }
 
       return status.status === "success"
         ? {
