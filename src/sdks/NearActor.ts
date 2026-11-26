@@ -2,19 +2,20 @@ import {
   Account,
   FailoverRpcProvider,
   JsonRpcProvider,
-  type KeyPairString,
   actions,
+  type KeyPairString,
   type FinalExecutionOutcome,
 } from "near-api-js";
+import { type OnchainActor } from "./interfaces/OnchainActor";
+import { NearNativeToken } from "../shared/kiteNearContract";
 import { parseSeedPhrase } from "near-api-js/seed-phrase";
 import { getNearChain } from "../shared/chains";
 import { AppError } from "../shared/errors";
 import { env } from "../shared/env";
-import { type OnchainActor } from "./interfaces/OnchainActor";
-import { NearNativeToken } from "../shared/kiteNearContract";
 
-const NotOnNear = (method: string) =>
-  new AppError(`${method} isn't available on NEAR`);
+const NotOnNear = (method: string) => {
+  return new AppError(`${method} isn't available on NEAR`);
+};
 
 export type NearFunctionCall = {
   contractId: string;
@@ -33,10 +34,6 @@ export type NearCallResult = {
 
 const MaxGas = 300_000_000_000_000n;
 
-/**
- * The operator on NEAR: the implicit account of `KITE_OPERATOR_MNEMONIC`'s key on
- * m/44'/397'/0', a different key from the operator's EVM one.
- */
 export class NearActor implements OnchainActor {
   private keyPair?: ReturnType<typeof parseSeedPhrase>;
   private queue = new Map<string, Promise<unknown>>();
@@ -70,7 +67,6 @@ export class NearActor implements OnchainActor {
     );
   };
 
-  /** Sends one at a time per chain, so concurrent jobs don't race for the access key's nonce. */
   serialize = <T>(caip2Id: Caip2Id, run: () => Promise<T>) => {
     const previous = this.queue.get(caip2Id) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(run);
@@ -104,10 +100,15 @@ export class NearActor implements OnchainActor {
         publicKey,
         finalityQuery: { finality: "final" },
       });
+
       return { nonce: BigInt(key.nonce) };
     } catch (e) {
-      if (/does not exist|UNKNOWN_ACCESS_KEY|UNKNOWN_ACCOUNT/i.test(String(e)))
+      if (
+        /does not exist|UNKNOWN_ACCESS_KEY|UNKNOWN_ACCOUNT/i.test(String(e))
+      ) {
         return null;
+      }
+
       throw e;
     }
   };
@@ -218,7 +219,6 @@ export class NearActor implements OnchainActor {
     };
   };
 
-  /** `contract` is null for a plain account, such as a deposit paid before it's deployed. */
   getAccount = async (
     caip2Id: Caip2Id,
     accountId: string,
@@ -229,8 +229,10 @@ export class NearActor implements OnchainActor {
         accountId,
         blockQuery: { finality: "final" },
       });
+
       const global = (account as { global_contract_hash?: string })
         .global_contract_hash;
+
       return {
         amount: BigInt(account.amount),
         storageUsage: Number(account.storage_usage),
@@ -253,6 +255,7 @@ export class NearActor implements OnchainActor {
           accountId: address,
           blockQuery: { finality: "final" },
         });
+
         return BigInt(account.amount);
       } catch (e) {
         if (/does not exist|UNKNOWN_ACCOUNT/i.test(String(e))) return 0n;
@@ -264,10 +267,9 @@ export class NearActor implements OnchainActor {
       caip2Id,
       tokenAddress,
       "ft_balance_of",
-      {
-        account_id: address,
-      },
+      { account_id: address },
     );
+
     return BigInt(balance ?? "0");
   };
 
@@ -283,10 +285,10 @@ export class NearActor implements OnchainActor {
     const block = await this.provider(caip2Id).viewBlock({
       blockId: Number(blockNumber),
     });
+
     return BigInt(block.header.timestamp) / 1_000_000_000n;
   };
 
-  /** NEAR blocks are final after one confirmation; a transaction found as final has it. */
   getConfirmations = async (
     caip2Id: Caip2Id,
     transactionHash: string,

@@ -1,23 +1,23 @@
-import { type Address, type Hex, erc20Abi, isAddress, parseAbi } from "viem";
 import {
   paginate,
   searchPattern,
   type WithPageInput,
 } from "../shared/pagination";
-import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
-import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
-import { getChain, readContracts } from "../shared/chains";
-import { ChainType, Provider, zeroBytes32 } from "../shared/constants";
-import { isNearAccountId, NearNativeToken } from "../shared/kiteNearContract";
-import { chainConfig, token } from "../db/schema";
 import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
   getGnoActor,
 } from "../shared/onchainActor";
-import { isStellarContract } from "../shared/stellarAddress";
+import { type Address, type Hex, erc20Abi, isAddress, parseAbi } from "viem";
+import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
+import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
+import { ChainType, Provider, zeroBytes32 } from "../shared/constants";
+import { isNearAccountId, NearNativeToken } from "../shared/kiteNearContract";
 import { GnoNativeToken, isGnoToken } from "../shared/gnoAddress";
+import { getChain, readContracts } from "../shared/chains";
+import { chainConfig, token } from "../db/schema";
+import { isStellarContract } from "../shared/stellarAddress";
 import { ChainService } from "./Chain.service";
 import { NearIntents } from "../sdks/NearIntents";
 import { KvService } from "./Kv.service";
@@ -178,14 +178,16 @@ export class TokenService {
 
     if (chain_.type === ChainType.Stellar) {
       const actor = getStellarActor();
-      const read = <T>(method: string) =>
-        actor.view<T>(
+      const read = <T>(method: string) => {
+        return actor.view<T>(
           chain.caip2Id,
           address,
           method,
           [],
           chain.config?.rpcUrls ?? [],
         );
+      };
+
       const metadata = await Promise.all([
         read<string>("name"),
         read<string>("symbol"),

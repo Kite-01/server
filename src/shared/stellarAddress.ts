@@ -1,19 +1,24 @@
-import { Keypair, StrKey } from "@stellar/stellar-sdk";
 import { createHmac, pbkdf2Sync } from "node:crypto";
+import { Keypair, StrKey } from "@stellar/stellar-sdk";
 
-export const isStellarAccount = (value: string) =>
-  StrKey.isValidEd25519PublicKey(value);
+export const isStellarAccount = (value: string) => {
+  return StrKey.isValidEd25519PublicKey(value);
+};
 
-export const isStellarContract = (value: string) =>
-  StrKey.isValidContract(value);
+export const isStellarContract = (value: string) => {
+  return StrKey.isValidContract(value);
+};
 
-export const isStellarMuxed = (value: string) =>
-  StrKey.isValidMed25519PublicKey(value);
+export const isStellarMuxed = (value: string) => {
+  return StrKey.isValidMed25519PublicKey(value);
+};
 
-export const isStellarAddress = (value: string) =>
-  isStellarAccount(value) || isStellarContract(value) || isStellarMuxed(value);
+export const isStellarAddress = (value: string) => {
+  return (
+    isStellarAccount(value) || isStellarContract(value) || isStellarMuxed(value)
+  );
+};
 
-// SEP-5: SLIP-10 ed25519 on m/44'/148'/<index>'
 export const stellarKeypair = (mnemonic: string, index: number) => {
   const seed = pbkdf2Sync(
     mnemonic.normalize("NFKD"),
@@ -22,6 +27,7 @@ export const stellarKeypair = (mnemonic: string, index: number) => {
     64,
     "sha512",
   );
+
   let node = createHmac("sha512", "ed25519 seed").update(seed).digest();
   for (const segment of [44, 148, index]) {
     const hardened = Buffer.alloc(4);
@@ -30,5 +36,6 @@ export const stellarKeypair = (mnemonic: string, index: number) => {
       .update(Buffer.concat([Buffer.alloc(1), node.subarray(0, 32), hardened]))
       .digest();
   }
+
   return Keypair.fromRawEd25519Seed(node.subarray(0, 32));
 };

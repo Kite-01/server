@@ -16,7 +16,9 @@ import { Digits, ChainAddress, t, Uuid } from "./schema";
 import { Elysia } from "elysia";
 
 const named = (name: string) => {
-  return { $id: `#/components/schemas/${name}` };
+  return {
+    $id: `#/components/schemas/${name}`,
+  };
 };
 
 const ref = <T extends TSchema>(schema: T) => {

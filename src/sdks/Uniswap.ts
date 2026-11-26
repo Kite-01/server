@@ -10,9 +10,9 @@ import {
   UniswapFeeTiers,
   UniswapTwapWindowsSeconds,
 } from "../shared/constants";
+import { getChain, getEvmChain } from "../shared/chains";
 import { type UniswapQuoter } from "./interfaces/UniswapQuoter";
 import { getOnchainActor } from "../shared/onchainActor";
-import { getChain, getEvmChain } from "../shared/chains";
 import { common } from "../shared/common";
 
 const Q112 = 1n << 112n;
@@ -25,7 +25,6 @@ const Uint32 = 1n << 32n;
 const V2FeeNumerator = 997n;
 const V2FeeDenominator = 1000n;
 
-// UniswapV2Library.getAmountOut
 export const v2AmountOut = (
   amountIn: bigint,
   reserveIn: bigint,
@@ -38,7 +37,6 @@ export const v2AmountOut = (
   );
 };
 
-// UniswapV2Library.getAmountIn
 export const v2AmountIn = (
   amountOut: bigint,
   reserveIn: bigint,
@@ -55,7 +53,6 @@ export const v2AmountIn = (
   );
 };
 
-// a pair's price accumulator as of `timestamp`, adding the time since its last trade
 export const v2CumulativeAt = (
   observation: {
     cumulative: bigint;
@@ -567,8 +564,6 @@ export class Uniswap implements UniswapQuoter {
     return null;
   };
 
-  // the average keeps a briefly moved pair from setting the price,
-  // the current reserves add the price impact the average leaves out
   private quoteV2ExactInput = async (input: UniswapQuoterExactInputArgs) => {
     const twap = await this.getV2Twap(
       input.caip2Id,

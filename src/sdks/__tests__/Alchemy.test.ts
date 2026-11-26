@@ -5,10 +5,6 @@ import {
   RpcRequestError,
   type Hex,
 } from "viem";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeActor, resetMocks, testMnemonic } from "../../test/mocks";
-import { mnemonicToAccount } from "viem/accounts";
-import { address, USDC, ZERO } from "../../test/factories";
 import {
   KeyType,
   KeyVarPrefix,
@@ -16,6 +12,10 @@ import {
   networkKeyVar,
   type KvKey,
 } from "../../shared/constants";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeActor, resetMocks, testMnemonic } from "../../test/mocks";
+import { address, USDC, ZERO } from "../../test/factories";
+import { mnemonicToAccount } from "viem/accounts";
 import { Kite__factory } from "@kite-01/contracts/typechain/factories/contracts/Kite__factory.js";
 import { createHmac } from "node:crypto";
 import { KvService } from "../../services/Kv.service";

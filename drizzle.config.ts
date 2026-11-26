@@ -1,5 +1,6 @@
+import { pgSSLOptions } from "./src/shared/pgSSL";
 import { defineConfig } from "drizzle-kit";
-import { env, pgSslOptions } from "./src/shared/env";
+import { env } from "./src/shared/env";
 
 export default defineConfig({
   schema: "./src/db/schema/index.ts",
@@ -7,6 +8,6 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: env.KITE_PG_DB_URL,
-    ...pgSslOptions,
+    ...pgSSLOptions,
   },
 });

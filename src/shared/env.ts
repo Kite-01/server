@@ -36,8 +36,3 @@ const EnvSchema = z.object({
 });
 
 export const env = EnvSchema.parse(process.env);
-
-// left out without a certificate, so the URL's sslmode still applies
-export const pgSslOptions = env.KITE_PG_DB_CERTIFICATE
-  ? { ssl: { ca: env.KITE_PG_DB_CERTIFICATE } }
-  : {};

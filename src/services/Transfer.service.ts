@@ -1,4 +1,3 @@
-import { formatUnits, getAddress, zeroAddress, type Hex } from "viem";
 import {
   chainConfig,
   customer,
@@ -34,6 +33,7 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { db, dbWithTransaction, type DatabaseOrTransaction } from "../db";
+import { formatUnits, getAddress, zeroAddress, type Hex } from "viem";
 import {
   and,
   asc,
@@ -253,7 +253,6 @@ export class TransferService {
 
     const options = await this.sdkOptions();
 
-    // each activity is watched by the first provider that accepts it
     const firstAccepting = async (
       track: (provider: Provider) => Promise<unknown>,
     ) => {

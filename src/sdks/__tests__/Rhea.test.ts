@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { Rhea } from "../Rhea";
 import { fakeNearActor, resetMocks } from "../../test/mocks";
+import { Rhea } from "../Rhea";
 import { env } from "../../shared/env";
 
 const CAIP2 = "near:testnet" as Caip2Id;

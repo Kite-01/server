@@ -17,6 +17,7 @@ vi.mock("../Http", () => ({
     constructor(_baseURL: string, headers: Record<string, string>) {
       http.headers.push(headers);
     }
+
     get = http.get;
     post = http.post;
   },
@@ -113,6 +114,7 @@ describe("NearIntents", () => {
     expect(await client.getStatus("0xDep", options)).toEqual({
       status: "SUCCESS",
     });
+
     expect(http.get).toHaveBeenCalledWith("/status?depositAddress=0xDep");
   });
 });

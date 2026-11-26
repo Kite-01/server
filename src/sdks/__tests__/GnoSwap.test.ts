@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { swapQuoter } from "../../shared/swapQuoter";
 import { fakeGnoActor, resetMocks } from "../../test/mocks";
+import { swapQuoter } from "../../shared/swapQuoter";
 import { env } from "../../shared/env";
 
 const CAIP2 = "gno:onyx-1" as Caip2Id;

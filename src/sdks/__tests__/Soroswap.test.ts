@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { scValToNative, type xdr } from "@stellar/stellar-sdk";
-import { Soroswap } from "../Soroswap";
-import { swapQuoter } from "../../shared/swapQuoter";
-import { Chains, type StellarChain } from "../../shared/chains/registry";
 import { fakeStellarActor, resetMocks } from "../../test/mocks";
+import { Chains, type StellarChain } from "../../shared/chains/registry";
+import { scValToNative, type xdr } from "@stellar/stellar-sdk";
+import { swapQuoter } from "../../shared/swapQuoter";
+import { Soroswap } from "../Soroswap";
 import { env } from "../../shared/env";
 
 const CAIP2 = "stellar:testnet" as Caip2Id;
@@ -20,9 +20,11 @@ const router = (paths: Record<string, bigint[]>) => {
       string,
       xdr.ScVal[],
     ];
+
     if (contract !== ROUTER) throw new Error(`unexpected ${contract}`);
     const path = (scValToNative(params[1]) as string[]).join(">");
     const amounts = paths[path];
+
     if (!amounts) throw new Error("Error(Contract, #403)");
     expect(method).toMatch(/^router_get_amounts_(out|in)$/);
     return amounts;

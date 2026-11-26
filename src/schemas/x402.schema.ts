@@ -1,8 +1,8 @@
+import { isStellarAddress } from "../shared/stellarAddress";
+import { isNearAccountId } from "../shared/nearAccount";
+import { isGnoValue } from "../shared/gnoAddress";
 import { isAddress } from "viem";
 import { z } from "zod";
-import { isNearAccountId } from "../shared/nearAccount";
-import { isStellarAddress } from "../shared/stellarAddress";
-import { isGnoValue } from "../shared/gnoAddress";
 
 const AddressSchema = z
   .string()

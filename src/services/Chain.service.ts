@@ -2,25 +2,25 @@ import {
   getProvider,
   isProviderConfiguredForAction,
 } from "../shared/providers";
-import { type Address, isAddress, keccak256, toHex } from "viem";
-import { and, eq, inArray, isNull, desc } from "drizzle-orm";
-import { getChain, getSupportedChains } from "../shared/chains";
-import { chain, chainConfig, token } from "../db/schema";
-import { AppError, NotFoundError } from "../shared/errors";
-import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
-import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
 import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
   getGnoActor,
 } from "../shared/onchainActor";
-import { isStellarContract } from "../shared/stellarAddress";
-import { isGnoRealm } from "../shared/gnoAddress";
+import { type Address, isAddress, keccak256, toHex } from "viem";
+import { and, eq, inArray, isNull, desc } from "drizzle-orm";
+import { getChain, getSupportedChains } from "../shared/chains";
 import { Address as StellarAddress } from "@stellar/stellar-sdk";
-import { isNearAccountId } from "../shared/kiteNearContract";
 import { ChainType, ProviderAction } from "../shared/constants";
+import { chain, chainConfig, token } from "../db/schema";
+import { AppError, NotFoundError } from "../shared/errors";
+import { KiteFactory__factory } from "@kite-01/contracts/typechain/factories/contracts/KiteFactory__factory.js";
+import { type OnchainNotifier } from "../sdks/interfaces/OnchainNotifier";
+import { isStellarContract } from "../shared/stellarAddress";
+import { isNearAccountId } from "../shared/kiteNearContract";
 import { NearIntents } from "../sdks/NearIntents";
+import { isGnoRealm } from "../shared/gnoAddress";
 import { KvService } from "./Kv.service";
 import { common } from "../shared/common";
 import { omit } from "lodash";
@@ -181,7 +181,7 @@ export class ChainService {
 
     if (!isOperator) {
       throw new AppError(
-        `The server's NEAR account ${actor.getAddress()} is not an operator on the provided Kite factory`,
+        "The server's NEAR account is not an operator on the provided Kite factory",
       );
     }
   };
@@ -218,7 +218,7 @@ export class ChainService {
 
     if (isOperator !== "true") {
       throw new AppError(
-        `The server's Gno address ${actor.getAddress()} is not an operator on the provided Kite realm`,
+        "The server's Gno address is not an operator on the provided Kite realm",
       );
     }
   };
@@ -256,7 +256,7 @@ export class ChainService {
 
     if (!isOperator) {
       throw new AppError(
-        `The server's Stellar account ${actor.getAddress()} is not an operator on the provided Kite factory`,
+        "The server's Stellar account is not an operator on the provided Kite factory",
       );
     }
   };
@@ -283,6 +283,7 @@ export class ChainService {
       const settlementToken = await db.query.token.findFirst({
         where: eq(token.id, input.settlementTokenId),
       });
+
       if (settlementToken) {
         await getStellarActor().trust(
           chain.caip2Id,
@@ -311,9 +312,10 @@ export class ChainService {
     );
 
     for (const provider of input.onchainNotifierProviders) {
-      const reason = await getProvider<OnchainNotifier>(
-        provider,
-      ).getTrackingError(chain.caip2Id, { variables });
+      const reason = getProvider<OnchainNotifier>(provider).getTrackingError(
+        chain.caip2Id,
+        { variables },
+      );
 
       if (reason) {
         throw new AppError(
@@ -349,7 +351,6 @@ export class ChainService {
         set: { ...omit(values, ["chainId"]), updatedAt: new Date() },
       });
 
-    // NEAR Intents may have started listing the settlement token since it was added
     const settlementToken = await db.query.token.findFirst({
       where: eq(token.id, input.settlementTokenId),
     });

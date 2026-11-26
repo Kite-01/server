@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { pgSSLOptions } from "../pgSSL.js";
 
 const original = process.env.KITE_ROOT_KEY;
 
@@ -39,17 +40,17 @@ describe("environment", () => {
   });
 
   it("leaves Postgres TLS to the URL without a certificate", async () => {
-    expect((await loadEnv(original!)).pgSslOptions).toEqual({});
-    expect((await loadEnv(original!, "")).pgSslOptions).toEqual({});
+    await loadEnv(original!);
+    expect(pgSSLOptions).toEqual({});
+
+    await loadEnv(original!, "");
+    expect(pgSSLOptions).toEqual({});
   });
 
   it("verifies Postgres against the certificate, even one set on a single line", async () => {
-    const { pgSslOptions } = await loadEnv(
-      original!,
-      Certificate.replace(/\n/g, "\\n"),
-    );
+    await loadEnv(original!, Certificate.replace(/\n/g, "\\n"));
 
-    expect(pgSslOptions).toEqual({ ssl: { ca: Certificate } });
+    expect(pgSSLOptions).toEqual({ ssl: { ca: Certificate } });
   });
 
   it("rejects a certificate that isn't PEM", async () => {

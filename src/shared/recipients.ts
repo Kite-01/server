@@ -1,17 +1,18 @@
-import { getChain } from "./chains";
-import { ChainType } from "./constants";
 import { getNearActor, getStellarActor } from "./onchainActor";
+import { ChainType } from "./constants";
+import { getChain } from "./chains";
 
-// implicit accounts (64 hex, or 0x + 40 hex) come into being with their first transfer
-const isNearImplicit = (account: string) =>
-  /^[0-9a-f]{64}$/.test(account) || /^0x[0-9a-f]{40}$/.test(account);
+const isNearImplicit = (account: string) => {
+  return /^[0-9a-f]{64}$/.test(account) || /^0x[0-9a-f]{40}$/.test(account);
+};
 
-// Why `address` can't receive `token` on the chain, or null when it can. EVM addresses
-// always can; NEAR tokens are registered for the recipient when they're sent.
 export const whyCantReceive = async (input: {
   caip2Id: Caip2Id;
   address: string;
-  token: { address: string; symbol: string };
+  token: {
+    address: string;
+    symbol: string;
+  };
   rpcUrls?: string[];
 }) => {
   const { caip2Id, address, token, rpcUrls } = input;

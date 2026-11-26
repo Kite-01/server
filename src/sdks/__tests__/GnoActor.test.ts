@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { gnoTxFee, parseQeval } from "../GnoActor";
+import { describe, expect, it } from "vitest";
 
 describe("GnoActor", () => {
   it("asks for the gas a simulation used and a fifth more, at the chain's price", () => {
