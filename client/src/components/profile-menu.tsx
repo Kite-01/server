@@ -1,5 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { IconPower, IconSelector, IconSettings2 } from "@tabler/icons-react";
+import { useState } from "react";
+import {
+  IconPower,
+  IconSearch,
+  IconSelector,
+  IconSettings2,
+} from "@tabler/icons-react";
 import { overviewInfoOptions } from "@/api/@tanstack/react-query.gen";
 import { CopyButton } from "@/components/copy-button";
 import {
@@ -9,24 +15,35 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { Badge } from "./ui/badge";
 
-const chainTypeLabels = {
-  Evm: "EVM",
-  Near: "NEAR",
-  Stellar: "Stellar",
-  Gno: "Gno.land",
+const trustWallet = (folder: string) =>
+  `https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/${folder}/info/logo.png`;
+
+const chainTypes = {
+  Evm: { label: "EVM", logo: trustWallet("ethereum") },
+  Near: { label: "NEAR", logo: trustWallet("near") },
+  Stellar: { label: "Stellar", logo: trustWallet("stellar") },
+  Gno: { label: "Gno.land", logo: "https://gno.land/public/imgs/gnoland.svg" },
 };
 
 export const ProfileMenu = () => {
   const { signOut } = useSession();
   const { data } = useQuery(overviewInfoOptions());
+  const [search, setSearch] = useState("");
+  const term = search.trim().toLowerCase();
+  const operators = (data?.operators ?? []).filter(
+    (operator) =>
+      chainTypes[operator.chainType].label.toLowerCase().includes(term) ||
+      operator.address.toLowerCase().includes(term),
+  );
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={() => setSearch("")}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -61,17 +78,41 @@ export const ProfileMenu = () => {
 
         {!!data?.operators.length && (
           <>
-            <div className="space-y-1 px-4 pb-2">
-              {data.operators.map((operator) => (
+            <div className="px-4 pb-3">
+              <div className="relative">
+                <IconSearch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  // the menu's own keyboard navigation would take the keys
+                  onKeyDown={(event) => event.stopPropagation()}
+                  placeholder="Search chains or addresses"
+                  aria-label="Search operator wallets"
+                  autoFocus
+                  spellCheck={false}
+                  className="h-8.5 pl-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-64 space-y-2 overflow-y-auto px-4 pb-3">
+              {operators.map((operator) => (
                 <div
                   key={operator.chainType}
-                  className="w-full flex items-center justify-between text-sm"
+                  className="flex w-full items-center justify-between gap-3 text-sm"
                 >
-                  <p className="font-medium">
-                    {chainTypeLabels[operator.chainType]}
-                  </p>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <img
+                      src={chainTypes[operator.chainType].logo}
+                      alt=""
+                      className="size-6 shrink-0 rounded-full bg-soft object-contain"
+                    />
+                    <span className="truncate font-medium">
+                      {chainTypes[operator.chainType].label}
+                    </span>
+                  </span>
 
-                  <div className="flex items-center">
+                  <div className="flex shrink-0 items-center">
                     <p className="text-xs text-muted">
                       {shortAddress(operator.address)}
                     </p>
@@ -79,6 +120,11 @@ export const ProfileMenu = () => {
                   </div>
                 </div>
               ))}
+              {!operators.length && (
+                <p className="py-2 text-center text-xs text-muted">
+                  No wallet matches “{search.trim()}”
+                </p>
+              )}
             </div>
 
             <DropdownMenuSeparator />
