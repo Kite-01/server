@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { MsgEndpoint, MsgSend, decodeTxMessages } from "@gnolang/gno-js-client";
+import {
+  MsgEndpoint,
+  MsgSend,
+  decodeTxMessages,
+  type SessionAccountInfo,
+} from "@gnolang/gno-js-client";
 import {
   PubKeySecp256k1,
   Secp256k1PubKeyType,
@@ -56,6 +61,37 @@ export const decodeGnoPayment = (transaction: string): GnoPayment | null => {
   }
 };
 
+// what tm2's ante and gno.land's session restrictions would refuse a bank send for
+export const sessionRefusal = (
+  session: SessionAccountInfo,
+  spend: bigint,
+  now = Math.floor(Date.now() / 1000),
+) => {
+  if (session.expires_at && now >= session.expires_at) {
+    return "The session has expired";
+  }
+
+  const paths = session.allow_paths ?? [];
+  if (!paths.includes("*") && !paths.includes("bank/send")) {
+    return "The session isn't allowed to send coins";
+  }
+
+  const ugnot = (coins?: string) =>
+    (coins ?? "")
+      .split(",")
+      .map((coin) => /^(\d+)ugnot$/.exec(coin.trim())?.[1])
+      .reduce((total, amount) => total + BigInt(amount ?? 0), 0n);
+  const reset =
+    !!session.spend_period &&
+    now >= (session.spend_reset ?? 0) + session.spend_period;
+  const used = reset ? 0n : ugnot(session.spend_used);
+  if (!session.spend_limit || used + spend > ugnot(session.spend_limit)) {
+    return "The payment and its fee exceed the session's spend limit";
+  }
+
+  return null;
+};
+
 const invalid = (invalidReason: string, invalidMessage: string) =>
   ({ isValid: false, invalidReason, invalidMessage }) as const;
 
@@ -105,45 +141,71 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
     const [signature] = payment.tx.signatures;
     if (
       payment.tx.signatures.length !== 1 ||
-      signature.session_addr ||
       signature.pub_key?.type_url !== Secp256k1PubKeyType
     ) {
       return {
         ...invalid(
           "invalid_payload",
-          "The payment must carry one secp256k1 signature from its sender",
+          "The payment must carry one secp256k1 signature",
         ),
         payer,
       };
     }
 
+    // a session key signs for its master, the payer, over its own account
+    const session = signature.session_addr;
     const publicKey = PubKeySecp256k1.decode(signature.pub_key.value).key;
-    if (gnoPubKeyAddress(publicKey) !== payer) {
+    if (gnoPubKeyAddress(publicKey) !== (session || payer)) {
       return {
-        ...invalid("invalid_payload", "The signer isn't the sender"),
+        ...invalid(
+          "invalid_payload",
+          session
+            ? "The signer isn't the session's key"
+            : "The signer isn't the sender",
+        ),
         payer,
       };
     }
+
+    const fee = payment.tx.fee!;
+    const [gasFee] = parseSignCoin(fee.gas_fee);
+    const needed =
+      BigInt(requirements.amount) +
+      (gasFee?.denom === GnoNativeToken ? BigInt(gasFee.amount) : 0n);
 
     const provider = await this.actor.provider(
       requirements.network as Caip2Id,
       this.rpcUrls,
     );
-    const account = await provider.getAccount(payer).catch(() => null);
-    if (!account) {
+    let signer: { account_number?: string; sequence?: string } | null;
+    if (session) {
+      const info = await provider.getSession(payer, session).catch(() => null);
+      const refusal = info
+        ? sessionRefusal(info, needed)
+        : "The payer has no such session";
+      if (refusal) {
+        return { ...invalid("invalid_exact_gno_session", refusal), payer };
+      }
+      signer = info;
+    } else {
+      signer = await provider
+        .getAccount(payer)
+        .then((account) => account.BaseAccount)
+        .catch(() => null);
+    }
+    if (!signer?.account_number || !signer.sequence) {
       return {
         ...invalid("insufficient_funds", "The payer's account doesn't exist"),
         payer,
       };
     }
 
-    const fee = payment.tx.fee!;
     const signBytes = stringToUTF8(
       encodeCharacterSet(
         sortedJsonStringify({
           chain_id: requirements.network.replace(/^gno:/, ""),
-          account_number: account.BaseAccount.account_number,
-          sequence: account.BaseAccount.sequence,
+          account_number: signer.account_number,
+          sequence: signer.sequence,
           fee: {
             amount: parseSignCoin(fee.gas_fee),
             gas: fee.gas_wanted.toString(10),
@@ -158,16 +220,12 @@ export class ExactGnoFacilitator implements SchemeNetworkFacilitator {
       return {
         ...invalid(
           "invalid_exact_gno_payload_signature",
-          "The signature doesn't match this chain and the payer's next sequence",
+          "The signature doesn't match this chain and the signer's next sequence",
         ),
         payer,
       };
     }
 
-    const [gasFee] = parseSignCoin(fee.gas_fee);
-    const needed =
-      BigInt(requirements.amount) +
-      (gasFee?.denom === GnoNativeToken ? BigInt(gasFee.amount) : 0n);
     const balance = await this.actor.getBalance(
       requirements.network as Caip2Id,
       GnoNativeToken,

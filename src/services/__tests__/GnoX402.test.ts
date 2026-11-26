@@ -13,7 +13,7 @@ import {
   schedulerMock,
 } from "../../test/mocks";
 import { TransferStatus } from "../../shared/constants";
-import { SettlePolling } from "../../sdks/x402GnoFacilitator";
+import { SettlePolling, sessionRefusal } from "../../sdks/x402GnoFacilitator";
 import { x402Service } from "../x402.service";
 
 const service = new x402Service();
@@ -42,8 +42,20 @@ describe("x402 on Gno", () => {
   let tusdId: string;
   let agent: GnoWallet;
   let agentAddress: string;
+  const session = (change: Record<string, unknown> = {}) => ({
+    address: "",
+    master_address: "",
+    account_number: "12",
+    sequence: "0",
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    spend_limit: "50000000ugnot",
+    spend_used: "",
+    allow_paths: ["bank/send"],
+    ...change,
+  });
   const chain = {
     getAccount: vi.fn(async () => account("3")),
+    getSession: vi.fn(async () => session()),
     sendTransaction: vi.fn(async () => ({ hash: "" })),
   };
 
@@ -52,6 +64,7 @@ describe("x402 on Gno", () => {
     SettlePolling.ms = 0;
     chain.getAccount.mockReset().mockResolvedValue(account("3"));
     chain.sendTransaction.mockReset().mockResolvedValue({ hash: "" });
+    chain.getSession.mockReset().mockResolvedValue(session());
     fakeGnoActor.provider.mockResolvedValue(chain);
     fakeGnoActor.getBalance.mockResolvedValue(100_000_000n);
     ({ appId, chainId, gnotId, tusdId } = await setupGnoChain());
@@ -78,14 +91,15 @@ describe("x402 on Gno", () => {
   const pay = async (
     created: Awaited<ReturnType<typeof open>>,
     change: Record<string, unknown> = {},
+    signer: { wallet: GnoWallet; master?: string } = { wallet: agent },
   ) => {
     const requirements = await service.getPaymentRequirements(
       appId,
       created.id,
     );
-    const signed = await new ExactGnoScheme(
-      agent as never,
-    ).createPaymentPayload(2, {
+    const signed = await new ExactGnoScheme(signer.wallet as never, {
+      master: signer.master,
+    }).createPaymentPayload(2, {
       ...requirements,
       ...change,
     } as never);
@@ -250,5 +264,96 @@ describe("x402 on Gno", () => {
       errorReason: "transaction_failed",
     });
     expect((await reload(created.id)).x402AuthorizationNonce).toBeNull();
+  });
+
+  describe("with a session key", () => {
+    const sessionMnemonic =
+      "letter advice cage absurd amount doctor acoustic avoid letter advice cage above";
+    let sessionKey: GnoWallet;
+
+    beforeEach(async () => {
+      sessionKey = await GnoWallet.fromMnemonic(sessionMnemonic);
+      sessionKey.connect({
+        getSession: async () => session(),
+        getGasPrice: async () => null,
+      } as never);
+    });
+
+    const paySession = (created: Awaited<ReturnType<typeof open>>) =>
+      pay(created, {}, { wallet: sessionKey, master: agentAddress });
+
+    it("verifies and settles a payment the agent's session key signed", async () => {
+      const created = await open();
+      const { requirements, payload, hash } = await paySession(created);
+      fakeGnoActor.getTransactionStatus.mockResolvedValue({
+        status: "success",
+        transactionHash: hash,
+      });
+
+      expect(await service.verify(appId, payload, requirements)).toEqual({
+        isValid: true,
+        payer: agentAddress,
+      });
+      expect(chain.getSession).toHaveBeenCalledWith(
+        agentAddress,
+        await sessionKey.getAddress(),
+      );
+
+      const settled = await service.settle(appId, payload, requirements);
+      expect(settled).toMatchObject({ success: true, payer: agentAddress });
+    });
+
+    it("refuses what the chain would", async () => {
+      const created = await open();
+      const { requirements, payload } = await paySession(created);
+
+      chain.getSession.mockRejectedValue(new Error("unknown session"));
+      expect(await service.verify(appId, payload, requirements)).toMatchObject({
+        isValid: false,
+        invalidReason: "invalid_exact_gno_session",
+        invalidMessage: "The payer has no such session",
+      });
+
+      chain.getSession.mockResolvedValue(session({ sequence: "1" }));
+      expect(await service.verify(appId, payload, requirements)).toMatchObject({
+        isValid: false,
+        invalidReason: "invalid_exact_gno_payload_signature",
+      });
+    });
+
+    it("holds a session to its expiry, allowed paths and spend limit", () => {
+      const now = 1_800_000_000;
+      const ok = session({ expires_at: now + 60 });
+      expect(sessionRefusal(ok, 10_000_000n, now)).toBeNull();
+      expect(sessionRefusal({ ...ok, expires_at: now }, 1n, now)).toMatch(
+        /expired/,
+      );
+      expect(
+        sessionRefusal({ ...ok, allow_paths: ["vm/exec"] }, 1n, now),
+      ).toMatch(/send coins/);
+      expect(sessionRefusal({ ...ok, allow_paths: ["*"] }, 1n, now)).toBeNull();
+      expect(
+        sessionRefusal(
+          { ...ok, spend_used: "45000000ugnot" },
+          10_000_000n,
+          now,
+        ),
+      ).toMatch(/spend limit/);
+      expect(
+        sessionRefusal(
+          {
+            ...ok,
+            spend_used: "45000000ugnot",
+            spend_period: 86_400,
+            spend_reset: now - 86_400,
+          },
+          10_000_000n,
+          now,
+        ),
+      ).toBeNull();
+      expect(
+        sessionRefusal({ ...ok, spend_limit: undefined }, 1n, now),
+      ).toMatch(/spend limit/);
+    });
   });
 });

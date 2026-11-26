@@ -81,7 +81,7 @@ What Kite can do on a chain depends on the providers that support it. [`src/shar
   - Customers pay in the settlement token: nothing is swapped on-chain. GnoSwap only prices the link.
   - The customer pays the gas of the payment, in GNOT. The operator pays for settling and refunding.
   - NEAR Intents has no Gno.land, so payments settle to the app's Gno.land address even when the app has a payout set, and Gno.land can't be a payout destination.
-  - x402 takes GNOT only, as [gnolang/x402](https://github.com/gnolang/x402) does, and the agent pays its own gas. Payments signed with a session key aren't accepted.
+  - x402 takes GNOT only, as [gnolang/x402](https://github.com/gnolang/x402) does, and the agent pays its own gas. An agent can pay with a session key its account registered, within the session's spend limit, expiry and allowed messages.
   - As gnolang/x402 documents, a signed payment doesn't expire: until the payer spends its sequence on another transaction, whoever holds it can broadcast it. And a payer can spend that sequence between verification and settlement, so the settlement fails.
 
 ## What Kite does
