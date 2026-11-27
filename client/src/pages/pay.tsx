@@ -1083,18 +1083,6 @@ const InstructionsStep = ({
         </Row>
       </Rows>
 
-      {isGno(chain) && (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] text-amber-800 border border-amber-200">
-          <IconInfoCircle className="size-4 shrink-0" />
-          <span>
-            {token.address === "ugnot"
-              ? "Send GNOT with a plain transfer."
-              : `Send with ${token.symbol}'s Transfer function, not a bank transfer.`}{" "}
-            You pay the network fee in GNOT.
-          </span>
-        </p>
-      )}
-
       <p className="mt-3 flex items-center gap-2 rounded-xl bg-blue-50 px-3.5 py-3 text-[13px] text-blue-700 border border-blue-200">
         <IconInfoCircle className="size-4 shrink-0" />
         <span>
