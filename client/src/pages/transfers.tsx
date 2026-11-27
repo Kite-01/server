@@ -27,7 +27,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
 import {
   formatDateTime,
-  formatTokenAmount,
+  formatToken,
   formatUsd,
   shortAddress,
   shortId,
@@ -194,10 +194,7 @@ const Detail = ({
       />,
     ],
     ["Status", <StatusBadge status={transfer.status} />],
-    [
-      "Customer pays",
-      `${formatTokenAmount(quote.sourceAmount, quote.sourceToken.decimals)} ${quote.sourceToken.symbol}`,
-    ],
+    ["Customer pays", formatToken(quote.sourceAmount, quote.sourceToken)],
     ["Value", formatUsd(quote.targetUsdAmount)],
     [
       "Customer",
@@ -421,7 +418,7 @@ export const Transfers = () => {
           {
             header: "Customer pays",
             cell: (row) =>
-              `${formatTokenAmount(row.quote.sourceAmount, row.quote.sourceToken.decimals)} ${row.quote.sourceToken.symbol}`,
+              formatToken(row.quote.sourceAmount, row.quote.sourceToken),
           },
           {
             header: "Value",
