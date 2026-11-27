@@ -30,6 +30,22 @@ describe("Gno.land chains", () => {
     );
   });
 
+  it("gives wugnot GNOT's decimals", async () => {
+    const { chainId } = await setupGnoChain();
+    const key = "gno.land/r/gnoland/wugnot.wugnot";
+    fakeGnoActor.getTokenMetadata.mockResolvedValue({
+      name: "wrapped GNOT",
+      symbol: "wugnot",
+      decimals: 0,
+    });
+
+    const res = await root.get(
+      `/api/tokens/${chainId}/${encodeURIComponent(key)}`,
+    );
+
+    expect(res.json).toMatchObject({ symbol: "wugnot", decimals: 6 });
+  });
+
   it("refuses a g1 address as a token", async () => {
     const { chainId } = await setupGnoChain();
     const res = await root.get(

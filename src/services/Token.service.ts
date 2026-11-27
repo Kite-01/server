@@ -168,10 +168,15 @@ export class TokenService {
         throw new AppError("Could not get meta information for token");
       }
 
+      // wugnot counts in ugnot, so it takes GNOT's decimals, as wallets show it.
       return saveToken({
         chainId,
         address,
         ...metadata,
+        decimals:
+          address === chain_.contracts.wugnot
+            ? chain_.nativeCurrency.decimals
+            : metadata.decimals,
         supportsEIP3009: false,
       });
     }

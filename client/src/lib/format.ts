@@ -56,7 +56,7 @@ export const formatTokenAmount = (value: string | number, decimals: number) => {
 
 type Token = { address: string; symbol: string; decimals: number };
 
-// wugnot counts in ugnot, so it reads as GNOT.
+// wugnot is wrapped GNOT, so it reads as GNOT.
 const isWugnot = (token: { address: string }) =>
   token.address === "gno.land/r/gnoland/wugnot.wugnot";
 
@@ -64,7 +64,7 @@ export const tokenSymbol = (token: { address: string; symbol: string }) =>
   isWugnot(token) ? "GNOT" : token.symbol;
 
 export const formatToken = (amount: string, token: Token) =>
-  `${formatTokenAmount(amount, isWugnot(token) ? 6 : token.decimals)} ${tokenSymbol(token)}`;
+  `${formatTokenAmount(amount, token.decimals)} ${tokenSymbol(token)}`;
 
 export const shortAddress = (value: string) =>
   value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
