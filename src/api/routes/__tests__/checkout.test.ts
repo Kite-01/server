@@ -1026,6 +1026,33 @@ describe("checkout", () => {
     expect(res.json.kiteTransferInput).toBeUndefined();
   });
 
+  it("looks for the payment as soon as the payer says they've sent it", async () => {
+    const row = await createTransferRow({
+      appId,
+      quote: await quoteFor(link.id),
+    });
+
+    schedulerMock.enqueueSettle.mockClear();
+    const res = await post(
+      `/api/checkout/${link.id}/transfer/${row.id}/paid`,
+      {},
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({ id: row.id, status: "AwaitingDeposit" });
+    expect(schedulerMock.enqueueSettle).toHaveBeenCalledWith(row.id);
+
+    const other = await createTransferRow({
+      appId,
+      quote: await quoteFor(otherLink.id),
+    });
+    const elsewhere = await post(
+      `/api/checkout/${link.id}/transfer/${other.id}/paid`,
+      {},
+    );
+    expect(elsewhere.status).toBe(404);
+  });
+
   describe("usage", () => {
     const paid = async (paymentLinkId: string) => {
       return createTransferRow({

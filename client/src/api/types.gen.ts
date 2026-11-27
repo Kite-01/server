@@ -1691,6 +1691,25 @@ export type CheckoutGetTransferResponses = {
 
 export type CheckoutGetTransferResponse = CheckoutGetTransferResponses[keyof CheckoutGetTransferResponses];
 
+export type CheckoutReportPaidData = {
+  body?: never;
+  path: {
+    id: string;
+    transferId: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/transfer/{transferId}/paid';
+};
+
+export type CheckoutReportPaidResponses = {
+  /**
+   * Response for status 200
+   */
+  200: CheckoutTransfer;
+};
+
+export type CheckoutReportPaidResponse = CheckoutReportPaidResponses[keyof CheckoutReportPaidResponses];
+
 export type CheckoutCancelTransferData = {
   body?: never;
   path: {

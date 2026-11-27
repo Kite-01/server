@@ -11,6 +11,8 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {
   checkoutCancelTransfer,
+  checkoutGetTransfer,
+  checkoutReportPaid,
   checkoutOpenTransfer,
   checkoutQuote,
 } from "@/api/sdk.gen";
@@ -114,11 +116,25 @@ type Step =
   | { kind: "token" }
   | { kind: "review" }
   | { kind: "instructions"; transfer: CreatedTransfer }
-  | { kind: "status"; transferId: string; txHash?: string };
+  | {
+      kind: "status";
+      transferId: string;
+      txHash?: string;
+      paid?: CreatedTransfer;
+    };
 
 type Busy = { on: string; label: string } | null;
 
 const Waiting = ["Created", "AwaitingDeposit"];
+const ImportedTokensKey = "kite.importedTokens";
+
+const storedImports = (): Record<string, Token[]> => {
+  try {
+    return JSON.parse(localStorage.getItem(ImportedTokensKey) ?? "{}");
+  } catch {
+    return {};
+  }
+};
 const Final = ["Settled", "Refunded", "Failed", "Cancelled"];
 
 // Opened with ?embed by @kite-01/js, which shows this page in a frame and
@@ -452,11 +468,9 @@ const ChainSwitcher = ({
   const current = chains.find((chain) => chain.id === value);
   if (!current) return null;
 
-  const listed = [...chains]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .filter((chain) =>
-      chain.name.toLowerCase().includes(search.trim().toLowerCase()),
-    );
+  const listed = chains.filter((chain) =>
+    chain.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
 
   const face = compact ? (
     <ChainLogo chain={current} className="size-6" />
@@ -1100,22 +1114,31 @@ const StatusStep = ({
   transferId,
   txHash,
   returnUrl,
+  paid,
   onRestart,
+  onShowDetails,
 }: {
   checkout: Checkout;
   chain?: CheckoutChain;
   transferId: string;
   txHash?: string;
   returnUrl: string | null;
+  paid?: boolean;
   onRestart: () => void;
+  onShowDetails?: () => void;
 }) => {
   const now = useNow();
+  const path = { id: checkout.paymentLink.id, transferId };
   const { data } = useQuery({
-    ...checkoutGetTransferOptions({
-      path: { id: checkout.paymentLink.id, transferId },
-    }),
+    queryKey: ["checkout-transfer", transferId, !!paid],
+    queryFn: async () =>
+      (await (paid ? checkoutReportPaid : checkoutGetTransfer)({ path })).data,
     refetchInterval: (query) =>
-      Final.includes(query.state.data?.status ?? "") ? false : 4000,
+      Final.includes(query.state.data?.status ?? "")
+        ? false
+        : paid
+          ? 2000
+          : 4000,
   });
 
   const expired =
@@ -1129,9 +1152,11 @@ const StatusStep = ({
       ? txUrl(chain.blockExplorer.url, hash)
       : undefined;
 
-  const view = statusView(data, expired, checkout.app.name);
+  const view = statusView(data, expired, checkout.app.name, paid);
   const canRestart =
     expired || data?.status === "Failed" || data?.status === "Cancelled";
+  const canGoBack =
+    !!onShowDetails && !expired && Waiting.includes(data?.status ?? "");
 
   const status = data?.status;
   useEffect(() => {
@@ -1193,8 +1218,13 @@ const StatusStep = ({
         )}
       </div>
 
-      {(canRestart || back) && (
+      {(canGoBack || canRestart || back) && (
         <div className="mt-8 space-y-2">
+          {canGoBack && (
+            <Primary variant="secondary" onClick={onShowDetails}>
+              Show payment details
+            </Primary>
+          )}
           {canRestart && <Primary onClick={onRestart}>Start over</Primary>}
           {back && (
             <Primary
@@ -1214,6 +1244,7 @@ const statusView = (
   data: CheckoutTransfer | undefined,
   expired: boolean,
   appName: string,
+  paid?: boolean,
 ): { icon: ReactNode; tone: string; title: string; text?: string } => {
   if (!data) {
     return {
@@ -1256,6 +1287,15 @@ const statusView = (
       tone: "bg-warning/15 text-amber-600",
       title: "Payment window closed",
       text: "No payment arrived in time. Anything sent late is returned to your refund address.",
+    };
+  }
+
+  if (Waiting.includes(data.status) && paid) {
+    return {
+      icon: <IconLoader2 className="size-8 animate-spin" />,
+      tone: "bg-brand-soft text-brand",
+      title: "Looking for your payment",
+      text: "This usually takes a few seconds once it's on chain.",
     };
   }
 
@@ -1365,7 +1405,7 @@ const PayFlow = () => {
   const [step, setStep] = useState<Step>({ kind: "method" });
   const [chainId, setChainId] = useState("");
   const [token, setToken] = useState<Token | null>(null);
-  const [imported, setImported] = useState<Record<string, Token[]>>({});
+  const [imported, setImported] = useState(storedImports);
   const [wallet, setWallet] = useState<AnyWallet | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [refundAddress, setRefundAddress] = useState("");
@@ -1374,7 +1414,13 @@ const PayFlow = () => {
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const allChains = useMemo(() => checkout.data?.chains ?? [], [checkout.data]);
+  const allChains = useMemo(
+    () =>
+      [...(checkout.data?.chains ?? [])].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+    [checkout.data],
+  );
   const chains = useMemo(
     () =>
       wallet
@@ -1737,10 +1783,14 @@ const PayFlow = () => {
 
   const importToken = (found: Token) => {
     if (chain) {
-      setImported((current) => ({
-        ...current,
-        [chain.id]: [...(current[chain.id] ?? []), found],
-      }));
+      const known = (imported[chain.id] ?? []).filter(
+        (item) => item.address.toLowerCase() !== found.address.toLowerCase(),
+      );
+      const next = { ...imported, [chain.id]: [...known, found] };
+      setImported(next);
+      try {
+        localStorage.setItem(ImportedTokensKey, JSON.stringify(next));
+      } catch {}
     }
     pickToken(found);
   };
@@ -2033,15 +2083,22 @@ const PayFlow = () => {
       </>
     );
   } else if (step.kind === "instructions" && chain && token) {
+    const transfer = step.transfer;
     body = (
-      <div>
-        <InstructionsStep
-          transfer={step.transfer}
-          chain={chain}
-          token={token}
-        />
-        {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
-      </div>
+      <>
+        <div>
+          <InstructionsStep transfer={transfer} chain={chain} token={token} />
+          {error && <ErrorNote className="mt-4">{error}</ErrorNote>}
+        </div>
+        <Primary
+          className="mt-6"
+          onClick={() =>
+            go({ kind: "status", transferId: transfer.id, paid: transfer })
+          }
+        >
+          I've sent the payment
+        </Primary>
+      </>
     );
   } else if (step.kind === "status") {
     body = (
@@ -2051,7 +2108,13 @@ const PayFlow = () => {
         transferId={step.transferId}
         txHash={step.txHash}
         returnUrl={returnUrl}
+        paid={!!step.paid}
         onRestart={restart}
+        onShowDetails={
+          step.paid
+            ? () => go({ kind: "instructions", transfer: step.paid! })
+            : undefined
+        }
       />
     );
   }
