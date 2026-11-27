@@ -29,6 +29,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { isNativeToken, shortAddress, txUrl } from "@/lib/format";
 import { EvmWalletProvider, useConnectEvmWallet } from "@/lib/evm-wallet";
 import {
@@ -78,6 +83,7 @@ import {
   IconSearch,
   IconWallet,
   IconX,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -808,10 +814,12 @@ const Shell = ({
 const TokenRow = ({
   token,
   action,
+  imported,
   onClick,
 }: {
   token: Token;
   action?: ReactNode;
+  imported?: boolean;
   onClick: () => void;
 }) => (
   <button
@@ -821,7 +829,25 @@ const TokenRow = ({
   >
     <TokenIcon token={token} />
     <span className="min-w-0 flex-1">
-      <span className="block truncate text-sm font-medium">{token.symbol}</span>
+      <span className="flex items-center gap-1 text-sm font-medium">
+        <span className="truncate">{token.symbol}</span>
+        {imported && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="shrink-0 text-amber-500">
+                <IconAlertTriangle className="size-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-60">
+              <p>
+                You imported this token. Anyone can create a token, including
+                copies of real ones, so make sure this is the one you meant to
+                pay with.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </span>
       <span className="block truncate text-[11px] text-muted">
         {token.name}
       </span>
@@ -928,6 +954,7 @@ const TokenStep = ({
           <TokenRow
             key={token.address}
             token={token}
+            imported={imported.includes(token)}
             onClick={() => onPick(token)}
           />
         ))}
@@ -1188,7 +1215,7 @@ const StatusStep = ({
   }, [outcome, back]);
 
   return (
-    <div className="h-full flex flex-col justify-between">
+    <div className="flex flex-1 flex-col justify-between">
       <div className="flex flex-col items-center py-10 text-center">
         <span
           key={view.title}
@@ -2137,7 +2164,7 @@ const PayFlow = () => {
     >
       <div
         key={step.kind}
-        className="h-full flex flex-col justify-between animate-[rise-in_260ms_cubic-bezier(0.2,0.8,0.2,1)]"
+        className="flex flex-1 flex-col justify-between animate-[rise-in_260ms_cubic-bezier(0.2,0.8,0.2,1)]"
       >
         {body}
       </div>
