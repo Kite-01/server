@@ -5,11 +5,11 @@ import {
   address,
 } from "../../test/factories";
 import { beforeEach, describe, expect, it } from "vitest";
+import { STELLAR_SHOP, setupStellarChain } from "../../test/stellar";
+import { fakeStellarActor, resetMocks } from "../../test/mocks";
 import { FeeService } from "../Fee.service";
 import { FeeType } from "../../shared/constants";
 import { env } from "../../shared/env";
-import { fakeStellarActor, resetMocks } from "../../test/mocks";
-import { STELLAR_SHOP, setupStellarChain } from "../../test/stellar";
 
 const service = new FeeService();
 

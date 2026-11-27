@@ -17,15 +17,16 @@ export class Soroswap {
         `${chain.name} has no Soroswap router, so it can't swap: pay in the settlement token`,
       );
     }
+
     return router;
   };
 
-  /** The direct pair first, then through USDC or XLM. */
   paths = (caip2Id: Caip2Id, tokenIn: string, tokenOut: string) => {
     const { usdc, nativeToken } = getStellarChain(caip2Id).contracts;
     const hubs = [usdc, nativeToken].filter(
       (hub) => hub !== tokenIn && hub !== tokenOut,
     );
+
     return [
       [tokenIn, tokenOut],
       ...hubs.map((hub) => [tokenIn, hub, tokenOut]),
@@ -39,7 +40,9 @@ export class Soroswap {
     tokenOut: string,
     amount: bigint,
   ) => {
-    if (tokenIn === tokenOut) return [];
+    if (tokenIn === tokenOut) {
+      return [];
+    }
 
     const router = this.router(caip2Id);
     const quotes = await Promise.all(
@@ -58,6 +61,7 @@ export class Soroswap {
           BigInt(
             method === "router_get_amounts_out" ? amounts.at(-1)! : amounts[0],
           );
+
         return value && value > 0n ? { path, amount: value } : null;
       }),
     );

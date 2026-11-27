@@ -428,6 +428,20 @@ export type Transfer = {
       path: Array<string>;
     } | null;
     implementation: string;
+  } | {
+    id: string;
+    token: string;
+    amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
+    recipient: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund: string;
+    expires_at: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -554,6 +568,20 @@ export type TransferDetails = {
       path: Array<string>;
     } | null;
     implementation: string;
+  } | {
+    id: string;
+    token: string;
+    amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
+    recipient: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund: string;
+    expires_at: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -644,6 +672,20 @@ export type TransferListItem = {
       path: Array<string>;
     } | null;
     implementation: string;
+  } | {
+    id: string;
+    token: string;
+    amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
+    recipient: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund: string;
+    expires_at: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -746,6 +788,20 @@ export type CreatedTransfer = {
       path: Array<string>;
     } | null;
     implementation: string;
+  } | {
+    id: string;
+    token: string;
+    amount: string;
+    settle: string;
+    min_out: string;
+    route: string;
+    recipient: string;
+    fees: Array<{
+      recipient: string;
+      amount: string;
+    }>;
+    refund: string;
+    expires_at: string;
   };
   status: 'Created' | 'AwaitingDeposit' | 'DepositReceived' | 'Processing' | 'x402Settled' | 'Cancelled' | 'Refunded' | 'Failed' | 'Settled';
   settlementBlockchainHash: string | null;
@@ -878,7 +934,7 @@ export type SystemInfo = {
   version: string;
   demo: boolean;
   operators: Array<{
-    chainType: 'Evm' | 'Near' | 'Stellar';
+    chainType: 'Evm' | 'Near' | 'Stellar' | 'Gno';
     address: string;
   }>;
   chains: Array<{
@@ -1017,7 +1073,7 @@ export type Checkout = {
     id: string;
     caip2Id: string;
     name: string;
-    chainType: 'Evm' | 'Near' | 'Stellar';
+    chainType: 'Evm' | 'Near' | 'Stellar' | 'Gno';
     chainId: number | null;
     testnet: boolean;
     beta: boolean;
@@ -1634,6 +1690,25 @@ export type CheckoutGetTransferResponses = {
 };
 
 export type CheckoutGetTransferResponse = CheckoutGetTransferResponses[keyof CheckoutGetTransferResponses];
+
+export type CheckoutReportPaidData = {
+  body?: never;
+  path: {
+    id: string;
+    transferId: string;
+  };
+  query?: never;
+  url: '/api/checkout/{id}/transfer/{transferId}/paid';
+};
+
+export type CheckoutReportPaidResponses = {
+  /**
+   * Response for status 200
+   */
+  200: CheckoutTransfer;
+};
+
+export type CheckoutReportPaidResponse = CheckoutReportPaidResponses[keyof CheckoutReportPaidResponses];
 
 export type CheckoutCancelTransferData = {
   body?: never;

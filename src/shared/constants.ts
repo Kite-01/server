@@ -19,6 +19,7 @@ export enum ChainType {
   Evm = "Evm",
   Near = "Near",
   Stellar = "Stellar",
+  Gno = "Gno",
 }
 
 export enum ApiKeyScope {
@@ -179,6 +180,8 @@ export const x402_MaxTimeoutSeconds = 120;
 export const x402_MinTimeoutSeconds = 15;
 export const x402_SettlementReserveSeconds = 30;
 export const x402_SettlementLeaseSeconds = 3 * OneMinute;
+// paying a fresh deposit address creates its token balance entry: ~443k stroops on mainnet
+export const x402_StellarMaxFeeStroops = 1_000_000;
 
 export const KiteContractEventTopics = (
   [

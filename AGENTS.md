@@ -29,13 +29,14 @@ bun run lint
 - `src/api/`: Elysia routes (`routes/`) and the TypeBox response models (`models.ts`).
 - `src/services/`: business logic. Payouts through NEAR Intents are in `Payout.service.ts`.
 - `src/sdks/`: chain and provider integrations:
-  - `EvmActor`, `NearActor` and `StellarActor`: the operator wallet on EVM, on NEAR and on Stellar;
+  - `EvmActor`, `NearActor`, `StellarActor` and `GnoActor`: the operator wallet on EVM, on NEAR, on Stellar and on Gno.land;
   - `NearIntents`: the 1Click API;
   - `QuickNode` and `Alchemy`: deposit notifiers;
   - `Alchemy` and `Thirdweb`: gas sponsors;
-  - `Uniswap`, `Rhea` and `Soroswap`: swap quotes on EVM, on NEAR and on Stellar.
+  - `Uniswap`, `Rhea`, `Soroswap` and `GnoSwap`: swap quotes on EVM, on NEAR, on Stellar and on Gno.land;
+  - `x402GnoFacilitator`: verifies and broadcasts x402 payments on Gno.land.
 - `src/shared/chains/registry.ts`: every supported chain, with each provider's name for it under `descriptors`.
-- `src/shared/kiteContract.ts`, `src/shared/kiteNearContract.ts` and `src/shared/kiteStellarContract.ts`: the Kite contracts on EVM, on NEAR and on Stellar. `predictAddress` on NEAR and on Stellar must stay byte for byte with the `types` crates of [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts) and [Kite-01/stellar-contracts](https://github.com/Kite-01/stellar-contracts); their tests pin the same vectors.
+- `src/shared/kiteContract.ts`, `src/shared/kiteNearContract.ts`, `src/shared/kiteStellarContract.ts` and `src/shared/kiteGnoContract.ts`: the Kite contracts on EVM, on NEAR, on Stellar and on Gno.land. `predictAddress` on NEAR, on Stellar and on Gno.land must stay byte for byte with the `types` crates of [Kite-01/near-contracts](https://github.com/Kite-01/near-contracts) and [Kite-01/stellar-contracts](https://github.com/Kite-01/stellar-contracts), and with `p/kite` in [Kite-01/gno-contracts](https://github.com/Kite-01/gno-contracts); their tests pin the same vectors.
 - `src/db/schema/`: drizzle tables. The migrations generated from them are in `drizzle/`.
 - `src/shared/scheduler/`: pg-boss queues and workers.
 - `src/test/`: test setup, factories and API helpers. `setup.mts` stubs NEAR Intents, the scheduler and the operator wallets.

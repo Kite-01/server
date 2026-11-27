@@ -103,6 +103,28 @@ export const checkoutRoutes = new Elysia({
     },
   )
   .post(
+    "/:id/transfer/:transferId/paid",
+    ({ params }) => {
+      return checkoutService.reportPaid(params.id, params.transferId);
+    },
+    {
+      params: t.Object({
+        id: Uuid,
+        transferId: Uuid,
+      }),
+      response: {
+        200: "CheckoutTransfer",
+      },
+      detail: {
+        operationId: "checkout.reportPaid",
+        security: [],
+        tags: ["Checkout"],
+        summary:
+          "Look for the payment now, after the payer says they've sent it",
+      },
+    },
+  )
+  .post(
     "/:id/transfer/:transferId/cancel",
     async ({ params }) => {
       return checkoutService.cancelTransfer(params.id, params.transferId);

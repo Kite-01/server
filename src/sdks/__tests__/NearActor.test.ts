@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import { NearActor } from "../NearActor";
 import { testMnemonic } from "../../test/mocks";
 
-// SLIP-10 ed25519, written out here so the test doesn't trust the library it checks
 const deriveEd25519 = (mnemonic: string, path: number[]) => {
   const seed = pbkdf2Sync(
     mnemonic.normalize("NFKD"),
@@ -17,6 +16,7 @@ const deriveEd25519 = (mnemonic: string, path: number[]) => {
     64,
     "sha512",
   );
+
   let node = createHmac("sha512", "ed25519 seed").update(seed).digest();
 
   for (const index of path) {

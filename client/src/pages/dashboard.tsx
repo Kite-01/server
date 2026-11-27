@@ -47,7 +47,8 @@ import {
   formatCompactUsd,
   formatCount,
   formatDate,
-  formatTokenAmount,
+  formatToken,
+  tokenSymbol,
   formatUsd,
   shortId,
 } from "@/lib/format";
@@ -891,7 +892,7 @@ export const Dashboard = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium">
-                        {token.symbol}
+                        {tokenSymbol(token)}
                       </p>
                       <p className="truncate text-xs text-muted">
                         {token.chainName}
@@ -995,11 +996,10 @@ export const Dashboard = () => {
                     />
                   </Td>
                   <Td className="font-mediu">
-                    {formatTokenAmount(
+                    {formatToken(
                       transfer.quote.sourceAmount,
-                      transfer.quote.sourceToken.decimals,
+                      transfer.quote.sourceToken,
                     )}
-                    &nbsp;{transfer.quote.sourceToken.symbol}
                   </Td>
                   <Td className="text-right font-medium tabular-nums">
                     {formatUsd(transfer.quote.targetUsdAmount)}

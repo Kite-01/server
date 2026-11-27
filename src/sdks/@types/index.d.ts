@@ -1,6 +1,10 @@
-type Caip2Namespace = "eip155" | "near" | "stellar";
+type Caip2Namespace = "eip155" | "near" | "stellar" | "gno";
 type Caip2Id =
-  `eip155:${number}` | "near:mainnet" | "near:testnet" | "stellar:testnet";
+  | `eip155:${number}`
+  | "near:mainnet"
+  | "near:testnet"
+  | "stellar:testnet"
+  | "gno:onyx-1";
 
 type HttpResponse<T = unknown, H = Record<string, unknown>> = {
   isOk: boolean;

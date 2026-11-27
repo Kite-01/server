@@ -97,7 +97,19 @@ export type StellarChain = ChainBase & {
   };
 };
 
-export type Chain = EvmChain | NearChain | StellarChain;
+export type GnoChain = ChainBase & {
+  type: ChainType.Gno;
+  networkId: string;
+  contracts: {
+    wugnot: string;
+    GnoSwap?: {
+      router: string;
+      pool: string;
+    };
+  };
+};
+
+export type Chain = EvmChain | NearChain | StellarChain | GnoChain;
 
 const icon = (folder: string) => {
   return `https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/${folder}/info/logo.png`;
@@ -869,7 +881,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     type: ChainType.Evm,
     chainId: 44005,
     name: "QDay Aevum Testnet",
-    icon: "https://qday.io/apple-icon.png",
+    icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI3IiBmaWxsPSIjMTIxMjEyIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNi42NTIgNi44MTYpIHNjYWxlKDAuODIpIj48Y2lyY2xlIGN4PSIxMC41OTA2IiBjeT0iMTEuMTg1NCIgcj0iOS4zNjc3MSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjIuNDQzNzUiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMTYuNjc0NSAxOC40NjAyTDEzLjYyMDYgMTIuOTk3M0wxOS44Nzg2IDEyLjkxMDdMMjIuNzQ0NCAxOC4yNjVMMTYuNjc0NSAxOC40NjAyWiIgZmlsbD0iI2ZmZmZmZiIvPjwvZz48L3N2Zz4K",
     testnet: true,
     publicRpcUrls: ["https://rpc-test.qday.info"],
     confirmations: 5,
@@ -970,6 +982,33 @@ export const Chains: Record<Caip2Id, Chain> = {
       usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
       Soroswap: {
         router: "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD",
+      },
+    },
+  },
+  "gno:onyx-1": {
+    caip2Id: "gno:onyx-1",
+    type: ChainType.Gno,
+    networkId: "onyx-1",
+    name: "Gno.land Onyx Testnet",
+    icon: "https://gno.land/public/imgs/gnoland.svg",
+    testnet: true,
+    beta: true,
+    publicRpcUrls: ["https://rpc.onyx.testnets.gno.land:443"],
+    confirmations: 1,
+    blockExplorer: {
+      name: "Gnoscan",
+      url: "https://gnoscan.io?chainId=onyx-1",
+    },
+    nativeCurrency: {
+      name: "GNOT",
+      symbol: "GNOT",
+      decimals: 6,
+    },
+    contracts: {
+      wugnot: "gno.land/r/gnoland/wugnot.wugnot",
+      GnoSwap: {
+        router: "gno.land/r/gnoswap/router",
+        pool: "gno.land/r/gnoswap/pool",
       },
     },
   },

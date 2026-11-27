@@ -231,6 +231,7 @@ describe("x402 on Stellar", () => {
       expect(scheme.options).toMatchObject({
         rpcConfig: { url: "https://soroban-testnet.stellar.org" },
         feeBumpSigner: expect.objectContaining({ address: stellarOperator }),
+        maxTransactionFeeStroops: 1_000_000,
       });
     });
 

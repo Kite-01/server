@@ -4,6 +4,13 @@ import { ChainType } from "../shared/constants";
 import { getChain } from "../shared/chains";
 import { version } from "../../package.json";
 
+const addressUrl = (explorer: string, address: string) => {
+  const [base, query] = explorer.split("?");
+  return /gnoscan\.io/.test(base)
+    ? `${base}/account/${address}${query ? `?${query}` : ""}`
+    : `${explorer}/address/${address}`;
+};
+
 export class SystemService {
   getInfo = async () => {
     const chains = await new ChainService().getChains();
@@ -25,7 +32,7 @@ export class SystemService {
           isConfigured: !!chain.config,
           operatorAddress,
           explorerUrl: registry.blockExplorer
-            ? `${registry.blockExplorer.url}/address/${operatorAddress}`
+            ? addressUrl(registry.blockExplorer.url, operatorAddress)
             : null,
         };
       }),

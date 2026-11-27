@@ -4,12 +4,6 @@ import { common } from "./common";
 import { isNearAccountId, NearNativeToken } from "./nearAccount";
 import { AppError } from "./errors";
 
-/**
- * The `factory` and `kite` contracts on NEAR (Kite-01/near-contracts). A deposit account is `0s` +
- * the last 20 bytes of keccak256(borsh(StateInit)) (NEP-616), so the serializer below must match
- * `DepositState` in the contracts' `types` crate field for field.
- */
-
 export type NearAsset = "Native" | { Token: string };
 
 export type NearSwapPool = { Dcl: string } | { RefV1: string };
@@ -21,10 +15,18 @@ export type NearKiteTransfer = {
   settlement_token: NearAsset;
   settlement_recipient: string;
   min_amount_out: string;
-  fees: Array<{ id: string; recipient: string; amount: string }>;
+  fees: Array<{
+    id: string;
+    recipient: string;
+    amount: string;
+  }>;
   refund_account: string;
   expires_at: string;
-  swap: { router: string; pool: NearSwapPool; wrap: string } | null;
+  swap: {
+    router: string;
+    pool: NearSwapPool;
+    wrap: string;
+  } | null;
   implementation: string;
 };
 
@@ -33,29 +35,32 @@ export type NearKiteStatus =
 
 export { NearNativeToken, isNearAccountId };
 
-/** `DEPOSIT_RESERVE` in the contracts' `types`. */
 export const NearDepositReserve = 10n ** 21n;
 
-// The first testnet version: starts `Open`, keeps a 0.03 NEAR reserve, and has no `close`.
+const LegacyDepositReserve = 30n * 10n ** 21n;
 const LegacyImplementations = new Set([
   "6enzFVmxd6A9uWCLfstYVt4Qjc8zxEq8adVcFzGUfnUi",
 ]);
-const LegacyDepositReserve = 30n * 10n ** 21n;
 
-export const isLegacyNearImplementation = (implementation: string) =>
-  LegacyImplementations.has(implementation);
+export const isLegacyNearImplementation = (implementation: string) => {
+  return LegacyImplementations.has(implementation);
+};
 
-/** `ZERO_BALANCE_STORAGE_LIMIT` in the contracts' `types`. */
 const ZeroBalanceStorageLimit = 770;
 const StorageByteCost = 10n ** 19n;
 
-// As `native_available` in the contract computes it; before it's deployed, everything is payment.
 export const nearNativeAvailable = (
-  account: { amount: bigint; storageUsage: number; contract: string | null },
+  account: {
+    amount: bigint;
+    storageUsage: number;
+    contract: string | null;
+  },
   implementation: string,
 ) => {
   const { amount, storageUsage } = account;
-  if (!account.contract) return amount;
+  if (!account.contract) {
+    return amount;
+  }
 
   const reserve = isLegacyNearImplementation(implementation)
     ? LegacyDepositReserve
@@ -76,15 +81,19 @@ export type NearSettleStopped = {
 };
 
 type NearOutcome = {
-  transaction_outcome: { id: string };
+  transaction_outcome: {
+    id: string;
+  };
   receipts_outcome: Array<{
     id: string;
-    outcome: { logs: string[]; executor_id: string };
+    outcome: {
+      logs: string[];
+      executor_id: string;
+    };
   }>;
 };
 
 const MaxIdLength = 64;
-
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 const base58Decode = (value: string) => {
@@ -121,9 +130,11 @@ class BorshWriter {
     if (v < 0n || v >= 1n << BigInt(size * 8)) {
       throw new AppError(`Value out of range for u${size * 8}: ${v}`);
     }
+
     for (let i = 0; i < size; i++) {
       this.bytes.push(Number((v >> BigInt(8 * i)) & 0xffn));
     }
+
     return this;
   };
 
@@ -160,9 +171,11 @@ class KiteNearContract {
     w.string(t.settlement_recipient);
     w.u128(t.min_amount_out);
     w.u32(t.fees.length);
+
     for (const fee of t.fees) {
       w.string(fee.id).string(fee.recipient).u128(fee.amount);
     }
+
     w.string(t.refund_account);
     w.u64(t.expires_at);
     if (!t.swap) {
@@ -173,10 +186,12 @@ class KiteNearContract {
       else w.u8(1).u64(t.swap.pool.RefV1);
       w.string(t.swap.wrap);
     }
+
     w.fixed(this.codeHash(t.implementation));
 
     // status: Uninitialized, which `fund` opens; earlier versions started Open
     w.u8(isLegacyNearImplementation(t.implementation) ? 1 : 0);
+
     // progress: step, excess, out_before, amount_out, wrapped, paid, lock_until
     w.u8(0).u128(0n).u128(0n).u128(0n).u8(0).uint(0n, 2).u64(0n);
 
@@ -188,6 +203,7 @@ class KiteNearContract {
     if (hash.length !== 32) {
       throw new AppError(`Invalid code hash: ${implementation}`);
     }
+
     return hash;
   };
 
@@ -246,7 +262,6 @@ class KiteNearContract {
     };
   };
 
-  /** The same rules as `Transfer::validate` in the contracts. */
   validateTransferInput = (t: NearKiteTransfer) => {
     const accounts = [
       t.settlement_recipient,

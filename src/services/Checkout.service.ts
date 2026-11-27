@@ -13,16 +13,18 @@ import { and, desc, eq, gt, gte, isNull } from "drizzle-orm";
 import { paymentLink, quote, transfer } from "../db/schema";
 import { x402_RequirementSchema } from "../schemas/x402.schema";
 import { PaymentLinkService } from "./PaymentLink.service";
+import { NearNativeToken } from "../shared/nearAccount";
 import { TransferService } from "./Transfer.service";
+import { GnoNativeToken } from "../shared/gnoAddress";
 import { QuoteService } from "./Quote.service";
 import { TokenService } from "./Token.service";
 import { ChainService } from "./Chain.service";
 import { x402Service } from "./x402.service";
 import { AppService } from "./App.service";
-import { getChain } from "../shared/chains";
-import { NearNativeToken } from "../shared/nearAccount";
-import { common } from "../shared/common";
 import { Scheduler } from "../shared/scheduler";
+import { getChain } from "../shared/chains";
+import { kiteGno } from "../shared/kiteGnoContract";
+import { common } from "../shared/common";
 import { db } from "../db";
 
 type SettlementToken = {
@@ -35,7 +37,9 @@ type SettlementToken = {
 export class CheckoutService {
   private takesX402 = (
     caip2Id: Caip2Id,
-    config: { settlementToken: SettlementToken },
+    config: {
+      settlementToken: SettlementToken;
+    },
   ) => {
     if (getChain(caip2Id).type === ChainType.Near) {
       return config.settlementToken.address !== NearNativeToken;
@@ -43,6 +47,10 @@ export class CheckoutService {
 
     if (getChain(caip2Id).type === ChainType.Stellar) {
       return true;
+    }
+
+    if (getChain(caip2Id).type === ChainType.Gno) {
+      return config.settlementToken.address === GnoNativeToken;
     }
 
     return (
@@ -103,11 +111,14 @@ export class CheckoutService {
 
         const x402 = this.takesX402(chain.caip2Id, chain.config);
         const settlementToken = chain.config.settlementToken;
-        // without a swap router, Stellar only takes the settlement token
         const swaps =
           meta.type !== ChainType.Stellar || !!meta.contracts.Soroswap?.router;
         const tokens = (await tokenService.getTokensByChainId(chain.id)).filter(
-          (token) => swaps || token.id === settlementToken.id,
+          (token) =>
+            token.id === settlementToken.id ||
+            (swaps &&
+              (meta.type !== ChainType.Gno ||
+                kiteGno.canSwap(token.address, settlementToken.address))),
         );
 
         return {
@@ -343,7 +354,6 @@ export class CheckoutService {
     ]);
 
     const x402 = new x402Service();
-
     const offers = await Promise.allSettled(
       chains.map(async (chain) => {
         if (
@@ -375,9 +385,7 @@ export class CheckoutService {
 
     if (!accepts.length) {
       const failed = offers.find((offer) => offer.status === "rejected");
-      if (failed) {
-        throw failed.reason;
-      }
+      if (failed) throw failed.reason;
 
       throw new PreconditionError("This link can't be paid with x402");
     }
@@ -441,7 +449,6 @@ export class CheckoutService {
       throw new NotFoundError("transfer", transferId);
     }
 
-    // no deposit notifier, so a watched transfer is checked on each poll
     if (
       transfer.status === TransferStatus.AwaitingDeposit &&
       getChain(transfer.quote.chain.caip2Id).type !== ChainType.Evm
@@ -459,5 +466,14 @@ export class CheckoutService {
       expiresAt: transfer.quote.expiresAt,
       updatedAt: transfer.updatedAt,
     };
+  };
+
+  reportPaid = async (paymentLinkId: string, transferId: string) => {
+    const transfer = await this.getTransfer(paymentLinkId, transferId);
+    if (transfer.status === TransferStatus.AwaitingDeposit) {
+      await Scheduler.enqueueSettle(transfer.id);
+    }
+
+    return transfer;
   };
 }

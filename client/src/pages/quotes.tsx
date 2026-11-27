@@ -23,7 +23,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/input";
 import {
   formatDateTime,
-  formatTokenAmount,
+  formatToken,
   formatUsd,
   parseUnits,
   shortId,
@@ -203,8 +203,7 @@ export const Quotes = () => {
           },
           {
             header: "Customer pays",
-            cell: (row) =>
-              `${formatTokenAmount(row.sourceAmount, row.sourceToken.decimals)} ${row.sourceToken.symbol}`,
+            cell: (row) => formatToken(row.sourceAmount, row.sourceToken),
           },
           { header: "Value", cell: (row) => formatUsd(row.targetUsdAmount) },
           {

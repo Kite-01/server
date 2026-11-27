@@ -16,7 +16,9 @@ import { Digits, ChainAddress, t, Uuid } from "./schema";
 import { Elysia } from "elysia";
 
 const named = (name: string) => {
-  return { $id: `#/components/schemas/${name}` };
+  return {
+    $id: `#/components/schemas/${name}`,
+  };
 };
 
 const ref = <T extends TSchema>(schema: T) => {
@@ -411,6 +413,27 @@ const StellarKiteTransferInput = t.Object(
   named("StellarKiteTransferInput"),
 );
 
+const GnoKiteTransferInput = t.Object(
+  {
+    id: t.String(),
+    token: ChainAddress,
+    amount: Digits,
+    settle: ChainAddress,
+    min_out: Digits,
+    route: t.String(),
+    recipient: ChainAddress,
+    fees: t.Array(
+      t.Object({
+        recipient: ChainAddress,
+        amount: Digits,
+      }),
+    ),
+    refund: ChainAddress,
+    expires_at: Digits,
+  },
+  named("GnoKiteTransferInput"),
+);
+
 const Transfer = t.Object(
   {
     id: Uuid,
@@ -424,6 +447,7 @@ const Transfer = t.Object(
       EvmKiteTransferInput,
       NearKiteTransferInput,
       StellarKiteTransferInput,
+      GnoKiteTransferInput,
     ]),
     status: t.Enum(TransferStatus),
     settlementBlockchainHash: Nullable(t.String()),
@@ -770,6 +794,7 @@ const Checkout = t.Object(
           t.Literal("Evm"),
           t.Literal("Near"),
           t.Literal("Stellar"),
+          t.Literal("Gno"),
         ]),
         chainId: Nullable(Int),
         testnet: t.Boolean(),

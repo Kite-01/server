@@ -6,11 +6,11 @@ import {
 import { and, asc, eq, isNull, desc, count, ilike } from "drizzle-orm";
 import { app, appChain, chain as chainTable } from "../db/schema";
 import { AppError, NotFoundError } from "../shared/errors";
+import { whyCantReceive } from "../shared/recipients";
 import { PayoutService } from "./Payout.service";
 import { ChainService } from "./Chain.service";
-import { common } from "../shared/common";
 import { getChain } from "../shared/chains";
-import { whyCantReceive } from "../shared/recipients";
+import { common } from "../shared/common";
 import { db } from "../db";
 
 type PayoutFields = Partial<
@@ -126,6 +126,7 @@ export class AppService {
           offset,
         });
       },
+
       async () => {
         const [row] = await db
           .select({ value: count() })

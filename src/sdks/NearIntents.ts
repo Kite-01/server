@@ -1,11 +1,11 @@
 import { KeyVars, Provider } from "../shared/constants";
 import { SdkRequestError } from "../shared/errors";
+import { ChainType } from "../shared/constants";
 import { getChain } from "../shared/chains";
 import { BaseSdk } from "./interfaces/BaseSdk";
 import { common } from "../shared/common";
-import { Http } from "./Http";
 import { Asset } from "@stellar/stellar-sdk";
-import { ChainType } from "../shared/constants";
+import { Http } from "./Http";
 
 export type NearIntentsToken = {
   assetId: string;
