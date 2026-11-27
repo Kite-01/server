@@ -881,7 +881,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     type: ChainType.Evm,
     chainId: 44005,
     name: "QDay Aevum Testnet",
-    icon: "https://qday.io/apple-icon.png",
+    icon: "https://qday.io/icon.svg",
     testnet: true,
     publicRpcUrls: ["https://rpc-test.qday.info"],
     confirmations: 5,
