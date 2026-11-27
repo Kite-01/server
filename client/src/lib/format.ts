@@ -54,6 +54,18 @@ export const formatTokenAmount = (value: string | number, decimals: number) => {
   return trimmed ? `${whole}.${trimmed}` : whole.toString();
 };
 
+type Token = { address: string; symbol: string; decimals: number };
+
+// wugnot is wrapped GNOT, so it reads as GNOT.
+const isWugnot = (token: { address: string }) =>
+  token.address === "gno.land/r/gnoland/wugnot.wugnot";
+
+export const tokenSymbol = (token: { address: string; symbol: string }) =>
+  isWugnot(token) ? "GNOT" : token.symbol;
+
+export const formatToken = (amount: string, token: Token) =>
+  `${formatTokenAmount(amount, token.decimals)} ${tokenSymbol(token)}`;
+
 export const shortAddress = (value: string) =>
   value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 
@@ -87,11 +99,19 @@ export const parseUnits = (value: string, decimals: number) => {
 };
 
 // NearBlocks shows transactions under /txns; the EVM explorers under /tx.
-export const txUrl = (explorer: string, hash: string) =>
-  `${explorer}/${/nearblocks\.io/.test(explorer) ? "txns" : "tx"}/${hash}`;
+// Gnoscan's explorer URL carries the network as a query, which stays on the link.
+export const txUrl = (explorer: string, hash: string) => {
+  const [base, query] = explorer.split("?");
+  if (/gnoscan\.io/.test(base)) {
+    return `${base}/transactions/details?txhash=${hash}${query ? `&${query}` : ""}`;
+  }
+  return `${explorer}/${/nearblocks\.io/.test(explorer) ? "txns" : "tx"}/${hash}`;
+};
 
 export const NearNativeToken = "near";
 
 // the zero address on EVM chains
 export const isNativeToken = (address: string) =>
-  address === NearNativeToken || /^0x0{40}$/i.test(address);
+  address === NearNativeToken ||
+  address === "ugnot" ||
+  /^0x0{40}$/i.test(address);

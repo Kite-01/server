@@ -4,13 +4,13 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { and, eq, isNull, or, desc, count, ilike } from "drizzle-orm";
-import { FeeType } from "../shared/constants";
-import { common } from "../shared/common";
+import { AppError, NotFoundError } from "../shared/errors";
+import { whyCantReceive } from "../shared/recipients";
 import { chain, fee } from "../db/schema";
 import { getChain } from "../shared/chains";
-import { AppError, NotFoundError } from "../shared/errors";
+import { FeeType } from "../shared/constants";
+import { common } from "../shared/common";
 import { db } from "../db";
-import { whyCantReceive } from "../shared/recipients";
 
 type Scalar = string | number | boolean;
 
@@ -53,7 +53,6 @@ export class FeeService {
     }
 
     const normalized = common.normalizeAddressFor(type, feeAddress);
-    // fees are paid in the settlement token
     if (row.config) {
       const reason = await whyCantReceive({
         caip2Id: row.caip2Id,
@@ -61,8 +60,10 @@ export class FeeService {
         token: row.config.settlementToken,
         rpcUrls: row.config.rpcUrls ?? [],
       });
-      if (reason)
+
+      if (reason) {
         throw new AppError(`This address can't receive fees: ${reason}`);
+      }
     }
 
     return normalized;
@@ -153,6 +154,7 @@ export class FeeService {
         where: and(eq(fee.id, feeId), this.ownedBy(appId)),
         columns: { chainId: true },
       });
+
       if (!existing) return undefined;
 
       input = {

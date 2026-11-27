@@ -7,12 +7,12 @@ import {
   toEventSelector,
   toHex,
 } from "viem";
+import { getChain, getEvmChain } from "../shared/chains";
 import { KeyVars, Provider } from "../shared/constants";
 import { type GasSponsor } from "./interfaces/GasSponsor";
 import { getOnchainActor } from "../shared/onchainActor";
 import { SdkRequestError } from "../shared/errors";
 import { randomBytes } from "node:crypto";
-import { getChain, getEvmChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { Http } from "./Http";
 

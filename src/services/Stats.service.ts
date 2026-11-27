@@ -145,6 +145,7 @@ export class StatsService {
     const chains = new Map(
       getSupportedChains().map((chain) => [chain.caip2Id as string, chain]),
     );
+
     const amount = Number(current.amount);
     const customerTotal = Number(customers.total);
 

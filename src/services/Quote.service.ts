@@ -5,8 +5,6 @@ import {
 } from "../shared/pagination";
 import { and, eq, desc, isNull, count, ilike, or, sql } from "drizzle-orm";
 import { ChainType, KiteMaxFees, QuoteTTLSeconds } from "../shared/constants";
-
-const DisplaySignificantDigits = 6;
 import { AppError, NotFoundError } from "../shared/errors";
 import { formatUnits, parseUnits } from "viem";
 import { quote, quoteFee, fee } from "../db/schema";
@@ -16,12 +14,15 @@ import { getOnchainActor } from "../shared/onchainActor";
 import { CustomerService } from "./Customer.service";
 import { TokenService } from "./Token.service";
 import { ChainService } from "./Chain.service";
+import { swapQuoter } from "../shared/swapQuoter";
 import { FeeService } from "./Fee.service";
 import { AppService } from "./App.service";
 import { getChain } from "../shared/chains";
-import { swapQuoter } from "../shared/swapQuoter";
+import { kiteGno } from "../shared/kiteGnoContract";
 import { common } from "../shared/common";
 import { db } from "../db";
+
+const DisplaySignificantDigits = 6;
 
 type QuoteBase = {
   chainId: string;
@@ -74,7 +75,6 @@ export class QuoteService {
       .map((f) => ({
         fee: f,
         amount: new FeeService().computeFeeAmount(f, targetAmount),
-        // system fees are the operator's; an app's own fees go where the app settles
         feeAddress: common.normalizeAddressFor(
           chainType,
           f.feeAddress ?? (f.appId ? appAddress : null) ?? operatorAddress,
@@ -99,7 +99,6 @@ export class QuoteService {
     return fees_;
   };
 
-  // rounds up to `digits` significant digits, but never into the whole part
   private roundUpToSignificant = (
     amount: bigint,
     decimals: number,
@@ -329,6 +328,15 @@ export class QuoteService {
     if (sourceToken.id === settlementToken.id) {
       sourceAmount = targetAmount;
     } else {
+      if (
+        getChain(chain.caip2Id).type === ChainType.Gno &&
+        !kiteGno.canSwap(sourceToken.address, settlementToken.address)
+      ) {
+        throw new AppError(
+          "GNOT can't be swapped on Gno.land: pay in GNOT only when the link settles in GNOT",
+        );
+      }
+
       const best = await swapQuoter.quoteExactOutput({
         caip2Id: chain.caip2Id,
         tokenIn: sourceToken.address,
@@ -342,9 +350,6 @@ export class QuoteService {
       sourceAmount = best.amount;
       feeTier = best.feeTier;
       swapPool = best.pool;
-
-      // round the amount to pay up, so it reads as 496.488 HSK rather than
-      // 496.487267379259507273; the extra goes into the swap
       sourceAmount = this.roundUpToSignificant(
         sourceAmount,
         sourceToken.decimals,

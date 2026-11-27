@@ -8,6 +8,7 @@ import {
 import { mnemonicToAccount } from "viem/accounts";
 import { vi } from "vitest";
 import { stellarKeypair } from "../shared/stellarAddress";
+import { gnoKey } from "../shared/gnoAddress";
 
 export const testMnemonic =
   "test test test test test test test test test test test junk";
@@ -134,6 +135,40 @@ export const fakeStellarActor = {
   ),
 };
 
+export const gnoOperator = gnoKey(testMnemonic, 0).address;
+
+export const fakeGnoActor = {
+  getAddress: vi.fn(() => gnoOperator),
+  getBalance: vi.fn(async (..._args: unknown[]) => 0n),
+  evaluate: vi.fn(async (..._args: unknown[]): Promise<string> => {
+    throw new Error("evaluate not stubbed");
+  }),
+  qeval: vi.fn(async (..._args: unknown[]): Promise<string> => {
+    throw new Error("qeval not stubbed");
+  }),
+  provider: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("provider not stubbed");
+  }),
+  call: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("call not stubbed");
+  }),
+  send: vi.fn(async (..._args: unknown[]): Promise<string> => {
+    throw new Error("send not stubbed");
+  }),
+  getTokenMetadata: vi.fn(async (..._args: unknown[]): Promise<unknown> => {
+    throw new Error("getTokenMetadata not stubbed");
+  }),
+  getTransactionStatus: vi.fn(
+    async (..._args: unknown[]): Promise<unknown> => ({ status: "pending" }),
+  ),
+  getConfirmations: vi.fn(async (..._args: unknown[]) => 1n),
+  getBlockNumber: vi.fn(async (..._args: unknown[]) => 1000n),
+  getSponsorshipError: vi.fn(
+    async (..._args: unknown[]): Promise<string | null> =>
+      "Gas sponsors aren't available on Gno; the operator pays fees",
+  ),
+};
+
 export const nearIntentsMock = {
   getTokens: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []),
   getAssetId: vi.fn(
@@ -192,6 +227,21 @@ export const resetMocks = () => {
   );
   fakeStellarActor.view.mockRejectedValue(new Error("view not stubbed"));
   fakeStellarActor.invoke.mockRejectedValue(new Error("invoke not stubbed"));
+
+  for (const fn of Object.values(fakeGnoActor)) fn.mockReset();
+  fakeGnoActor.getAddress.mockReturnValue(gnoOperator);
+  fakeGnoActor.getBalance.mockResolvedValue(0n);
+  fakeGnoActor.getBlockNumber.mockResolvedValue(1000n);
+  fakeGnoActor.getConfirmations.mockResolvedValue(1n);
+  fakeGnoActor.getTransactionStatus.mockResolvedValue({ status: "pending" });
+  fakeGnoActor.evaluate.mockRejectedValue(new Error("evaluate not stubbed"));
+  fakeGnoActor.qeval.mockRejectedValue(new Error("qeval not stubbed"));
+  fakeGnoActor.provider.mockRejectedValue(new Error("provider not stubbed"));
+  fakeGnoActor.call.mockRejectedValue(new Error("call not stubbed"));
+  fakeGnoActor.send.mockRejectedValue(new Error("send not stubbed"));
+  fakeGnoActor.getTokenMetadata.mockRejectedValue(
+    new Error("getTokenMetadata not stubbed"),
+  );
 
   fakeActor.getAddress.mockReturnValue(operatorAddress);
   fakeActor.getBalance.mockResolvedValue(0n);

@@ -23,6 +23,12 @@ const loadEnv = async (rootKey: string, certificate?: string) => {
   return import("../env.js");
 };
 
+// imported after loadEnv, so it's built from that environment
+const loadPgSSL = async (rootKey: string, certificate?: string) => {
+  await loadEnv(rootKey, certificate);
+  return (await import("../pgSSL.js")).pgSSLOptions;
+};
+
 describe("environment", () => {
   afterEach(() => {
     process.env.KITE_ROOT_KEY = original;
@@ -39,17 +45,14 @@ describe("environment", () => {
   });
 
   it("leaves Postgres TLS to the URL without a certificate", async () => {
-    expect((await loadEnv(original!)).pgSslOptions).toEqual({});
-    expect((await loadEnv(original!, "")).pgSslOptions).toEqual({});
+    expect(await loadPgSSL(original!)).toEqual({});
+    expect(await loadPgSSL(original!, "")).toEqual({});
   });
 
   it("verifies Postgres against the certificate, even one set on a single line", async () => {
-    const { pgSslOptions } = await loadEnv(
-      original!,
-      Certificate.replace(/\n/g, "\\n"),
-    );
-
-    expect(pgSslOptions).toEqual({ ssl: { ca: Certificate } });
+    expect(
+      await loadPgSSL(original!, Certificate.replace(/\n/g, "\\n")),
+    ).toEqual({ ssl: { ca: Certificate } });
   });
 
   it("rejects a certificate that isn't PEM", async () => {

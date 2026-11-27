@@ -1,4 +1,3 @@
-import { formatUnits, getAddress, zeroAddress, type Hex } from "viem";
 import {
   chainConfig,
   customer,
@@ -34,6 +33,7 @@ import {
   type WithPageInput,
 } from "../shared/pagination";
 import { db, dbWithTransaction, type DatabaseOrTransaction } from "../db";
+import { formatUnits, getAddress, zeroAddress, type Hex } from "viem";
 import {
   and,
   asc,
@@ -55,6 +55,7 @@ import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
+  getGnoActor,
 } from "../shared/onchainActor";
 import { whyCantReceive } from "../shared/recipients";
 import {
@@ -65,6 +66,8 @@ import {
   type StellarKiteTransfer,
 } from "../shared/kiteStellarContract";
 import { StellarSimulationError } from "../sdks/StellarActor";
+import { GnoCallError } from "../sdks/GnoActor";
+import { kiteGno, type GnoKiteTransfer } from "../shared/kiteGnoContract";
 import { isStellarMuxed } from "../shared/stellarAddress";
 import {
   Address as StellarAddress,
@@ -90,6 +93,7 @@ import {
   getEvmChain,
   getNearChain,
   getStellarChain,
+  getGnoChain,
 } from "../shared/chains";
 import { common } from "../shared/common";
 import { kite } from "../shared/kiteContract";
@@ -249,7 +253,6 @@ export class TransferService {
 
     const options = await this.sdkOptions();
 
-    // each activity is watched by the first provider that accepts it
     const firstAccepting = async (
       track: (provider: Provider) => Promise<unknown>,
     ) => {
@@ -417,6 +420,10 @@ export class TransferService {
         tokenAddress,
         destinationAddress,
       );
+    }
+
+    if (await this.isGnoTransfer(transferId)) {
+      return this.recoverGnoToken(transferId, tokenAddress, destinationAddress);
     }
 
     const ctx = await this.getOnchainTransfer(transferId);
@@ -1824,6 +1831,304 @@ export class TransferService {
     } as const;
   };
 
+  private prepareGnoTransfer = async (
+    input: PrepareTransferInput,
+  ): Promise<PreparedTransfer> => {
+    const { quote: quote_, config } = input;
+    const caip2Id = quote_.chain.caip2Id;
+    getGnoChain(caip2Id);
+    const realm = config.kiteFactoryAddress;
+
+    const isSameToken = quote_.sourceToken.id === quote_.targetToken.id;
+    if (!isSameToken && !quote_.swapPool) {
+      throw new AppError("This chain has no swap route for this token");
+    }
+
+    const struct = kiteGno.buildTransferInput({
+      transferId: input.transferId,
+      token: quote_.sourceToken.address,
+      amount: quote_.sourceAmount,
+      settle: quote_.targetToken.address,
+      minAmountOut: input.minAmountOut,
+      route: quote_.swapPool,
+      recipient: input.settlementRecipient,
+      fees: quote_.fees.map((fee) => ({
+        id: fee.id,
+        recipient: fee.feeAddress,
+        amount: fee.amount,
+      })),
+      refundAddress: input.refundAddress,
+      expiresAt: quote_.expiresAt,
+    });
+
+    const payinAddress = kiteGno.predictAddress(realm, struct);
+    const derived = await getGnoActor().evaluate(
+      caip2Id,
+      realm,
+      `DepositAddress(${JSON.stringify(kiteGno.encode(struct))})`,
+      config.rpcUrls ?? [],
+    );
+    if (derived !== payinAddress) {
+      throw new AppError(
+        `The Kite realm derives ${derived} for this transfer, not ${payinAddress}`,
+      );
+    }
+
+    return {
+      kiteTransferInput: struct,
+      payinAddress,
+      trackedBy: [],
+      refundAddress: input.refundAddress,
+      settlementRecipient: input.settlementRecipient,
+    };
+  };
+
+  private isGnoTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    return !!row && getChain(row.quote.chain.caip2Id).type === ChainType.Gno;
+  };
+
+  private getGnoTransfer = async (transferId: string) => {
+    const row = await this.loadTransfer(transferId);
+    if (!row) throw new NotFoundError("transfer", transferId);
+
+    const config = row.quote.chain.config;
+    if (!config) throw new AppError("Selected chain is not configured");
+
+    const struct = row.kiteTransferInput as unknown as GnoKiteTransfer;
+    const realm = config.kiteFactoryAddress;
+    const predicted = kiteGno.predictAddress(realm, struct);
+    if (predicted !== row.payinAddress) {
+      throw new TransferStructMismatchError(
+        row.id,
+        row.payinAddress,
+        predicted,
+      );
+    }
+
+    const fees = await db.query.quoteFee.findMany({
+      where: eq(quoteFee.quoteId, row.quoteId),
+      columns: { id: true },
+    });
+
+    return {
+      row,
+      caip2Id: row.quote.chain.caip2Id,
+      realm,
+      rpcUrls: config.rpcUrls ?? [],
+      struct,
+      feeIds: kiteGno.sortFees(fees).map((fee) => fee.id),
+      actor: getGnoActor(),
+    };
+  };
+
+  private gnoStatus = (
+    ctx: Awaited<ReturnType<TransferService["getGnoTransfer"]>>,
+  ) =>
+    ctx.actor.evaluate(
+      ctx.caip2Id,
+      ctx.realm,
+      `StatusOf(${JSON.stringify(kiteGno.hash(ctx.struct))})`,
+      ctx.rpcUrls,
+    );
+
+  private sendGnoCall = async (
+    ctx: Awaited<ReturnType<TransferService["getGnoTransfer"]>>,
+    method: "Settle" | "Refund" | "Recover",
+    args: string[] = [],
+  ) => {
+    const result = await ctx.actor.call(
+      ctx.caip2Id,
+      ctx.realm,
+      method,
+      [kiteGno.encode(ctx.struct), ...args],
+      ctx.rpcUrls,
+    );
+
+    await this.handleOnchainNotifierCallback(
+      kiteGno
+        .parseEvents({
+          caip2Id: ctx.caip2Id,
+          realm: ctx.realm,
+          transactionHash: result.transactionHash,
+          token: ctx.struct.token,
+          feeIds: ctx.feeIds,
+          events: result.events,
+        })
+        .filter((item) => item.payinAddress === ctx.row.payinAddress),
+    );
+
+    return result;
+  };
+
+  private settleGnoTransfer = async (transferId: string) => {
+    const ctx = await this.getGnoTransfer(transferId);
+    let row = ctx.row;
+
+    if (!SettleableTransferStatuses.includes(row.status)) {
+      return;
+    }
+
+    const status = await this.gnoStatus(ctx);
+    if (status === "Settled" || status === "Refunded") {
+      return this.reconcileClosedTransfer(ctx, status);
+    }
+
+    const balance = await ctx.actor.getBalance(
+      ctx.caip2Id,
+      ctx.struct.token,
+      row.payinAddress,
+      ctx.rpcUrls,
+    );
+    const expired =
+      BigInt(Math.floor(Date.now() / 1000)) > BigInt(ctx.struct.expires_at);
+
+    if (balance < BigInt(ctx.struct.amount)) {
+      if (expired) {
+        return this.abandonSettlement(
+          row,
+          "Transfer expired before it was paid in full",
+          balance,
+        );
+      }
+
+      if (row.status === TransferStatus.AwaitingDeposit) {
+        return;
+      }
+
+      throw new AppError("Transfer is awaiting full deposit");
+    }
+
+    if (expired) {
+      return this.abandonSettlement(
+        row,
+        "Transfer expired before it was settled",
+        balance,
+      );
+    }
+
+    if (row.status !== TransferStatus.Processing) {
+      const moved = await this.transitionTransferStatus(
+        row.id,
+        row.status,
+        TransferStatus.Processing,
+        "Transfer settlement submitted",
+      );
+
+      if (!moved) {
+        return;
+      }
+
+      row = {
+        ...row,
+        status: TransferStatus.Processing,
+      };
+    }
+
+    try {
+      await this.sendGnoCall(ctx, "Settle");
+    } catch (e) {
+      if (!(e instanceof GnoCallError)) throw e;
+
+      const name = kiteGno.errorName(e.message);
+      if (name === "NotOpen") {
+        return this.reconcileClosedTransfer({ row }, await this.gnoStatus(ctx));
+      }
+
+      if (!name || name === "InsufficientPayment") {
+        throw new AppError(`Settlement failed: ${e.message}`);
+      }
+
+      return this.abandonSettlement(row, name, balance);
+    }
+  };
+
+  private refundGnoTransfer = async (
+    transferId: string,
+  ): Promise<{ refunded: true } | { refunded: false; reason: string }> => {
+    const ctx = await this.getGnoTransfer(transferId);
+    const row = ctx.row;
+
+    const closed = this.closedReason(row);
+    if (closed) return { refunded: false, reason: closed };
+
+    const status = await this.gnoStatus(ctx);
+    if (status === "Settled" || status === "Refunded") {
+      await this.reconcileClosedTransfer(ctx, status);
+      return {
+        refunded: false,
+        reason: "The transfer has already closed on-chain",
+      };
+    }
+
+    const balance = await ctx.actor.getBalance(
+      ctx.caip2Id,
+      ctx.struct.token,
+      row.payinAddress,
+      ctx.rpcUrls,
+    );
+
+    if (balance === 0n) {
+      return {
+        refunded: false,
+        reason: `There is nothing to refund: the pay-in address holds no ${row.quote.sourceToken.symbol}`,
+      };
+    }
+
+    await this.sendGnoCall(ctx, "Refund").catch((e: unknown) => {
+      const message = (e as Error).message;
+      throw new AppError(
+        `Refund failed: ${kiteGno.errorName(message) ?? message}`,
+      );
+    });
+
+    return { refunded: true };
+  };
+
+  private recoverGnoToken = async (
+    transferId: string,
+    tokenAddress: string,
+    destinationAddress: string,
+  ) => {
+    const ctx = await this.getGnoTransfer(transferId);
+    const balance = await ctx.actor.getBalance(
+      ctx.caip2Id,
+      tokenAddress,
+      ctx.row.payinAddress,
+      ctx.rpcUrls,
+    );
+
+    if (balance === 0n) {
+      return {
+        status: "empty",
+      } as const;
+    }
+
+    const destination =
+      !destinationAddress || common.isZeroAddress(destinationAddress)
+        ? ""
+        : destinationAddress;
+
+    try {
+      await this.sendGnoCall(ctx, "Recover", [tokenAddress, destination]);
+    } catch (e) {
+      if (!(e instanceof GnoCallError)) throw e;
+      return {
+        status: "failed",
+        failure: {
+          ok: false,
+          kind: "revert",
+          errorName: kiteGno.errorName(e.message) ?? "Unknown",
+          message: e.message,
+        },
+      } as const;
+    }
+
+    return {
+      status: "sent",
+    } as const;
+  };
+
   createTransfer = async (
     appId: string,
     quoteId: string,
@@ -1906,6 +2211,7 @@ export class TransferService {
       [ChainType.Evm]: this.prepareEvmTransfer,
       [ChainType.Near]: this.prepareNearTransfer,
       [ChainType.Stellar]: this.prepareStellarTransfer,
+      [ChainType.Gno]: this.prepareGnoTransfer,
     }[chain.type];
     const prepared = await prepare({
       transferId,
@@ -2018,6 +2324,10 @@ export class TransferService {
 
     if (await this.isStellarTransfer(transferId)) {
       return this.settleStellarTransfer(transferId);
+    }
+
+    if (await this.isGnoTransfer(transferId)) {
+      return this.settleGnoTransfer(transferId);
     }
 
     const ctx = await this.getOnchainTransfer(transferId);
@@ -2161,6 +2471,10 @@ export class TransferService {
 
     if (await this.isStellarTransfer(transferId)) {
       return this.refundStellarTransfer(transferId);
+    }
+
+    if (await this.isGnoTransfer(transferId)) {
+      return this.refundGnoTransfer(transferId);
     }
 
     const ctx = await this.getOnchainTransfer(transferId);
@@ -2308,6 +2622,16 @@ export class TransferService {
         ctx.caip2Id,
         common.normalizeAddress(tokenAddress),
         ctx.row.payinAddress,
+      );
+    }
+
+    if (await this.isGnoTransfer(transferId)) {
+      const ctx = await this.getGnoTransfer(transferId);
+      return ctx.actor.getBalance(
+        ctx.caip2Id,
+        tokenAddress,
+        ctx.row.payinAddress,
+        ctx.rpcUrls,
       );
     }
 

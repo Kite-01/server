@@ -3,8 +3,6 @@ import {
   createChain,
   createConfiguredChain,
 } from "../../test/factories";
-import { beforeEach, describe, expect, it } from "vitest";
-import { NotFoundError, SdkRequestError } from "../../shared/errors";
 import {
   fakeNearActor,
   fakeStellarActor,
@@ -16,6 +14,8 @@ import {
   STELLAR_USDC,
   setupStellarChain,
 } from "../../test/stellar";
+import { beforeEach, describe, expect, it } from "vitest";
+import { NotFoundError, SdkRequestError } from "../../shared/errors";
 import { setupNearChain } from "../../test/near";
 import { ChainService } from "../Chain.service";
 import { AppService } from "../App.service";

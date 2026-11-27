@@ -7,11 +7,11 @@ import {
 } from "../../test/api";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApiKey, createApp } from "../../test/factories";
+import { demoKey, rootKey } from "../../test/rootKey";
 import { ApiKeyService } from "../../services/ApiKey.service";
 import { ApiKeyScope } from "../../shared/constants";
 import { AppService } from "../../services/App.service";
 import { signing } from "../../shared/signing";
-import { demoKey, rootKey } from "../../test/rootKey";
 
 const send = async (
   method: string,

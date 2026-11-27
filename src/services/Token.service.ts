@@ -1,20 +1,22 @@
-import { type Address, type Hex, erc20Abi, isAddress, parseAbi } from "viem";
 import {
   paginate,
   searchPattern,
   type WithPageInput,
 } from "../shared/pagination";
-import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
-import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
-import { getChain, readContracts } from "../shared/chains";
-import { ChainType, Provider, zeroBytes32 } from "../shared/constants";
-import { isNearAccountId, NearNativeToken } from "../shared/kiteNearContract";
-import { chainConfig, token } from "../db/schema";
 import {
   getNearActor,
   getOnchainActor,
   getStellarActor,
+  getGnoActor,
 } from "../shared/onchainActor";
+import { type Address, type Hex, erc20Abi, isAddress, parseAbi } from "viem";
+import { AppError, NotFoundError, PreconditionError } from "../shared/errors";
+import { and, eq, desc, count, ilike, or, isNull } from "drizzle-orm";
+import { ChainType, Provider, zeroBytes32 } from "../shared/constants";
+import { isNearAccountId, NearNativeToken } from "../shared/kiteNearContract";
+import { GnoNativeToken, isGnoToken } from "../shared/gnoAddress";
+import { getChain, readContracts } from "../shared/chains";
+import { chainConfig, token } from "../db/schema";
 import { isStellarContract } from "../shared/stellarAddress";
 import { ChainService } from "./Chain.service";
 import { NearIntents } from "../sdks/NearIntents";
@@ -28,7 +30,8 @@ export class TokenService {
     if (
       !isAddress(tokenAddress, { strict: false }) &&
       !isNearAccountId(tokenAddress) &&
-      !isStellarContract(tokenAddress.toUpperCase())
+      !isStellarContract(tokenAddress.toUpperCase()) &&
+      !isGnoToken(tokenAddress)
     ) {
       return undefined;
     }
@@ -97,12 +100,16 @@ export class TokenService {
         ? address === NearNativeToken
         : chain_.type === ChainType.Stellar
           ? address === chain_.contracts.nativeToken
-          : common.isZeroAddress(address);
+          : chain_.type === ChainType.Gno
+            ? address === GnoNativeToken
+            : common.isZeroAddress(address);
 
-    if (
-      !common.isValidAddress(chain_.type, address) ||
-      (chain_.type === ChainType.Stellar && !isStellarContract(address))
-    ) {
+    const isToken =
+      chain_.type === ChainType.Gno
+        ? isGnoToken(address)
+        : common.isValidAddress(chain_.type, address) &&
+          (chain_.type !== ChainType.Stellar || isStellarContract(address));
+    if (!isToken) {
       throw new AppError(`${address} is not a token address on ${chain_.name}`);
     }
 
@@ -152,16 +159,40 @@ export class TokenService {
       });
     }
 
+    if (chain_.type === ChainType.Gno) {
+      const metadata = await getGnoActor()
+        .getTokenMetadata(chain.caip2Id, address, chain.config?.rpcUrls ?? [])
+        .catch(() => null);
+
+      if (!metadata || !Number.isInteger(metadata.decimals)) {
+        throw new AppError("Could not get meta information for token");
+      }
+
+      // wugnot counts in ugnot, so it takes GNOT's decimals, as wallets show it.
+      return saveToken({
+        chainId,
+        address,
+        ...metadata,
+        decimals:
+          address === chain_.contracts.wugnot
+            ? chain_.nativeCurrency.decimals
+            : metadata.decimals,
+        supportsEIP3009: false,
+      });
+    }
+
     if (chain_.type === ChainType.Stellar) {
       const actor = getStellarActor();
-      const read = <T>(method: string) =>
-        actor.view<T>(
+      const read = <T>(method: string) => {
+        return actor.view<T>(
           chain.caip2Id,
           address,
           method,
           [],
           chain.config?.rpcUrls ?? [],
         );
+      };
+
       const metadata = await Promise.all([
         read<string>("name"),
         read<string>("symbol"),

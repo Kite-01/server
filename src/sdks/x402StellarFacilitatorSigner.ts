@@ -3,8 +3,8 @@ import {
   type FacilitatorStellarSigner,
 } from "@x402/stellar";
 import { TransactionBuilder } from "@stellar/stellar-sdk";
-import { getX402Observer } from "../shared/context/x402";
 import { type StellarActor } from "./StellarActor";
+import { getX402Observer } from "../shared/context/x402";
 
 export const stellarAuthorizationValidBefore = (input: {
   expirationLedger: number;
@@ -43,6 +43,7 @@ export const x402StellarFacilitatorSigner = (
             transaction.hash().toString("hex"),
           );
         }
+
         return signed;
       },
     },

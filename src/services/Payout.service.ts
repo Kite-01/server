@@ -17,24 +17,18 @@ import {
 import { and, eq, gt, inArray, notInArray } from "drizzle-orm";
 import { AppError, SdkRequestError } from "../shared/errors";
 import { getOnchainActor } from "../shared/onchainActor";
+import { whyCantReceive } from "../shared/recipients";
 import { NearIntents } from "../sdks/NearIntents";
 import { Scheduler } from "../shared/scheduler";
 import { KvService } from "./Kv.service";
 import { getChain } from "../shared/chains";
 import { common } from "../shared/common";
 import { db } from "../db";
-import { whyCantReceive } from "../shared/recipients";
 
 const FinalPayoutStatuses = [
   PayoutStatus.Delivered,
   PayoutStatus.Refunded,
   PayoutStatus.Failed,
-];
-
-// USDC on Ethereum and on Base, used as the source of trial quotes
-const TrialOriginAssets = [
-  "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
-  "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
 ];
 
 export class PayoutService {
@@ -44,7 +38,6 @@ export class PayoutService {
     };
   };
 
-  // where a new transfer settles, and what its timeline should say about it
   planSettlement = async (input: {
     appId: string;
     chainId: string;
@@ -106,6 +99,7 @@ export class PayoutService {
         token: input.settlementToken,
         rpcUrls: input.rpcUrls,
       });
+
       if (reason) {
         return {
           recipient: address,
@@ -189,7 +183,6 @@ export class PayoutService {
   validateDestination = async (payoutAsset: string, payoutAddress: string) => {
     const options = await this.sdkOptions();
     const nearIntents = new NearIntents();
-
     const tokens = await nearIntents.getTokens(options).catch(() => {
       throw new AppError(
         "NEAR Intents can't be reached to check the payout token; try again",
@@ -200,14 +193,18 @@ export class PayoutService {
       throw new AppError("NEAR Intents doesn't support this payout token");
     }
 
-    // a trial quote that moves nothing: 1Click refuses an address it can't deliver to
+    const trialOriginAssets = [
+      "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+    ];
+
     await nearIntents
       .quote(
         {
           dry: true,
           swapType: "EXACT_INPUT",
           slippageTolerance: 100,
-          originAsset: TrialOriginAssets.find((id) => id !== payoutAsset)!,
+          originAsset: trialOriginAssets.find((id) => id !== payoutAsset)!,
           depositType: "ORIGIN_CHAIN",
           destinationAsset: payoutAsset,
           amount: "100000000",
@@ -236,7 +233,9 @@ export class PayoutService {
       where: eq(payout.transferId, transferId),
     });
 
-    if (!row || FinalPayoutStatuses.includes(row.status)) return;
+    if (!row || FinalPayoutStatuses.includes(row.status)) {
+      return;
+    }
 
     const nearIntents = new NearIntents();
     const result = await nearIntents.getStatus(

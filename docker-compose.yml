@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kite
+    volumes:
+      - kite-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kite"]
+      interval: 2s
+      retries: 30
+
+  kite:
+    image: ghcr.io/kite-01/server:${KITE_IMAGE:-latest}
+    env_file: .env
+    environment:
+      KITE_PG_DB_URL: postgres://postgres:postgres@db:5432/kite
+    ports:
+      - "${KITE_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kite-db:

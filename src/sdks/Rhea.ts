@@ -1,8 +1,7 @@
-import { getNearChain } from "../shared/chains";
-import { getNearActor } from "../shared/onchainActor";
 import { NearNativeToken } from "../shared/kiteNearContract";
+import { getNearActor } from "../shared/onchainActor";
+import { getNearChain } from "../shared/chains";
 
-/** Rhea DCL fee tiers, in hundredths of a basis point. */
 export const RheaDclFeeTiers = [100, 400, 2000, 10000] as const;
 
 export type RheaQuote = {
@@ -10,12 +9,11 @@ export type RheaQuote = {
   amount: bigint;
 };
 
-type DclQuoteResult = { amount: string; tag: string | null };
+type DclQuoteResult = {
+  amount: string;
+  tag: string | null;
+};
 
-/**
- * Spot quotes from Rhea's DCL pools, which have no time-weighted average to read; the deposit
- * contract still enforces `min_amount_out`.
- */
 export class Rhea {
   private dcl = (caip2Id: Caip2Id) => getNearChain(caip2Id).contracts.Rhea?.dcl;
 
@@ -51,7 +49,10 @@ export class Rhea {
         const exists = await actor
           .view<object | null>(caip2Id, dcl, "get_pool", { pool_id: pool })
           .catch(() => null);
-        if (!exists) return null;
+
+        if (!exists) {
+          return null;
+        }
 
         const result = await actor
           .view<DclQuoteResult>(caip2Id, dcl, method, {

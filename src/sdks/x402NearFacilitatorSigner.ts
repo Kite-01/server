@@ -2,11 +2,9 @@ import {
   createFacilitatorNearSigner,
   type FacilitatorNearSigner,
 } from "@x402/near";
-import { getNearChain } from "../shared/chains";
 import { type NearActor } from "./NearActor";
+import { getNearChain } from "../shared/chains";
 
-// Submissions go through the operator's per-chain queue: its other transactions use the same
-// access key.
 export const x402NearFacilitatorSigner = (
   caip2Id: Caip2Id,
   actor: NearActor,
@@ -20,6 +18,7 @@ export const x402NearFacilitatorSigner = (
         secretKey: actor.getSecretKey() as `ed25519:${string}`,
       },
     ],
+
     rpcUrls: { [caip2Id]: rpcUrl },
   });
 

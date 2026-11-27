@@ -19,6 +19,7 @@ export enum ChainType {
   Evm = "Evm",
   Near = "Near",
   Stellar = "Stellar",
+  Gno = "Gno",
 }
 
 export enum ApiKeyScope {

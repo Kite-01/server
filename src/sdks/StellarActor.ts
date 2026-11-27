@@ -12,14 +12,15 @@ import {
   Address,
   Keypair,
 } from "@stellar/stellar-sdk";
+import { type OnchainActor } from "./interfaces/OnchainActor";
 import { getStellarChain } from "../shared/chains";
+import { stellarKeypair } from "../shared/stellarAddress";
 import { AppError } from "../shared/errors";
 import { env } from "../shared/env";
-import { type OnchainActor } from "./interfaces/OnchainActor";
-import { stellarKeypair } from "../shared/stellarAddress";
 
-const NotOnStellar = (method: string) =>
-  new AppError(`${method} isn't available on Stellar`);
+const NotOnStellar = (method: string) => {
+  return new AppError(`${method} isn't available on Stellar`);
+};
 
 export class StellarSimulationError extends AppError {
   constructor(
@@ -31,7 +32,6 @@ export class StellarSimulationError extends AppError {
   }
 }
 
-// the contract that raised the final error, not one a `try_` call recovered from
 export const simulationError = (
   result: rpc.Api.SimulateTransactionErrorResponse,
 ) => {
@@ -49,6 +49,7 @@ export const simulationError = (
         String(error.error().contractCode()) === code
       );
     });
+
   const contractId = raised?.contractId();
 
   return new StellarSimulationError(
@@ -79,6 +80,7 @@ export class StellarActor implements OnchainActor {
       keypair = stellarKeypair(env.KITE_OPERATOR_MNEMONIC, index);
       this.keypairs.set(index, keypair);
     }
+
     return keypair;
   };
 
@@ -128,6 +130,7 @@ export class StellarActor implements OnchainActor {
       method,
       args,
     );
+
     const result = await this.rpc(caip2Id, rpcUrls).simulateTransaction(tx);
     if (rpc.Api.isSimulationError(result)) {
       throw simulationError(result);
@@ -177,6 +180,7 @@ export class StellarActor implements OnchainActor {
       const result = await server.pollTransaction(sent.hash, {
         attempts: PollAttempts,
       });
+
       return this.toResult(sent.hash, result);
     });
   };
@@ -189,6 +193,7 @@ export class StellarActor implements OnchainActor {
     const result = await this.rpc(caip2Id, rpcUrls).getTransaction(
       transactionHash,
     );
+
     return this.toResult(transactionHash, result);
   };
 
@@ -228,11 +233,11 @@ export class StellarActor implements OnchainActor {
     );
   };
 
-  // the asset a Stellar Asset Contract wraps, or null for any other token; a contract's
-  // name never changes, so the answer is kept
   assetOf = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
     const key = `${caip2Id}:${token}`;
-    if (this.assets.has(key)) return this.assets.get(key)!;
+    if (this.assets.has(key)) {
+      return this.assets.get(key)!;
+    }
 
     const name = await this.view<string>(caip2Id, token, "name", [], rpcUrls);
     const [code, issuer] = name.split(":");
@@ -242,30 +247,34 @@ export class StellarActor implements OnchainActor {
         : issuer
           ? new Asset(code, issuer)
           : null;
+
     const asset =
       candidate?.contractId(this.passphrase(caip2Id)) === token
         ? candidate
         : null;
+
     this.assets.set(key, asset);
     return asset;
   };
 
-  isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) =>
-    !!(await this.assetOf(caip2Id, token, rpcUrls));
+  isSac = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
+    return !!(await this.assetOf(caip2Id, token, rpcUrls));
+  };
 
-  // Whether `address` can be paid `token`, in one ledger read. A Stellar Asset Contract
-  // pays a G… or M… account only once it's funded with XLM and, for an issued asset,
-  // trusts it; other tokens and C… addresses keep balances in contract storage.
   receivable = async (
     caip2Id: Caip2Id,
     token: string,
     address: string,
     rpcUrls?: string[],
   ): Promise<"ok" | "unfunded" | "untrusted"> => {
-    if (StrKey.isValidContract(address)) return "ok";
+    if (StrKey.isValidContract(address)) {
+      return "ok";
+    }
 
     const asset = await this.assetOf(caip2Id, token, rpcUrls);
-    if (!asset) return "ok";
+    if (!asset) {
+      return "ok";
+    }
 
     const account = this.accountOf(address);
     const accountId = Keypair.fromPublicKey(account).xdrAccountId();
@@ -283,34 +292,40 @@ export class StellarActor implements OnchainActor {
           ]
         : []),
     ];
+
     const { entries } = await this.rpc(caip2Id, rpcUrls).getLedgerEntries(
       ...keys,
     );
-    const found = (type: xdr.LedgerEntryType) =>
-      entries.some((entry) => entry.key.switch() === type);
+
+    const found = (type: xdr.LedgerEntryType) => {
+      return entries.some((entry) => entry.key.switch() === type);
+    };
 
     if (!found(xdr.LedgerEntryType.account())) return "unfunded";
-    if (needsTrust && !found(xdr.LedgerEntryType.trustline()))
+    if (needsTrust && !found(xdr.LedgerEntryType.trustline())) {
       return "untrusted";
+    }
+
     return "ok";
   };
 
-  private accountOf = (address: string) =>
-    StrKey.isValidMed25519PublicKey(address)
+  private accountOf = (address: string) => {
+    return StrKey.isValidMed25519PublicKey(address)
       ? StrKey.encodeEd25519PublicKey(
           StrKey.decodeMed25519PublicKey(address).subarray(0, 32),
         )
       : address;
+  };
 
-  // the operator can only hold an issued asset through a trustline
-  // a G… account needs a trustline to hold an issued asset
   canHold = async (
     caip2Id: Caip2Id,
     token: string,
     address: string,
     rpcUrls?: string[],
   ) => {
-    if (StrKey.isValidContract(address)) return true;
+    if (StrKey.isValidContract(address)) {
+      return true;
+    }
 
     const account = this.accountOf(address);
     const asset = await this.assetOf(caip2Id, token, rpcUrls);
@@ -324,12 +339,15 @@ export class StellarActor implements OnchainActor {
         asset: asset.toTrustLineXDRObject(),
       }),
     );
+
     const { entries } = await this.rpc(caip2Id, rpcUrls).getLedgerEntries(key);
     return entries.length > 0;
   };
 
   trust = async (caip2Id: Caip2Id, token: string, rpcUrls?: string[]) => {
-    if (await this.canHold(caip2Id, token, this.getAddress(), rpcUrls)) return;
+    if (await this.canHold(caip2Id, token, this.getAddress(), rpcUrls)) {
+      return;
+    }
 
     const server = this.rpc(caip2Id, rpcUrls);
     const asset = (await this.assetOf(caip2Id, token, rpcUrls))!;
@@ -343,6 +361,7 @@ export class StellarActor implements OnchainActor {
         .addOperation(Operation.changeTrust({ asset }))
         .setTimeout(TxTimeoutSeconds)
         .build();
+
       tx.sign(this.keypair());
 
       const sent = await server.sendTransaction(tx);
@@ -350,6 +369,7 @@ export class StellarActor implements OnchainActor {
         sent.status === "PENDING"
           ? await server.pollTransaction(sent.hash, { attempts: PollAttempts })
           : null;
+
       if (result?.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
         throw new AppError(
           `The operator ${this.getAddress()} couldn't add a trustline for ${asset.getCode()}; check it holds enough XLM`,
@@ -371,7 +391,11 @@ export class StellarActor implements OnchainActor {
       startLedger: Number(blockNumber),
       pagination: { limit: 1 },
     });
-    if (!ledgers[0]) throw new AppError(`Ledger ${blockNumber} is unknown`);
+
+    if (!ledgers[0]) {
+      throw new AppError(`Ledger ${blockNumber} is unknown`);
+    }
+
     return BigInt(ledgers[0].ledgerCloseTime);
   };
 
@@ -393,9 +417,14 @@ export class StellarActor implements OnchainActor {
   ): Promise<OnchainActorCallStatus> => {
     try {
       const result = await this.getOutcome(caip2Id, callId);
-      return { status: result.status, transactionHash: result.transactionHash };
+      return {
+        status: result.status,
+        transactionHash: result.transactionHash,
+      };
     } catch {
-      return { status: "pending" };
+      return {
+        status: "pending",
+      };
     }
   };
 

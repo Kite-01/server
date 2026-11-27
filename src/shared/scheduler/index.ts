@@ -1,7 +1,8 @@
 import { PgBoss, type Db as PgBossDb, type SendOptions } from "pg-boss";
 import { OneHour, OneMinute, Queue } from "../constants";
 import { startWorkers } from "./workers";
-import { env, pgSslOptions } from "../env";
+import { pgSSLOptions } from "../pgSSL";
+import { env } from "../env";
 
 export class Scheduler {
   private static instance: Promise<Scheduler> | null = null;
@@ -88,7 +89,7 @@ export class Scheduler {
   private static connect = async () => {
     const boss = new PgBoss({
       connectionString: env.KITE_PG_DB_URL,
-      ...pgSslOptions,
+      ...pgSSLOptions,
       useListenNotify: true,
       max: env.KITE_PG_BOSS_POOL_MAX,
     });

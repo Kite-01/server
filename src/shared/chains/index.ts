@@ -58,6 +58,15 @@ export const getStellarChain = (caip2Id: Caip2Id) => {
   return chain;
 };
 
+export const getGnoChain = (caip2Id: Caip2Id) => {
+  const chain = getChain(caip2Id);
+  if (chain.type !== ChainType.Gno) {
+    throw new AppError(`${chain.name} is not a Gno chain`);
+  }
+
+  return chain;
+};
+
 export const getRpcsTransport = (urls: string[]) => {
   return fallback(
     urls.map((url) => http(url)),
