@@ -21,20 +21,20 @@ Open a payment link to pay as a person, or point your agent at it:
 
 | Network | Price      | Link                                                                    |
 | ------- | ---------- | ----------------------------------------------------------------------- |
-| Testnet | 1 USD      | <https://testnet.usekite.site/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd> |
-| Testnet | 1 GBP      | <https://testnet.usekite.site/pay/6c103330-4adc-43a1-9335-084027a3f284> |
-| Mainnet | 1 USD      | <https://mainnet.usekite.site/pay/a1b264be-d168-42a9-9a2e-d2b0b0aa0467> |
-| Mainnet | 10,000 NGN | <https://mainnet.usekite.site/pay/b42601ba-9cb7-4b94-a2c0-4382526f6bc3> |
+| Testnet | 1 USD      | <https://testnet.usekite.tech/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd> |
+| Testnet | 1 GBP      | <https://testnet.usekite.tech/pay/6c103330-4adc-43a1-9335-084027a3f284> |
+| Mainnet | 1 USD      | <https://mainnet.usekite.tech/pay/a1b264be-d168-42a9-9a2e-d2b0b0aa0467> |
+| Mainnet | 10,000 NGN | <https://mainnet.usekite.tech/pay/b42601ba-9cb7-4b94-a2c0-4382526f6bc3> |
 
 To see what an agent sees, request a link as JSON:
 
 ```sh
-curl -i -H "Accept: application/json" https://testnet.usekite.site/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd
+curl -i -H "Accept: application/json" https://testnet.usekite.tech/pay/cc4eaa8e-2673-4b5c-af09-c151b1736ffd
 ```
 
 It answers `402` with an x402 `accepts` list: one offer for each network the agent can pay on, `near:testnet` among them. An x402 client signs one and pays by repeating the request. Kite is its own facilitator: it verifies the signature and settles on-chain itself, paying the gas, so the agent only needs the token.
 
-The hosted dashboards are [testnet.usekite.site](https://testnet.usekite.site) and [mainnet.usekite.site](https://mainnet.usekite.site). Sign in with the demo key `KiteIsDope!!@001`, which can view everything but change nothing. To take payments yourself, create a store at [usekite.site](https://usekite.site).
+The hosted dashboards are [testnet.usekite.tech](https://testnet.usekite.tech) and [mainnet.usekite.tech](https://mainnet.usekite.tech). Sign in with the demo key `KiteIsDope!!@001`, which can view everything but change nothing. To take payments yourself, create a store at [usekite.tech](https://usekite.tech).
 
 The testnet server takes payments on NEAR and Aurora. NEAR Intents has no testnet, so payouts through it only run on the mainnet server, which takes payments on NEAR too.
 
