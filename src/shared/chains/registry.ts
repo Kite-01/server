@@ -881,7 +881,7 @@ export const Chains: Record<Caip2Id, Chain> = {
     type: ChainType.Evm,
     chainId: 44005,
     name: "QDay Aevum Testnet",
-    icon: "https://qday.io/icon.svg",
+    icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI3IiBmaWxsPSIjMTIxMjEyIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNi42NTIgNi44MTYpIHNjYWxlKDAuODIpIj48Y2lyY2xlIGN4PSIxMC41OTA2IiBjeT0iMTEuMTg1NCIgcj0iOS4zNjc3MSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjIuNDQzNzUiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMTYuNjc0NSAxOC40NjAyTDEzLjYyMDYgMTIuOTk3M0wxOS44Nzg2IDEyLjkxMDdMMjIuNzQ0NCAxOC4yNjVMMTYuNjc0NSAxOC40NjAyWiIgZmlsbD0iI2ZmZmZmZiIvPjwvZz48L3N2Zz4K",
     testnet: true,
     publicRpcUrls: ["https://rpc-test.qday.info"],
     confirmations: 5,
