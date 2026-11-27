@@ -21,6 +21,7 @@ import {
   x402_SettlementReserveSeconds,
   x402_MinTimeoutSeconds,
   x402_SettlementLeaseSeconds,
+  x402_StellarMaxFeeStroops,
 } from "../shared/constants";
 import { getAddress, keccak256, parseAbiItem, toHex, type Hex } from "viem";
 import { x402EvmFacilitatorSigner } from "../sdks/x402EvmFacilitatorSigner";
@@ -101,6 +102,7 @@ export class x402Service {
           rpcConfig: { url },
           areFeesSponsored: true,
           feeBumpSigner,
+          maxTransactionFeeStroops: x402_StellarMaxFeeStroops,
         }),
       );
 
