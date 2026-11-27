@@ -467,4 +467,13 @@ export class CheckoutService {
       updatedAt: transfer.updatedAt,
     };
   };
+
+  reportPaid = async (paymentLinkId: string, transferId: string) => {
+    const transfer = await this.getTransfer(paymentLinkId, transferId);
+    if (transfer.status === TransferStatus.AwaitingDeposit) {
+      await Scheduler.enqueueSettle(transfer.id);
+    }
+
+    return transfer;
+  };
 }
